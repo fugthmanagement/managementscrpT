@@ -1,120 +1,48 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { onAuthStateChanged } from "firebase/auth";
+import { addDoc, collection, doc, onSnapshot, query, serverTimestamp, setDoc } from "firebase/firestore";
+import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
+import { auth, db, storage } from "../lib/firebase";
 
-const scoreCards = [
-  { label: "Calls Today", value: "27", hint: "↑ 18% this week" },
-  { label: "Leads Captured", value: "14", hint: "↑ 11% from yesterday" },
-  { label: "Appointments Booked", value: "12", hint: "↑ 22% this week" },
-  { label: "Revenue Captured", value: "$2,400", hint: "↑ 18% this week" },
-  { label: "Missed Calls Saved", value: "8", hint: "↓ 4% missed yesterday" },
-  { label: "AI Response Rate", value: "98%", hint: "Stable in last 7 days" },
+const defaultWorkspace = {
+  businessName: "",
+  services: "",
+  serviceArea: "",
+  pricing: "",
+  faqs: "",
+  teamMembers: "",
+  phoneNumbers: "",
+  emergencyContacts: "",
+  hours: "",
+  tone: "Professional",
+  emergencyRule: "",
+  automations: "",
+  averageJobValue: "200",
+};
+
+const metricLabels = [
+  "Calls Today",
+  "Leads Captured",
+  "Appointments Booked",
+  "Revenue Captured",
+  "Missed Calls Saved",
+  "AI Response Rate",
 ];
 
-const calls = [
-  {
-    caller: "John Morales",
-    phone: "(512) 555-0199",
-    date: "Today, 2:30 PM",
-    outcome: "Booked",
-    sentiment: "Positive",
-    summary: "Roof leak repair call converted into a Thursday 2 PM estimate.",
-    rating: 5,
-    duration: "06:12",
-    transcript: "Caller reported a roof leak after heavy rain. AI confirmed location, urgency, and scheduled the next open estimate slot.",
-  },
-  {
-    caller: "Maria Chen",
-    phone: "(415) 555-0122",
-    date: "Today, 11:15 AM",
-    outcome: "Follow-Up Needed",
-    sentiment: "Neutral",
-    summary: "Asked about siding labor and requested a written quote before deciding.",
-    rating: 4,
-    duration: "04:03",
-    transcript: "Customer requested pricing clarity, asked about materials, and wanted an email estimate before booking.",
-  },
-  {
-    caller: "Eric Dalton",
-    phone: "(818) 555-0145",
-    date: "Yesterday, 5:42 PM",
-    outcome: "Complaint",
-    sentiment: "Negative",
-    summary: "Weekend surcharge caused friction; AI calmed caller and escalated next-day callback.",
-    rating: 4,
-    duration: "07:01",
-    transcript: "Caller was frustrated about a surcharge. AI explained policy, acknowledged frustration, and created a manager callback task.",
-  },
-];
-
-const leadGroups = [
-  { name: "Hot Leads", count: 12, description: "Ready for same-day follow-up or discount nudge." },
-  { name: "General Questions", count: 18, description: "Need pricing, timing, or service-area clarification." },
-  { name: "Existing Clients", count: 9, description: "Reminder flow, invoice questions, and repeat service upsells." },
-  { name: "Spam Filtered", count: 21, description: "Blocked automatically so your team sees clean pipeline only." },
-];
-
-const followUps = [
-  { customer: "Riley Homes", reason: "Asked for pricing and went quiet after call." },
-  { customer: "Stonebridge HOA", reason: "Estimate PDF opened twice but no reply yet." },
-  { customer: "Kim Family Dental", reason: "Requested weekend slot during inbound call." },
-];
-
-const liveNotifications = [
-  "New voicemail received from Alicia Rivera.",
-  "AI booked a Thursday 2 PM roof estimate.",
-  "Customer upset on recent call about weekend surcharge.",
-  "Lead marked HOT after quote request and pricing question.",
-];
-
-const knowledgeFiles = [
-  { name: "2026 Pricing Guide.pdf", type: "Pricing", size: "2.4 MB", tag: "pricing", status: "Indexed successfully", usage: "Used in 12 AI responses" },
-  { name: "Service Area Map.png", type: "Territory", size: "980 KB", tag: "territory", status: "Indexed successfully", usage: "Used in 4 AI responses" },
-  { name: "Warranty Terms.docx", type: "Support", size: "1.1 MB", tag: "policy", status: "Indexed successfully", usage: "Used in 6 AI responses" },
-  { name: "Spring Promo Sheet.pdf", type: "Campaign", size: "740 KB", tag: "promotion", status: "Indexed successfully", usage: "Used in 9 AI responses" },
-];
-
-const hours = [
-  ["Mon", "7:00 AM - 7:00 PM"],
-  ["Tue", "7:00 AM - 7:00 PM"],
-  ["Wed", "7:00 AM - 7:00 PM"],
-  ["Thu", "7:00 AM - 7:00 PM"],
-  ["Fri", "7:00 AM - 6:00 PM"],
-  ["Sat", "By callback only"],
-  ["Sun", "Emergency transfer only"],
-];
-
-const businessProfile = [
-  ["Business Name", "Fugth Management Demo Client"],
-  ["Services", "Roof repair, siding, maintenance, emergency response"],
-  ["Service Area", "Austin metro, Round Rock, Cedar Park"],
-  ["Pricing", "Premium tier with surcharge rules for urgent work"],
-  ["FAQs", "Weekend pricing, warranty coverage, estimate timing"],
-  ["Team Members", "Owner, field manager, technician crew, dispatcher"],
-  ["Phone Numbers", "Main line, emergency line, after-hours escalation"],
-  ["Emergency Contacts", "Owner mobile and field manager transfer targets"],
-];
-
-const automations = [
-  "Send review request after completed call",
-  "Text customer 1 hour before appointment",
-  "Notify owner if caller angry",
-  "Create follow-up task when pricing objection appears",
-];
-
-const aiSuggestions = [
-  "Draft a promo email for the spring cleaning special and target all Hot Leads.",
-  "Tell me which callers mentioned pricing friction this week.",
-  "Review the uploaded pricing guide and suggest a higher weekend surcharge.",
-  "Summarize how the business performed this week from calls and follow-ups.",
-];
-
-const aiFacts = [
-  "Business type: premium exterior services",
-  "Tone: friendly but direct",
-  "Emergency rule: burst pipe or active leak gets instant owner transfer",
-  "Connected assets: pricing guide, service map, warranty file, spring promo",
+const profileFields = [
+  ["businessName", "Business Name"],
+  ["services", "Services"],
+  ["serviceArea", "Service Area"],
+  ["pricing", "Pricing"],
+  ["faqs", "FAQs"],
+  ["teamMembers", "Team Members"],
+  ["phoneNumbers", "Phone Numbers"],
+  ["emergencyContacts", "Emergency Contacts"],
+  ["hours", "Operating Hours"],
+  ["averageJobValue", "Average Job Value"],
 ];
 
 const tabThemes = {
@@ -154,35 +82,260 @@ function Waveform() {
   );
 }
 
+function EmptyPanel({ title, body, action }) {
+  return (
+    <div className="rounded-[2rem] border border-dashed border-zinc-800 bg-black/20 p-6 text-center">
+      <p className="text-sm font-semibold text-white">{title}</p>
+      <p className="mt-2 text-sm leading-7 text-zinc-500">{body}</p>
+      {action ? <div className="mt-4">{action}</div> : null}
+    </div>
+  );
+}
+
+function formatTimestamp(value) {
+  const date = value?.toDate ? value.toDate() : value ? new Date(value) : null;
+  if (!date || Number.isNaN(date.getTime())) return "No timestamp";
+  return date.toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+}
+
+function formatFileSize(size) {
+  if (!size) return "Unknown size";
+  if (size < 1024 * 1024) return `${Math.round(size / 1024)} KB`;
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function normalizeCall(id, data) {
+  return {
+    id,
+    caller: data.caller || data.customerName || data.name || "Unknown caller",
+    phone: data.phone || data.number || data.callerNumber || "No number",
+    date: formatTimestamp(data.timestamp || data.createdAt),
+    outcome: data.outcome || "Inquiry",
+    sentiment: data.sentiment || "Neutral",
+    summary: data.summary || "No summary saved yet.",
+    rating: Number(data.rating || 0),
+    duration: data.duration || "0:00",
+    transcript: data.transcript || "",
+    recording: data.recording || data.recordingUrl || "",
+    revenue: Number(data.revenue || 0),
+    aiHandled: data.aiHandled !== false,
+    timestamp: data.timestamp || data.createdAt || null,
+  };
+}
+
+function normalizeKnowledgeFile(id, data) {
+  return {
+    id,
+    name: data.name || "Untitled file",
+    type: data.type || "File",
+    size: data.size || 0,
+    tag: data.tag || "general",
+    status: data.status || "Uploaded",
+    usageCount: Number(data.usageCount || 0),
+    url: data.url || "",
+  };
+}
+
 export function BusinessOSShell({ locked = false, authReady = true }) {
   const [activeTab, setActiveTab] = useState("command");
   const [chatInput, setChatInput] = useState("");
-  const [chatLog, setChatLog] = useState([
-    {
-      role: "ai",
-      text: "Hello. I am your Executive AI Consultant. I can use your call history, uploaded files, business rules, and campaign context to help you run the business.",
-    },
-  ]);
+  const [chatLog, setChatLog] = useState([]);
   const [isTyping, setIsTyping] = useState(false);
-  const [tone, setTone] = useState("Friendly");
-  const [emergencyRule, setEmergencyRule] = useState("If a caller mentions a burst pipe or active leak, transfer immediately to my cell and mark as emergency priority.");
+  const [user, setUser] = useState(null);
+  const [workspace, setWorkspace] = useState(defaultWorkspace);
+  const [workspaceDraft, setWorkspaceDraft] = useState(defaultWorkspace);
+  const [calls, setCalls] = useState([]);
+  const [knowledgeFiles, setKnowledgeFiles] = useState([]);
+  const [notifications, setNotifications] = useState([]);
+  const [dataReady, setDataReady] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState("");
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    if (!auth) return undefined;
+
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser || null);
+      if (!currentUser) {
+        setWorkspace(defaultWorkspace);
+        setWorkspaceDraft(defaultWorkspace);
+        setCalls([]);
+        setKnowledgeFiles([]);
+        setNotifications([]);
+        setDataReady(true);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!db || !user) return undefined;
+
+    setDataReady(false);
+
+    const unsubscribeWorkspace = onSnapshot(doc(db, "users", user.uid), (snapshot) => {
+      const data = snapshot.data() || {};
+      const nextWorkspace = {
+        ...defaultWorkspace,
+        businessName: data.businessName || "",
+        services: data.services || "",
+        serviceArea: data.serviceArea || "",
+        pricing: data.pricing || "",
+        faqs: data.faqs || "",
+        teamMembers: data.teamMembers || "",
+        phoneNumbers: data.phoneNumbers || "",
+        emergencyContacts: data.emergencyContacts || "",
+        hours: data.hours || "",
+        tone: data.tone || defaultWorkspace.tone,
+        emergencyRule: data.emergencyRule || "",
+        automations: Array.isArray(data.automations) ? data.automations.join("\n") : data.automations || "",
+        averageJobValue: String(data.averageJobValue || defaultWorkspace.averageJobValue),
+      };
+      setWorkspace(nextWorkspace);
+      setWorkspaceDraft(nextWorkspace);
+      setDataReady(true);
+    });
+
+    const unsubscribeCalls = onSnapshot(query(collection(db, "users", user.uid, "calls")), (snapshot) => {
+      setCalls(snapshot.docs.map((item) => normalizeCall(item.id, item.data())));
+      setDataReady(true);
+    });
+
+    const unsubscribeFiles = onSnapshot(query(collection(db, "users", user.uid, "knowledgeFiles")), (snapshot) => {
+      setKnowledgeFiles(snapshot.docs.map((item) => normalizeKnowledgeFile(item.id, item.data())));
+      setDataReady(true);
+    });
+
+    const unsubscribeNotifications = onSnapshot(query(collection(db, "users", user.uid, "notifications")), (snapshot) => {
+      const items = snapshot.docs.map((item) => ({
+        id: item.id,
+        text: item.data().text || "",
+        createdAt: formatTimestamp(item.data().createdAt),
+      }));
+      setNotifications(items);
+      setDataReady(true);
+    });
+
+    return () => {
+      unsubscribeWorkspace();
+      unsubscribeCalls();
+      unsubscribeFiles();
+      unsubscribeNotifications();
+    };
+  }, [user]);
 
   const businessSummary = useMemo(() => {
     return [
-      "Business Name: Fugth Management Demo Client",
-      "Use uploaded files as knowledge base context.",
-      `Tone: ${tone}.`,
-      `Emergency Protocol: ${emergencyRule}`,
+      `Business Name: ${workspace.businessName || "Not configured"}`,
+      `Services: ${workspace.services || "Not configured"}`,
+      `Service Area: ${workspace.serviceArea || "Not configured"}`,
+      `Pricing: ${workspace.pricing || "Not configured"}`,
+      `Tone: ${workspace.tone || defaultWorkspace.tone}.`,
+      `Emergency Protocol: ${workspace.emergencyRule || "Not configured"}`,
       `Recent Call Summaries: ${calls.map((call) => `${call.caller} - ${call.summary}`).join(" | ")}`,
-      `Lead Buckets: ${leadGroups.map((group) => `${group.name} ${group.count}`).join(", ")}`,
+      `Lead Buckets: ${calls.map((call) => call.outcome).join(", ")}`,
       `Knowledge Files: ${knowledgeFiles.map((file) => file.name).join(", ")}`,
     ].join("\n");
-  }, [tone, emergencyRule]);
+  }, [calls, knowledgeFiles, workspace]);
+
+  const followUps = useMemo(() => {
+    return calls
+      .filter((call) => /follow|quote|inquiry|callback|complaint/i.test(call.outcome) || /follow|quote|pricing|callback/i.test(call.summary))
+      .slice(0, 4)
+      .map((call) => ({
+        customer: call.caller,
+        reason: call.summary,
+      }));
+  }, [calls]);
+
+  const leadGroups = useMemo(() => {
+    const booked = calls.filter((call) => /booked/i.test(call.outcome)).length;
+    const complaints = calls.filter((call) => /complaint/i.test(call.outcome) || /negative/i.test(call.sentiment)).length;
+    const follow = calls.filter((call) => /follow|quote|inquiry/i.test(call.outcome)).length;
+    const emergency = calls.filter((call) => /emergency/i.test(call.outcome)).length;
+
+    return [
+      { name: "Booked", count: booked, description: "Calls converted into real appointments." },
+      { name: "Follow-Up Needed", count: follow, description: "Needs outbound action, estimate, or text-back." },
+      { name: "Complaints", count: complaints, description: "Calls that need recovery or owner review." },
+      { name: "Emergency", count: emergency, description: "Urgent conversations flagged for escalation." },
+    ];
+  }, [calls]);
+
+  const feedItems = useMemo(() => {
+    if (notifications.length) return notifications;
+    return calls.slice(0, 4).map((call) => ({
+      id: call.id,
+      text: `${call.caller}: ${call.outcome}`,
+      createdAt: call.date,
+    }));
+  }, [notifications, calls]);
+
+  const aiSuggestions = useMemo(() => {
+    const items = [];
+    if (followUps.length) items.push(`${followUps.length} calls need follow-up.`);
+    if (leadGroups.find((item) => item.name === "Complaints")?.count) items.push("Review complaint calls and generate recovery outreach.");
+    if (!knowledgeFiles.length) items.push("Upload your pricing sheet or FAQ file to unlock grounded answers.");
+    if (!workspace.businessName) items.push("Complete your Business Brain profile before launching voice workflows.");
+    if (!items.length) items.push("Ask Executive AI for a weekly revenue review or outbound campaign draft.");
+    return items.slice(0, 4);
+  }, [followUps, knowledgeFiles.length, leadGroups, workspace.businessName]);
+
+  const aiFacts = useMemo(() => {
+    return [
+      `Business: ${workspace.businessName || "Not configured"}`,
+      `Services: ${workspace.services || "Not configured"}`,
+      `Tone: ${workspace.tone || defaultWorkspace.tone}`,
+      `Files indexed: ${knowledgeFiles.length}`,
+    ];
+  }, [knowledgeFiles.length, workspace]);
+
+  const scoreCards = useMemo(() => {
+    const now = new Date();
+    const callsToday = calls.filter((call) => {
+      const date = call.timestamp?.toDate ? call.timestamp.toDate() : call.timestamp ? new Date(call.timestamp) : null;
+      return date && date.toDateString() === now.toDateString();
+    }).length;
+    const leadsCaptured = calls.length;
+    const appointmentsBooked = calls.filter((call) => /booked/i.test(call.outcome)).length;
+    const averageJobValue = Number(workspace.averageJobValue || 0);
+    const explicitRevenue = calls.reduce((total, call) => total + Number(call.revenue || 0), 0);
+    const revenueCaptured = explicitRevenue || appointmentsBooked * averageJobValue;
+    const missedCallsSaved = calls.filter((call) => /follow|voicemail|callback|missed/i.test(call.outcome)).length;
+    const responseRate = calls.length ? Math.round((calls.filter((call) => call.aiHandled).length / calls.length) * 100) : 0;
+
+    const values = [
+      callsToday,
+      leadsCaptured,
+      appointmentsBooked,
+      revenueCaptured ? `$${revenueCaptured.toLocaleString()}` : "$0",
+      missedCallsSaved,
+      `${responseRate}%`,
+    ];
+
+    const hints = [
+      callsToday ? `${callsToday} handled today` : "No calls today",
+      leadsCaptured ? `${leadsCaptured} total calls in pipeline` : "No leads captured yet",
+      appointmentsBooked ? `${appointmentsBooked} booked from live data` : "No booked calls yet",
+      revenueCaptured ? "Calculated from booked calls and revenue fields" : "Set Average Job Value or revenue fields",
+      missedCallsSaved ? "Recovered from follow-up and callback outcomes" : "No recovered missed calls yet",
+      calls.length ? "Measured from AI-handled call records" : "Response rate appears after first call",
+    ];
+
+    return metricLabels.map((label, index) => ({ label, value: locked ? "--" : values[index], hint: hints[index] }));
+  }, [calls, locked, workspace.averageJobValue]);
 
   const currentTheme = tabThemes[activeTab];
 
   async function sendToGemini(input = chatInput) {
     if (!input.trim() || locked) return;
+    if (!user) {
+      setChatLog([{ role: "ai", text: "Log in to use Executive AI." }]);
+      return;
+    }
 
     const userMessage = { role: "user", text: input };
     const nextChat = [...chatLog, userMessage];
@@ -207,6 +360,67 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
     setIsTyping(false);
   }
 
+  async function saveWorkspace() {
+    if (!user || !db) {
+      setSaveMessage("Log in to save workspace settings.");
+      return;
+    }
+
+    setIsSaving(true);
+    setSaveMessage("");
+
+    try {
+      await setDoc(
+        doc(db, "users", user.uid),
+        {
+          ...workspaceDraft,
+          averageJobValue: Number(workspaceDraft.averageJobValue || 0),
+          automations: workspaceDraft.automations
+            .split("\n")
+            .map((item) => item.trim())
+            .filter(Boolean),
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+      setSaveMessage("Business Brain saved.");
+    } catch (error) {
+      setSaveMessage("Could not save workspace settings.");
+    }
+
+    setIsSaving(false);
+  }
+
+  async function handleFileUpload(event) {
+    const file = event.target.files?.[0];
+    if (!file || !user || !db || !storage) return;
+
+    setIsUploading(true);
+    setSaveMessage("");
+
+    try {
+      const uploadRef = ref(storage, `users/${user.uid}/knowledge/${Date.now()}-${file.name}`);
+      await uploadBytes(uploadRef, file);
+      const url = await getDownloadURL(uploadRef);
+      await addDoc(collection(db, "users", user.uid, "knowledgeFiles"), {
+        name: file.name,
+        type: file.type || "File",
+        size: file.size,
+        tag: file.type.includes("pdf") ? "pdf" : "upload",
+        status: "Uploaded",
+        usageCount: 0,
+        url,
+        uploadedAt: serverTimestamp(),
+      });
+      setSaveMessage("Knowledge file uploaded.");
+    } catch (error) {
+      setSaveMessage("Upload failed. Check Firebase Storage rules.");
+    }
+
+    event.target.value = "";
+    setIsUploading(false);
+  }
+
   const sentimentStyles = {
     Positive: "border-emerald-900 bg-emerald-950 text-emerald-300",
     Neutral: "border-amber-900 bg-amber-950 text-amber-300",
@@ -224,7 +438,7 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
           <Link href="/login" className="w-full rounded-2xl bg-white px-6 py-4 text-lg font-bold text-black transition hover:bg-zinc-200">
             Create Account / Log In
           </Link>
-          <p className="text-sm text-zinc-600">Some business intelligence is intentionally grayed out until authentication.</p>
+          <p className="text-sm text-zinc-600">Real workspace data loads after authentication. No demo data is being shown.</p>
         </div>
       </div>
     </div>
@@ -293,14 +507,12 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.35em] text-zinc-500">Command Center</p>
                   <h2 className="mt-3 text-3xl font-bold text-white">Money, Calls, and Daily Momentum</h2>
-                  <p className="mt-3 max-w-3xl text-sm leading-7 text-zinc-400">
-                    The owner should open this first every day. It shows revenue, lead flow, calls, recordings, outcomes, and what needs action next.
-                  </p>
+                  <p className="mt-3 max-w-3xl text-sm leading-7 text-zinc-400">Live operations from your Firestore workspace.</p>
                 </div>
                 <div className="rounded-2xl border border-zinc-800 bg-zinc-950 px-5 py-4">
                   <p className="text-xs uppercase tracking-[0.32em] text-zinc-500">This Week</p>
-                  <p className="mt-2 text-3xl font-semibold text-white">$2,400 saved</p>
-                  <p className="mt-1 text-sm text-zinc-500">Revenue captured by AI bookings and follow-ups</p>
+                  <p className="mt-2 text-3xl font-semibold text-white">{locked ? "--" : scoreCards[3].value}</p>
+                  <p className="mt-1 text-sm text-zinc-500">{scoreCards[3].hint}</p>
                 </div>
               </div>
 
@@ -324,7 +536,7 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
                     <span className="rounded-full border border-zinc-800 bg-black px-3 py-1 text-xs text-zinc-400">47 calls archived</span>
                   </div>
                   <div className="mt-6 space-y-4">
-                    {calls.map((call) => (
+                    {calls.length ? calls.map((call) => (
                       <div key={`${call.caller}-${call.date}`} className="rounded-3xl border border-zinc-800 bg-black/40 p-5">
                         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                           <div>
@@ -341,30 +553,29 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
                             </div>
                           </div>
                           <div className="rounded-2xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-sm text-zinc-300">
-                            Listen & Rate {"⭐".repeat(call.rating)}
+                            {call.rating ? `Listen & Rate ${"⭐".repeat(call.rating)}` : "Recording metadata"}
                           </div>
                         </div>
                         <div className="mt-5">
                           <Waveform />
                         </div>
                         <div className="mt-5 flex flex-wrap gap-2">
-                          {["Replay AI Conversation", "Generate Follow-Up", "Send SMS", "Send Promo", "Assign Employee"].map((action) => (
-                            <button key={action} className="rounded-full border border-zinc-800 bg-zinc-950 px-3 py-2 text-xs text-zinc-300 transition hover:border-zinc-700 hover:text-white">
-                              {action}
-                            </button>
-                          ))}
+                          {call.recording ? <a href={call.recording} target="_blank" rel="noreferrer" className="rounded-full border border-zinc-800 bg-zinc-950 px-3 py-2 text-xs text-zinc-300 transition hover:border-zinc-700 hover:text-white">Open Recording</a> : <span className="rounded-full border border-zinc-800 bg-zinc-950 px-3 py-2 text-xs text-zinc-500">No recording URL</span>}
+                          <button className="rounded-full border border-zinc-800 bg-zinc-950 px-3 py-2 text-xs text-zinc-300 transition hover:border-zinc-700 hover:text-white">Generate Follow-Up</button>
                         </div>
                       </div>
-                    ))}
+                    )) : (
+                      <EmptyPanel title="No live call records yet" body="Connect your call pipeline or webhook so completed calls appear here automatically." />
+                    )}
                   </div>
                 </div>
 
                 <div className="space-y-6">
                   <div className={`rounded-[2rem] border border-zinc-800 bg-[#0f0f11] p-6 ${locked ? "opacity-65" : "opacity-100"}`}>
                     <h3 className="text-xl font-bold text-white">Smart Follow-Ups</h3>
-                    <p className="mt-2 text-sm text-zinc-500">The AI surfaces people who need a nudge, reminder, text, or promo.</p>
+                    <p className="mt-2 text-sm text-zinc-500">Derived from real call outcomes and summaries.</p>
                     <div className="mt-5 space-y-3">
-                      {followUps.map((item) => (
+                      {followUps.length ? followUps.map((item) => (
                         <div key={item.customer} className="rounded-2xl border border-zinc-800 bg-black/40 p-4">
                           <div className="flex items-center justify-between gap-3">
                             <p className="font-medium text-white">{item.customer}</p>
@@ -382,7 +593,7 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
                           </div>
                           <p className="mt-2 text-sm leading-6 text-zinc-400">{item.reason}</p>
                         </div>
-                      ))}
+                      )) : <EmptyPanel title="No follow-ups detected" body="Follow-up actions appear when calls arrive with inquiry, quote, or callback signals." />}
                     </div>
                   </div>
 
@@ -404,13 +615,14 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
 
                   <div className={`rounded-[2rem] border border-zinc-800 bg-[#0f0f11] p-6 ${locked ? "opacity-65" : "opacity-100"}`}>
                     <h3 className="text-xl font-bold text-white">Live Notifications</h3>
-                    <p className="mt-2 text-sm text-zinc-500">This makes the app feel active and shows the operator what just happened.</p>
+                    <p className="mt-2 text-sm text-zinc-500">Reads from notifications or falls back to recent live call activity.</p>
                     <div className="mt-5 space-y-3">
-                      {liveNotifications.map((item) => (
-                        <div key={item} className="rounded-2xl border border-zinc-800 bg-black/40 p-4 text-sm leading-7 text-zinc-300">
-                          {item}
+                      {feedItems.length ? feedItems.map((item) => (
+                        <div key={item.id} className="rounded-2xl border border-zinc-800 bg-black/40 p-4 text-sm leading-7 text-zinc-300">
+                          <p>{item.text}</p>
+                          <p className="mt-2 text-xs uppercase tracking-[0.22em] text-zinc-600">{item.createdAt}</p>
                         </div>
-                      ))}
+                      )) : <EmptyPanel title="No activity yet" body="Recent activity will appear once calls, uploads, or notifications start flowing." />}
                     </div>
                   </div>
                 </div>
@@ -423,34 +635,45 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.35em] text-zinc-500">Business Brain</p>
                 <h2 className="mt-3 text-3xl font-bold text-white">Train Your AI Employee</h2>
-                <p className="mt-3 max-w-3xl text-sm leading-7 text-zinc-400">
-                  This is where the AI learns the company. Business profile, instructions, knowledge files, schedules, and automation logic all live here.
-                </p>
+                <p className="mt-3 max-w-3xl text-sm leading-7 text-zinc-400">Everything here writes to the logged-in user workspace in Firestore.</p>
               </div>
 
               <div className={`rounded-[2rem] border border-zinc-800 bg-[#0f0f11] p-6 ${locked ? "opacity-65" : "opacity-100"}`}>
-                <h3 className="text-xl font-bold text-white">Business Profile</h3>
+                <div className="flex items-center justify-between gap-4">
+                  <h3 className="text-xl font-bold text-white">Business Profile</h3>
+                  <button onClick={saveWorkspace} disabled={isSaving || locked} className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-black disabled:cursor-not-allowed disabled:bg-zinc-300">
+                    {isSaving ? "Saving..." : "Save Workspace"}
+                  </button>
+                </div>
                 <div className="mt-5 grid gap-4 md:grid-cols-2">
-                  {businessProfile.map(([label, value]) => (
-                    <div key={label} className="rounded-2xl border border-zinc-800 bg-black/40 p-4">
-                      <p className="text-xs uppercase tracking-[0.28em] text-zinc-600">{label}</p>
-                      <p className="mt-3 text-sm leading-7 text-zinc-300">{value}</p>
-                    </div>
+                  {profileFields.map(([field, label]) => (
+                    <label key={field} className="rounded-2xl border border-zinc-800 bg-black/40 p-4">
+                      <span className="text-xs uppercase tracking-[0.28em] text-zinc-600">{label}</span>
+                      <input
+                        value={workspaceDraft[field]}
+                        onChange={(event) => setWorkspaceDraft((current) => ({ ...current, [field]: event.target.value }))}
+                        disabled={locked}
+                        className="mt-3 w-full border-0 bg-transparent p-0 text-sm leading-7 text-zinc-300 outline-none placeholder:text-zinc-700"
+                        placeholder={`Add ${label.toLowerCase()}`}
+                      />
+                    </label>
                   ))}
                 </div>
+                {saveMessage ? <p className="mt-4 text-sm text-zinc-400">{saveMessage}</p> : null}
               </div>
 
               <div className="grid gap-6 xl:grid-cols-[1fr_1fr]">
                 <div className={`rounded-[2rem] border border-dashed border-zinc-700 bg-[#0f0f11] p-8 ${locked ? "opacity-65" : "opacity-100"}`}>
                   <p className="text-xs uppercase tracking-[0.32em] text-zinc-500">Knowledge Base</p>
-                  <h3 className="mt-3 text-2xl font-bold text-white">Drag, drop, and index business documents</h3>
-                  <p className="mt-3 max-w-xl text-sm leading-7 text-zinc-400">
-                    Upload PDFs, pricing sheets, menus, contracts, policies, warranties, and screenshots. The AI uses these to answer, sell, and book correctly.
-                  </p>
+                  <h3 className="mt-3 text-2xl font-bold text-white">Upload real business documents</h3>
+                  <p className="mt-3 max-w-xl text-sm leading-7 text-zinc-400">Files upload to Firebase Storage and metadata lands in your user workspace.</p>
                   <div className="mt-8 rounded-[1.75rem] border border-zinc-800 bg-black/40 p-8 text-center">
-                    <p className="text-base font-medium text-white">Drop PDFs, docs, or images here</p>
-                    <p className="mt-2 text-sm text-zinc-500">Pricing sheets, service lists, FAQs, promos, contracts, and warranty files</p>
-                    <button className="mt-6 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-black">Upload files</button>
+                    <p className="text-base font-medium text-white">Choose PDFs, docs, or images</p>
+                    <p className="mt-2 text-sm text-zinc-500">Pricing sheets, FAQs, policies, and promo assets.</p>
+                    <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileUpload} />
+                    <button onClick={() => fileInputRef.current?.click()} disabled={isUploading || locked} className="mt-6 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-black disabled:cursor-not-allowed disabled:bg-zinc-300">
+                      {isUploading ? "Uploading..." : "Upload file"}
+                    </button>
                   </div>
                 </div>
 
@@ -464,8 +687,8 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
                         {["Professional", "Friendly", "Aggressive Sales"].map((option) => (
                           <button
                             key={option}
-                            onClick={() => !locked && setTone(option)}
-                            className={`rounded-full border px-4 py-2 text-sm transition ${tone === option ? "border-zinc-600 bg-white text-black" : "border-zinc-800 bg-black text-zinc-400 hover:border-zinc-700 hover:text-white"}`}
+                            onClick={() => !locked && setWorkspaceDraft((current) => ({ ...current, tone: option }))}
+                            className={`rounded-full border px-4 py-2 text-sm transition ${workspaceDraft.tone === option ? "border-zinc-600 bg-white text-black" : "border-zinc-800 bg-black text-zinc-400 hover:border-zinc-700 hover:text-white"}`}
                           >
                             {option}
                           </button>
@@ -476,22 +699,32 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
                     <div>
                       <label className="text-sm font-medium text-zinc-300">Emergency Protocol</label>
                       <textarea
-                        value={emergencyRule}
-                        onChange={(event) => !locked && setEmergencyRule(event.target.value)}
+                        value={workspaceDraft.emergencyRule}
+                        onChange={(event) => !locked && setWorkspaceDraft((current) => ({ ...current, emergencyRule: event.target.value }))}
                         className="mt-3 min-h-32 w-full rounded-3xl border border-zinc-800 bg-black p-4 text-sm leading-7 text-white outline-none transition focus:border-zinc-600"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-medium text-zinc-300">Automation Rules</label>
+                      <textarea
+                        value={workspaceDraft.automations}
+                        onChange={(event) => !locked && setWorkspaceDraft((current) => ({ ...current, automations: event.target.value }))}
+                        className="mt-3 min-h-32 w-full rounded-3xl border border-zinc-800 bg-black p-4 text-sm leading-7 text-white outline-none transition focus:border-zinc-600"
+                        placeholder="One automation per line"
                       />
                     </div>
 
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div className="rounded-2xl border border-zinc-800 bg-black/40 p-4">
                         <p className="text-sm font-medium text-white">Calendar Sync</p>
-                        <p className="mt-2 text-sm text-zinc-500">Connect Google, Outlook, or Calendly so the AI books real openings.</p>
-                        <button className="mt-4 rounded-full border border-zinc-700 px-4 py-2 text-sm text-white">Connect Calendar</button>
+                        <p className="mt-2 text-sm text-zinc-500">Keep this connected through your scheduling provider. The Business Brain stores the rules and context.</p>
+                        <button className="mt-4 rounded-full border border-zinc-700 px-4 py-2 text-sm text-white">Calendar setup</button>
                       </div>
                       <div className="rounded-2xl border border-zinc-800 bg-black/40 p-4">
                         <p className="text-sm font-medium text-white">Booking Rules</p>
-                        <p className="mt-2 text-sm text-zinc-500">Blackout dates, vacation mode, max jobs per day, and no Sunday scheduling.</p>
-                        <button className="mt-4 rounded-full border border-zinc-700 px-4 py-2 text-sm text-white">Edit Rules</button>
+                        <p className="mt-2 text-sm text-zinc-500">Use Operating Hours, pricing, and emergency protocol fields to shape how bookings behave.</p>
+                        <button onClick={saveWorkspace} className="mt-4 rounded-full border border-zinc-700 px-4 py-2 text-sm text-white">Save rules</button>
                       </div>
                     </div>
                   </div>
@@ -501,52 +734,47 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
               <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
                 <div className={`rounded-[2rem] border border-zinc-800 bg-[#0f0f11] p-6 ${locked ? "opacity-65" : "opacity-100"}`}>
                   <h3 className="text-xl font-bold text-white">Operating Hours</h3>
-                  <div className="mt-5 space-y-3">
-                    {hours.map(([day, value]) => (
-                      <div key={day} className="flex items-center justify-between rounded-2xl border border-zinc-800 bg-black/40 px-4 py-3">
-                        <span className="text-sm font-medium text-white">{day}</span>
-                        <span className="text-sm text-zinc-400">{value}</span>
-                      </div>
-                    ))}
-                  </div>
+                  {workspace.hours ? (
+                    <div className="mt-5 rounded-2xl border border-zinc-800 bg-black/40 p-4 text-sm leading-8 text-zinc-300 whitespace-pre-wrap">{workspace.hours}</div>
+                  ) : (
+                    <EmptyPanel title="No hours configured" body="Add business hours in the profile form above and save them to Firestore." />
+                  )}
                 </div>
 
                 <div className={`rounded-[2rem] border border-zinc-800 bg-[#0f0f11] p-6 ${locked ? "opacity-65" : "opacity-100"}`}>
                   <h3 className="text-xl font-bold text-white">Knowledge Files</h3>
-                  <p className="mt-2 text-sm text-zinc-500">Searchable, tagged, and indexed for AI memory and document-aware responses.</p>
-                  <div className="mt-4 rounded-2xl border border-zinc-800 bg-black/40 px-4 py-3 text-sm text-zinc-400">
-                    Search knowledge base: pricing, contracts, policy, promotions
-                  </div>
+                  <p className="mt-2 text-sm text-zinc-500">Searchable uploads tied to the logged-in workspace.</p>
                   <div className="mt-5 grid gap-4 md:grid-cols-2">
-                    {knowledgeFiles.map((file) => (
+                    {knowledgeFiles.length ? knowledgeFiles.map((file) => (
                       <div key={file.name} className="rounded-2xl border border-zinc-800 bg-black/40 p-4">
                         <p className="font-medium text-white">{file.name}</p>
-                        <p className="mt-2 text-sm text-zinc-500">{file.type} · {file.size}</p>
+                        <p className="mt-2 text-sm text-zinc-500">{file.type} · {formatFileSize(file.size)}</p>
                         <div className="mt-3 flex flex-wrap gap-2">
                           <span className="rounded-full border border-zinc-700 px-2 py-1 text-xs text-zinc-400">#{file.tag}</span>
                           <span className="rounded-full border border-emerald-900 bg-emerald-950 px-2 py-1 text-xs text-emerald-300">{file.status}</span>
                         </div>
-                        <p className="mt-3 text-xs uppercase tracking-[0.2em] text-zinc-600">{file.usage}</p>
+                        <p className="mt-3 text-xs uppercase tracking-[0.2em] text-zinc-600">Used in {file.usageCount} AI responses</p>
                         <div className="mt-4 flex gap-2">
-                          <button className="rounded-full border border-zinc-700 px-3 py-1.5 text-xs text-white">View</button>
-                          <button className="rounded-full border border-zinc-700 px-3 py-1.5 text-xs text-white">Use in AI</button>
+                          {file.url ? <a href={file.url} target="_blank" rel="noreferrer" className="rounded-full border border-zinc-700 px-3 py-1.5 text-xs text-white">Open</a> : null}
                         </div>
                       </div>
-                    ))}
+                    )) : <EmptyPanel title="No files uploaded" body="Upload your real documents above to ground the chatbot and voice assistant in company data." />}
                   </div>
                 </div>
               </div>
 
               <div className={`rounded-[2rem] border border-zinc-800 bg-[#0f0f11] p-6 ${locked ? "opacity-65" : "opacity-100"}`}>
                 <h3 className="text-xl font-bold text-white">Automations</h3>
-                <p className="mt-2 text-sm text-zinc-500">This is where the platform becomes a real SaaS operating system instead of only a chatbot.</p>
-                <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                  {automations.map((item) => (
-                    <div key={item} className="rounded-2xl border border-zinc-800 bg-black/40 p-4 text-sm leading-7 text-zinc-300">
-                      {item}
-                    </div>
-                  ))}
-                </div>
+                <p className="mt-2 text-sm text-zinc-500">Automation rules saved in the Business Brain document.</p>
+                {workspace.automations ? (
+                  <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    {workspace.automations.split("\n").filter(Boolean).map((item) => (
+                      <div key={item} className="rounded-2xl border border-zinc-800 bg-black/40 p-4 text-sm leading-7 text-zinc-300">{item}</div>
+                    ))}
+                  </div>
+                ) : (
+                  <EmptyPanel title="No automations saved" body="Add automation rules in the textarea above and save the workspace." />
+                )}
               </div>
             </div>
           )}
@@ -577,7 +805,7 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
                     </div>
                   </div>
                   <div className="space-y-6 overflow-y-auto p-6">
-                    {chatLog.map((msg, idx) => (
+                    {chatLog.length ? chatLog.map((msg, idx) => (
                       <div key={idx} className={`flex items-start gap-4 ${msg.role === "user" ? "ml-auto max-w-[85%] flex-row-reverse" : "max-w-[85%]"}`}>
                         <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${msg.role === "user" ? "bg-zinc-800 text-white" : "bg-white text-black"}`}>
                           {msg.role === "user" ? "ME" : "AI"}
@@ -586,7 +814,7 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
                           {msg.text}
                         </div>
                       </div>
-                    ))}
+                    )) : <EmptyPanel title="No conversation yet" body="Ask the Executive AI about revenue, complaints, follow-ups, pricing, or uploaded files." />}
                     {isTyping && <div className="max-w-[85%] rounded-2xl rounded-tl-sm border border-zinc-800 bg-zinc-900 p-4 text-sm text-zinc-400 animate-pulse">Reviewing calls, files, and settings...</div>}
                   </div>
                   <div className="border-t border-zinc-900 bg-black p-4">
@@ -610,12 +838,7 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
                   <div className={`rounded-3xl border border-zinc-800/50 bg-[#0f0f11] p-6 ${locked ? "opacity-70" : "opacity-100"}`}>
                     <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-white">Suggested Actions</h3>
                     <div className="space-y-2">
-                      {[
-                        "3 missed leads need follow-up",
-                        "Revenue dropped 12% on Saturday",
-                        "Customers asking about roofing bundles",
-                        "You should run a weekend promo",
-                      ].map((item) => (
+                      {aiSuggestions.map((item) => (
                         <button key={item} className="w-full rounded-xl border border-zinc-800 bg-black p-3 text-left text-sm text-zinc-300 transition-colors hover:border-zinc-600">
                           {item}
                         </button>
@@ -629,6 +852,7 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
                         <span key={fact} className="rounded-full border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs text-zinc-400">{fact}</span>
                       ))}
                     </div>
+                    {!dataReady ? <p className="mt-4 text-xs uppercase tracking-[0.2em] text-zinc-600">Loading workspace...</p> : null}
                   </div>
                 </div>
               </div>
