@@ -21,6 +21,10 @@ const defaultWorkspace = {
   emergencyRule: "",
   automations: "",
   averageJobValue: "200",
+  industry: "",
+  assistantId: "",
+  phoneNumber: "",
+  voiceConfigured: false,
 };
 
 const metricLabels = [
@@ -34,6 +38,7 @@ const metricLabels = [
 
 const profileFields = [
   ["businessName", "Business Name"],
+  ["industry", "Industry"],
   ["services", "Services"],
   ["serviceArea", "Service Area"],
   ["pricing", "Pricing"],
@@ -138,6 +143,7 @@ function normalizeKnowledgeFile(id, data) {
 
 export function BusinessOSShell({ locked = false, authReady = true }) {
   const [activeTab, setActiveTab] = useState("command");
+  const [brainSubTab, setBrainSubTab] = useState("profile");
   const [chatInput, setChatInput] = useState("");
   const [chatLog, setChatLog] = useState([]);
   const [isTyping, setIsTyping] = useState(false);
@@ -151,6 +157,8 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
   const [isUploading, setIsUploading] = useState(false);
+  const [isConfiguringVoice, setIsConfiguringVoice] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -193,6 +201,10 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
         emergencyRule: data.emergencyRule || "",
         automations: Array.isArray(data.automations) ? data.automations.join("\n") : data.automations || "",
         averageJobValue: String(data.averageJobValue || defaultWorkspace.averageJobValue),
+        industry: data.industry || "",
+        assistantId: data.assistantId || "",
+        phoneNumber: data.phoneNumber || "",
+        voiceConfigured: Boolean(data.voiceConfigured),
       };
       setWorkspace(nextWorkspace);
       setWorkspaceDraft(nextWorkspace);
@@ -226,6 +238,15 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
       unsubscribeNotifications();
     };
   }, [user]);
+
+  useEffect(() => {
+    if (!locked && authReady && user && dataReady && !workspace.businessName) {
+      setShowOnboarding(true);
+      return;
+    }
+
+    setShowOnboarding(false);
+  }, [authReady, dataReady, locked, user, workspace.businessName]);
 
   const businessSummary = useMemo(() => {
     return [
@@ -363,7 +384,7 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
   async function saveWorkspace() {
     if (!user || !db) {
       setSaveMessage("Log in to save workspace settings.");
-      return;
+      return false;
     }
 
     setIsSaving(true);
@@ -384,11 +405,13 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
         { merge: true }
       );
       setSaveMessage("Business Brain saved.");
+      setIsSaving(false);
+      return true;
     } catch (error) {
       setSaveMessage("Could not save workspace settings.");
+      setIsSaving(false);
+      return false;
     }
-
-    setIsSaving(false);
   }
 
   async function handleFileUpload(event) {
@@ -421,6 +444,78 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
     setIsUploading(false);
   }
 
+  async function handleAutoConfig() {
+    if (!user) {
+      setSaveMessage("Log in before configuring the Voice Network.");
+      return false;
+    }
+
+    const businessName = workspaceDraft.businessName.trim() || workspace.businessName.trim();
+    const industry = workspaceDraft.industry.trim() || workspace.industry.trim();
+
+    if (!businessName || !industry) {
+      setSaveMessage("Add business name and industry first.");
+      setBrainSubTab("profile");
+      return false;
+    }
+
+    setIsConfiguringVoice(true);
+    setSaveMessage("");
+
+    try {
+      const response = await fetch("/api/setup-voice", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: user.uid,
+          businessName,
+          industry,
+        }),
+      });
+      const payload = await response.json();
+
+      if (!response.ok) {
+        throw new Error(payload.error || "Voice provisioning failed.");
+      }
+
+      await setDoc(
+        doc(db, "users", user.uid),
+        {
+          businessName,
+          industry,
+          assistantId: payload.assistantId || "",
+          phoneNumber: payload.phoneNumber || "",
+          voiceConfigured: true,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      setSaveMessage(payload.phoneNumber ? `Voice Network connected: ${payload.phoneNumber}` : "Voice Network configured.");
+      setBrainSubTab("voice");
+      setIsConfiguringVoice(false);
+      return true;
+    } catch (error) {
+      setSaveMessage(error.message || "Voice provisioning failed.");
+      setIsConfiguringVoice(false);
+      return false;
+    }
+  }
+
+  async function handleOnboardingSubmit() {
+    if (!workspaceDraft.businessName.trim() || !workspaceDraft.industry.trim()) {
+      setSaveMessage("Business name and industry are required.");
+      return;
+    }
+
+    const saved = await saveWorkspace();
+    const configured = await handleAutoConfig();
+
+    if (saved && configured) {
+      setShowOnboarding(false);
+    }
+  }
+
   const sentimentStyles = {
     Positive: "border-emerald-900 bg-emerald-950 text-emerald-300",
     Neutral: "border-amber-900 bg-amber-950 text-amber-300",
@@ -446,6 +541,51 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-black text-white">
+      {showOnboarding ? (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/85 px-4 backdrop-blur-xl">
+          <div className="w-full max-w-lg rounded-[2rem] border border-zinc-800 bg-zinc-950 p-8 shadow-[0_20px_100px_rgba(0,0,0,0.45)] sm:p-10">
+            <p className="text-xs font-semibold uppercase tracking-[0.35em] text-zinc-500">Initialize Your OS</p>
+            <h2 className="mt-4 text-3xl font-bold text-white">Connect your business infrastructure.</h2>
+            <p className="mt-3 text-sm leading-7 text-zinc-400">Answer two questions so Fugth Management can prepare your workspace and Voice Network.</p>
+
+            <div className="mt-8 space-y-5">
+              <div>
+                <label className="text-xs font-bold uppercase tracking-[0.28em] text-zinc-500">Business Name</label>
+                <input
+                  value={workspaceDraft.businessName}
+                  onChange={(event) => setWorkspaceDraft((current) => ({ ...current, businessName: event.target.value }))}
+                  className="mt-2 w-full rounded-2xl border border-zinc-800 bg-black px-4 py-4 text-white outline-none transition focus:border-zinc-600"
+                  placeholder="Apex Dental"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold uppercase tracking-[0.28em] text-zinc-500">Industry</label>
+                <select
+                  value={workspaceDraft.industry}
+                  onChange={(event) => setWorkspaceDraft((current) => ({ ...current, industry: event.target.value }))}
+                  className="mt-2 w-full rounded-2xl border border-zinc-800 bg-black px-4 py-4 text-white outline-none transition focus:border-zinc-600"
+                >
+                  <option value="">Select industry</option>
+                  <option value="Roofing">Roofing</option>
+                  <option value="Dentistry">Dentistry</option>
+                  <option value="HVAC / Plumbing">HVAC / Plumbing</option>
+                  <option value="Law Firm">Law Firm</option>
+                  <option value="Auto Repair">Auto Repair</option>
+                  <option value="Medical Spa">Medical Spa</option>
+                </select>
+              </div>
+              <button
+                onClick={handleOnboardingSubmit}
+                disabled={isSaving || isConfiguringVoice}
+                className="w-full rounded-2xl bg-white py-4 text-sm font-bold text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:bg-zinc-300"
+              >
+                {isSaving || isConfiguringVoice ? "Deploying system..." : "Deploy System"}
+              </button>
+              {saveMessage ? <p className="text-sm text-zinc-400">{saveMessage}</p> : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
       {overlay}
       <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${currentTheme.panel}`} />
       <div className={`flex min-h-screen flex-col lg:flex-row ${locked ? "select-none" : ""}`}>
@@ -638,6 +778,23 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
                 <p className="mt-3 max-w-3xl text-sm leading-7 text-zinc-400">Everything here writes to the logged-in user workspace in Firestore.</p>
               </div>
 
+              <div className="flex flex-wrap gap-6 border-b border-zinc-900 pb-4">
+                {[
+                  ["profile", "Business Profile"],
+                  ["voice", "Voice & Number"],
+                ].map(([key, label]) => (
+                  <button
+                    key={key}
+                    onClick={() => setBrainSubTab(key)}
+                    className={`pb-3 text-sm font-semibold transition ${brainSubTab === key ? "border-b-2 border-white text-white" : "text-zinc-500 hover:text-zinc-300"}`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {brainSubTab === "profile" && (
+                <>
               <div className={`rounded-[2rem] border border-zinc-800 bg-[#0f0f11] p-6 ${locked ? "opacity-65" : "opacity-100"}`}>
                 <div className="flex items-center justify-between gap-4">
                   <h3 className="text-xl font-bold text-white">Business Profile</h3>
@@ -776,6 +933,69 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
                   <EmptyPanel title="No automations saved" body="Add automation rules in the textarea above and save the workspace." />
                 )}
               </div>
+                </>
+              )}
+
+              {brainSubTab === "voice" && (
+                <div className="grid gap-6 lg:grid-cols-2">
+                  <div className={`rounded-[2rem] border border-zinc-800 bg-[#0f0f11] p-8 ${locked ? "opacity-65" : "opacity-100"}`}>
+                    <p className="text-xs font-semibold uppercase tracking-[0.35em] text-zinc-500">Voice Infrastructure</p>
+                    <h3 className="mt-3 text-2xl font-bold text-white">Dedicated line and assistant provisioning</h3>
+                    <p className="mt-3 text-sm leading-7 text-zinc-400">Provision the Voice Network from your saved business name and industry, then store the assigned line back into your workspace.</p>
+
+                    <div className="mt-6 rounded-[1.75rem] border border-zinc-800 bg-black/40 p-5">
+                      <p className="text-xs uppercase tracking-[0.28em] text-zinc-600">Business</p>
+                      <p className="mt-2 text-lg font-semibold text-white">{workspace.businessName || "Complete Business Profile first"}</p>
+                      <p className="mt-2 text-sm text-zinc-500">Industry: {workspace.industry || "Not set"}</p>
+                    </div>
+
+                    {workspace.phoneNumber ? (
+                      <div className="mt-4 rounded-[1.75rem] border border-emerald-900/60 bg-emerald-950/20 p-5">
+                        <p className="text-xs uppercase tracking-[0.28em] text-emerald-400">Active Line</p>
+                        <p className="mt-2 text-3xl font-mono text-white">{workspace.phoneNumber}</p>
+                        <p className="mt-2 text-sm text-zinc-400">Assistant ID: {workspace.assistantId || "Stored"}</p>
+                      </div>
+                    ) : (
+                      <div className="mt-4 rounded-[1.75rem] border border-rose-900/50 bg-rose-950/20 p-5">
+                        <p className="text-sm font-semibold text-rose-300">System disconnected</p>
+                        <p className="mt-2 text-sm leading-7 text-zinc-400">No active line is assigned to this account yet.</p>
+                      </div>
+                    )}
+
+                    <button
+                      onClick={handleAutoConfig}
+                      disabled={isConfiguringVoice || locked}
+                      className="mt-6 w-full rounded-2xl bg-white py-4 text-sm font-bold text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:bg-zinc-300"
+                    >
+                      {isConfiguringVoice ? "Configuring Voice Network..." : "Auto-Configure Voice Network"}
+                    </button>
+                    {saveMessage ? <p className="mt-4 text-sm text-zinc-400">{saveMessage}</p> : null}
+                  </div>
+
+                  <div className={`rounded-[2rem] border border-zinc-800 bg-[#0f0f11] p-8 ${locked ? "opacity-65" : "opacity-100"}`}>
+                    <p className="text-xs font-semibold uppercase tracking-[0.35em] text-zinc-500">Infrastructure Sync</p>
+                    <h3 className="mt-3 text-2xl font-bold text-white">Routing and capture tools</h3>
+                    <div className="mt-6 space-y-4">
+                      {[
+                        ["Record Conversations", true],
+                        ["Sentiment Analysis", true],
+                        ["Owner Metadata Routing", Boolean(workspace.assistantId)],
+                        ["Webhook Ready", true],
+                      ].map(([label, enabled]) => (
+                        <div key={label} className="flex items-center justify-between rounded-2xl border border-zinc-800 bg-black/40 p-4">
+                          <span className="text-sm text-white">{label}</span>
+                          <div className={`relative h-6 w-12 rounded-full ${enabled ? "bg-green-500" : "bg-zinc-700"}`}>
+                            <div className={`absolute top-1 h-4 w-4 rounded-full bg-white transition ${enabled ? "right-1" : "left-1"}`} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-6 rounded-[1.75rem] border border-zinc-800 bg-black/40 p-5 text-sm leading-7 text-zinc-400">
+                      Keep `VOICE_PRIVATE_KEY` on the server only. `NEXT_PUBLIC_VOICE_PUBLIC_KEY` can stay public for future browser-side voice widgets, but this provisioning flow stays server-side.
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
