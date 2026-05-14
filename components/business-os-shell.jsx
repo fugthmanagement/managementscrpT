@@ -117,6 +117,27 @@ const aiFacts = [
   "Connected assets: pricing guide, service map, warranty file, spring promo",
 ];
 
+const tabThemes = {
+  command: {
+    badge: "border-emerald-900/70 bg-emerald-950/70 text-emerald-300",
+    panel: "from-emerald-500/10 via-transparent to-transparent",
+    glow: "shadow-[0_0_50px_rgba(16,185,129,0.08)]",
+    label: "Revenue Ops",
+  },
+  brain: {
+    badge: "border-sky-900/70 bg-sky-950/70 text-sky-300",
+    panel: "from-sky-500/10 via-transparent to-transparent",
+    glow: "shadow-[0_0_50px_rgba(14,165,233,0.08)]",
+    label: "AI Training Core",
+  },
+  ai: {
+    badge: "border-amber-900/70 bg-amber-950/70 text-amber-300",
+    panel: "from-amber-500/10 via-transparent to-transparent",
+    glow: "shadow-[0_0_50px_rgba(245,158,11,0.08)]",
+    label: "Strategic Intelligence",
+  },
+};
+
 function Waveform() {
   const bars = [42, 75, 58, 90, 34, 68, 52, 81, 37, 61, 46, 73, 55, 88, 49, 66, 41, 70, 53, 79];
 
@@ -157,6 +178,8 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
       `Knowledge Files: ${knowledgeFiles.map((file) => file.name).join(", ")}`,
     ].join("\n");
   }, [tone, emergencyRule]);
+
+  const currentTheme = tabThemes[activeTab];
 
   async function sendToGemini(input = chatInput) {
     if (!input.trim() || locked) return;
@@ -210,6 +233,7 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
   return (
     <div className="relative min-h-screen overflow-hidden bg-black text-white">
       {overlay}
+      <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${currentTheme.panel}`} />
       <div className={`flex min-h-screen flex-col lg:flex-row ${locked ? "select-none" : ""}`}>
         <aside className="w-full border-b border-zinc-900 bg-[#0a0a0a] lg:min-h-screen lg:w-72 lg:border-b-0 lg:border-r">
           <div className="p-6 lg:p-8">
@@ -229,7 +253,7 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
               <button
                 key={key}
                 onClick={() => setActiveTab(key)}
-                className={`w-full rounded-2xl border px-4 py-4 text-left transition ${activeTab === key ? "border-zinc-700 bg-zinc-900 text-white" : "border-zinc-900 bg-zinc-950 text-zinc-400 hover:border-zinc-800 hover:bg-zinc-900/60 hover:text-white"}`}
+                className={`w-full rounded-2xl border px-4 py-4 text-left transition ${activeTab === key ? `border-zinc-700 bg-zinc-900 text-white ${tabThemes[key].glow}` : "border-zinc-900 bg-zinc-950 text-zinc-400 hover:border-zinc-800 hover:bg-zinc-900/60 hover:text-white"}`}
               >
                 <p className="text-sm font-semibold">{title}</p>
                 <p className="mt-1 text-xs leading-6 text-zinc-500">{subtitle}</p>
@@ -245,7 +269,24 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
           </div>
         </aside>
 
-        <main className="flex-1 overflow-y-auto bg-[#050505] p-5 sm:p-8 lg:p-10">
+        <main className="relative flex-1 overflow-y-auto bg-[#050505]/95 p-5 sm:p-8 lg:p-10">
+          <div className={`mb-8 rounded-[2rem] border border-zinc-800 bg-black/30 p-5 backdrop-blur sm:p-6 ${currentTheme.glow}`}>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.35em] text-zinc-500">Fugth Management OS</p>
+                <h2 className="mt-2 text-2xl font-bold text-white sm:text-3xl">{currentTheme.label}</h2>
+                <p className="mt-2 max-w-2xl text-sm leading-7 text-zinc-400">
+                  {activeTab === "command" && "Run the front desk, watch revenue movement, review calls, and trigger next actions."}
+                  {activeTab === "brain" && "Define how the AI speaks, books, answers, and reasons from your business documents."}
+                  {activeTab === "ai" && "Use a focused executive workspace for analysis, drafting, and command-style business decisions."}
+                </p>
+              </div>
+              <div className={`inline-flex rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.28em] ${currentTheme.badge}`}>
+                {locked ? "Preview Mode" : "Interactive"}
+              </div>
+            </div>
+          </div>
+
           {activeTab === "command" && (
             <div className="mx-auto max-w-7xl space-y-8">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
