@@ -8,13 +8,28 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleAuth = async (e) => {
     e.preventDefault();
+    setError("");
     if (!auth) {
        setError("System loading. Try again in a moment.");
        return;
     }
+
+    if (!email.trim() || !password.trim()) {
+      setError("Enter both email and password.");
+      return;
+    }
+
+    if (!isLogin && password.trim().length < 6) {
+      setError("Password must be at least 6 characters.");
+      return;
+    }
+
+    setIsSubmitting(true);
+
     try {
       if (isLogin) {
         await signInWithEmailAndPassword(auth, email, password);
@@ -24,6 +39,7 @@ export default function Login() {
       window.location.href = "/dashboard";
     } catch (err) {
       setError((err.message || "Authentication failed.").replace("Firebase: ", ""));
+      setIsSubmitting(false);
     }
   };
 
@@ -84,21 +100,31 @@ export default function Login() {
 
             {error && <p className="mt-5 rounded-2xl border border-red-900 bg-red-950/40 px-4 py-3 text-sm text-red-300">{error}</p>}
 
+            {!error && (
+              <p className="mt-5 rounded-2xl border border-zinc-800 bg-black/50 px-4 py-3 text-sm text-zinc-400">
+                {isLogin
+                  ? "Secure client access for Command Center, Business Brain, and Executive AI."
+                  : "Create a test account in Firebase Auth, then you will be redirected straight into the dashboard."}
+              </p>
+            )}
+
             <form onSubmit={handleAuth} className="mt-8 space-y-4">
               <input
                 type="email"
                 placeholder="Email Address"
+                value={email}
                 className="w-full rounded-2xl border border-zinc-800 bg-black p-4 text-sm text-white focus:border-zinc-600 focus:outline-none"
                 onChange={(e) => setEmail(e.target.value)}
               />
               <input
                 type="password"
                 placeholder="Password (min 6 chars)"
+                value={password}
                 className="w-full rounded-2xl border border-zinc-800 bg-black p-4 text-sm text-white focus:border-zinc-600 focus:outline-none"
                 onChange={(e) => setPassword(e.target.value)}
               />
-              <button type="submit" className="w-full rounded-2xl bg-white p-4 text-sm font-bold text-black transition hover:bg-zinc-200">
-                {isLogin ? "Secure Login" : "Create Account"}
+              <button disabled={isSubmitting} type="submit" className="w-full rounded-2xl bg-white p-4 text-sm font-bold text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:bg-zinc-300">
+                {isSubmitting ? "Processing..." : isLogin ? "Secure Login" : "Create Account"}
               </button>
             </form>
 
@@ -110,8 +136,7 @@ export default function Login() {
             </button>
           </div>
         </section>
-        </form>
-    </div>
+      </div>
     </div>
   );
 }
