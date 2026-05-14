@@ -1,25 +1,89 @@
-import { NextResponse } from 'next/server';
+import { NextResponse } from "next/server";
+
+function getErrorText(payload, fallback) {
+  if (!payload) return fallback;
+  if (typeof payload === "string") return payload;
+  return payload.message || payload.error || fallback;
+}
 
 export async function POST(req) {
   try {
-    const { prompt } = await req.json();
-    const apiKey = process.env.GEMINI_API_KEY;
+    const { userId, businessName, industry } = await req.json();
+    const privateKey = process.env.VOICE_PRIVATE_KEY;
 
-    if (!apiKey) {
-      return NextResponse.json({ reply: "API Key missing in Vercel settings." });
+    if (!privateKey) {
+      return NextResponse.json({ error: "VOICE_PRIVATE_KEY is missing from environment variables." }, { status: 500 });
     }
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+    if (!userId || !businessName || !industry) {
+      return NextResponse.json({ error: "userId, businessName, and industry are required." }, { status: 400 });
+    }
+
+    const systemPrompt = [
+      `You are the Voice Network receptionist for ${businessName}.`,
+      `Industry: ${industry}.`,
+      "Sound calm, concise, and premium.",
+      "Collect caller name, number, intent, and booking window when possible.",
+      "If the caller describes an urgent issue, escalate according to the business emergency protocol.",
+    ].join(" ");
+
+    const assistantRes = await fetch("https://api.vapi.ai/assistant", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+      headers: {
+        Authorization: `Bearer ${privateKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: `${businessName} Receptionist`,
+        firstMessage: `Thanks for calling ${businessName}. How can I help you today?`,
+        model: {
+          provider: "openai",
+          model: "gpt-4o",
+          messages: [{ role: "system", content: systemPrompt }],
+        },
+        voice: { provider: "playht", voiceId: "jennifer" },
+        serverUrl: "https://fugthmanagement.space/api/vapi-webhook",
+        metadata: { ownerId: userId, industry },
+      }),
     });
 
-    const data = await response.json();
-    const botReply = data.candidates?.[0]?.content?.parts?.[0]?.text || "I encountered an error generating a response.";
-    
-    return NextResponse.json({ reply: botReply });
+    const assistantPayload = await assistantRes.json();
+    if (!assistantRes.ok) {
+      return NextResponse.json({ error: getErrorText(assistantPayload, "Assistant provisioning failed.") }, { status: assistantRes.status });
+    }
+
+    const assistantId = assistantPayload.id;
+    if (!assistantId) {
+      return NextResponse.json({ error: "Voice Network did not return an assistant id." }, { status: 500 });
+    }
+
+    const numberRes = await fetch("https://api.vapi.ai/phone-number", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${privateKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        assistantId,
+        name: `${businessName} Main Line`,
+      }),
+    });
+
+    const numberPayload = await numberRes.json();
+    if (!numberRes.ok) {
+      return NextResponse.json({ error: getErrorText(numberPayload, "Phone number provisioning failed."), assistantId }, { status: numberRes.status });
+    }
+
+    const phoneNumber = numberPayload.number || numberPayload.phoneNumber || numberPayload.tel || "";
+
+    return NextResponse.json({
+      success: true,
+      assistantId,
+      phoneNumber,
+      assistant: assistantPayload,
+      phoneNumberPayload: numberPayload,
+    });
   } catch (error) {
-    return NextResponse.json({ reply: "API Connection Error." });
+    return NextResponse.json({ error: error.message || "Voice setup failed." }, { status: 500 });
   }
 }
