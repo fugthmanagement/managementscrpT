@@ -3,6 +3,27 @@ import { useState } from "react";
 import { auth } from "../../lib/firebase";
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
 
+const pricingPlans = [
+  {
+    name: "Starter",
+    price: "$49",
+    link: "https://buy.stripe.com/dRmeVdaGld685fo4984ko00",
+    note: "For solo operators getting live quickly.",
+  },
+  {
+    name: "Growth",
+    price: "$149",
+    link: "https://buy.stripe.com/3cI14n5m1d68cHQ6hg4ko01",
+    note: "Best fit for teams handling real daily volume.",
+  },
+  {
+    name: "Elite",
+    price: "$499",
+    link: "https://buy.stripe.com/5kQ7sL4hXaY037gbBA4ko02",
+    note: "Full operating-system rollout and priority service.",
+  },
+];
+
 export default function Login() {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
@@ -45,14 +66,18 @@ export default function Login() {
 
   return (
     <div className="min-h-screen bg-black p-4 text-white">
-      <div className="mx-auto grid min-h-[calc(100vh-2rem)] max-w-6xl overflow-hidden rounded-[2rem] border border-zinc-800 bg-zinc-950 shadow-2xl shadow-black/40 lg:grid-cols-[1.05fr_0.95fr]">
+      <div className="pointer-events-none absolute inset-0 opacity-50">
+        <div className="absolute left-0 top-0 h-72 w-72 rounded-full bg-white/5 blur-3xl" />
+        <div className="absolute bottom-0 right-0 h-80 w-80 rounded-full bg-white/5 blur-3xl" />
+      </div>
+      <div className="relative mx-auto grid min-h-[calc(100vh-2rem)] max-w-7xl overflow-hidden rounded-[2rem] border border-zinc-800 bg-zinc-950 shadow-2xl shadow-black/40 lg:grid-cols-[1.1fr_0.9fr]">
         <section className="border-b border-zinc-900 p-8 sm:p-10 lg:border-b-0 lg:border-r">
           <p className="text-xs font-semibold uppercase tracking-[0.35em] text-zinc-500">Fugth Management</p>
           <h1 className="mt-6 text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
             Access the AI Business Operating System.
           </h1>
           <p className="mt-5 max-w-xl text-sm leading-8 text-zinc-400">
-            Sign in to unlock the live Command Center, Business Brain, and Executive AI. If you are testing the system, create an account here and go straight into the product.
+            Create an account, choose a plan, and move straight into the live Command Center, Business Brain, and Executive AI.
           </p>
 
           <div className="mt-10 grid gap-4 sm:grid-cols-2">
@@ -60,13 +85,38 @@ export default function Login() {
               ["Command Center", "Revenue, recordings, follow-ups, and live call outcomes."],
               ["Business Brain", "Train the AI with pricing, files, rules, and schedules."],
               ["Executive AI", "Ask questions, run campaigns, and analyze trends."],
-              ["Preview Locked", "Public visitors can see the system before logging in."],
+              ["Recorded Call Media", "Owners can open and listen back to recordings from the dashboard."],
             ].map(([title, copy]) => (
-              <div key={title} className="rounded-2xl border border-zinc-800 bg-black/40 p-4">
+              <div key={title} className="rounded-2xl border border-zinc-800 bg-gradient-to-br from-black to-zinc-900 p-4 transition hover:border-zinc-600">
                 <p className="font-semibold text-white">{title}</p>
                 <p className="mt-2 text-sm leading-7 text-zinc-500">{copy}</p>
               </div>
             ))}
+          </div>
+
+          <div className="mt-10">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.35em] text-zinc-500">Pricing</p>
+                <h2 className="mt-2 text-2xl font-bold text-white">Pick your plan before you enter.</h2>
+              </div>
+              <span className="rounded-full border border-zinc-700 bg-zinc-900 px-4 py-2 text-xs uppercase tracking-[0.24em] text-zinc-300">Stripe Linked</span>
+            </div>
+            <div className="grid gap-4 md:grid-cols-3">
+              {pricingPlans.map((plan) => {
+                const featured = plan.name === "Growth";
+                return (
+                  <div key={plan.name} className={`rounded-[1.75rem] border p-5 ${featured ? "border-zinc-500 bg-white text-black" : "border-zinc-800 bg-black/40 text-white"}`}>
+                    <p className={`text-xs uppercase tracking-[0.28em] ${featured ? "text-black/60" : "text-zinc-500"}`}>{plan.name}</p>
+                    <p className="mt-3 text-4xl font-black tracking-tight">{plan.price}</p>
+                    <p className={`mt-3 text-sm leading-7 ${featured ? "text-black/70" : "text-zinc-400"}`}>{plan.note}</p>
+                    <a href={plan.link} target="_blank" rel="noreferrer" className={`mt-6 flex items-center justify-center rounded-2xl px-4 py-3 text-sm font-bold transition ${featured ? "bg-black text-white hover:bg-zinc-800" : "bg-white text-black hover:bg-zinc-200"}`}>
+                      {featured ? "Start 7-Day Trial" : "Choose Plan"}
+                    </a>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </section>
 
