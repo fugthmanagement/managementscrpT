@@ -102,6 +102,155 @@ const tabThemes = {
   },
 };
 
+const sidebarItems = [
+  { key: "command", section: "overview", label: "Overview", icon: "home" },
+  { key: "command", section: "calls", label: "Calls", icon: "phone" },
+  { key: "command", section: "leads", label: "Leads", icon: "users" },
+  { key: "command", section: "operations", label: "Operations", icon: "briefcase" },
+  { key: "ai", section: "advisor", label: "AI Advisor", icon: "spark" },
+  { key: "brain", section: "knowledge", label: "Knowledge", icon: "book" },
+  { key: "brain", section: "files", label: "Files", icon: "folder" },
+  { key: "brain", section: "settings", label: "Settings", icon: "gear" },
+];
+
+function SidebarIcon({ name, active = false }) {
+  const stroke = active ? "currentColor" : "#98A2B3";
+
+  const common = {
+    fill: "none",
+    stroke,
+    strokeWidth: "1.8",
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+  };
+
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
+      {name === "home" ? (
+        <>
+          <path {...common} d="M3.5 10.5L12 3.5l8.5 7" />
+          <path {...common} d="M6.5 9.5v10h11v-10" />
+        </>
+      ) : null}
+      {name === "phone" ? <path {...common} d="M8.3 4.8l2 3.7-1.5 1.8c1.1 2.2 2.8 3.9 5 5l1.8-1.5 3.7 2c-.4 1.4-1.6 2.4-3 2.4-6 0-10.8-4.8-10.8-10.8 0-1.4 1-2.6 2.8-2.6Z" /> : null}
+      {name === "users" ? (
+        <>
+          <path {...common} d="M9 12.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z" />
+          <path {...common} d="M15.5 10.8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z" />
+          <path {...common} d="M3.8 19.2c1.2-2.5 3-3.7 5.2-3.7 2.2 0 4 1.2 5.2 3.7" />
+          <path {...common} d="M14.5 18.8c.9-1.7 2.2-2.6 3.9-2.6 1 0 1.8.2 2.8 1.1" />
+        </>
+      ) : null}
+      {name === "briefcase" ? (
+        <>
+          <rect {...common} x="3.5" y="6.8" width="17" height="11.8" rx="2.2" />
+          <path {...common} d="M9 6.8V5.7c0-.8.6-1.4 1.4-1.4h3.2c.8 0 1.4.6 1.4 1.4v1.1" />
+          <path {...common} d="M3.8 11.4h16.4" />
+        </>
+      ) : null}
+      {name === "spark" ? (
+        <>
+          <path {...common} d="M12 3.8l1.7 4.4L18 10l-4.3 1.8L12 16.2l-1.7-4.4L6 10l4.3-1.8L12 3.8Z" />
+          <path {...common} d="M18.5 4.5l.6 1.6 1.6.6-1.6.6-.6 1.6-.6-1.6-1.6-.6 1.6-.6.6-1.6Z" />
+        </>
+      ) : null}
+      {name === "book" ? (
+        <>
+          <path {...common} d="M5.5 5.5h9a3 3 0 0 1 3 3v10h-9a3 3 0 0 0-3 3v-16Z" />
+          <path {...common} d="M8.5 8.2h6" />
+          <path {...common} d="M8.5 11.5h6" />
+        </>
+      ) : null}
+      {name === "folder" ? (
+        <>
+          <path {...common} d="M3.5 7.5h5l1.8 2H20.5v8a2 2 0 0 1-2 2H5.5a2 2 0 0 1-2-2v-10a2 2 0 0 1 2-2Z" />
+        </>
+      ) : null}
+      {name === "gear" ? (
+        <>
+          <circle {...common} cx="12" cy="12" r="3.2" />
+          <path {...common} d="M12 3.8v2.1m0 12.2v2.1m8.2-8.2h-2.1M5.9 12H3.8m14.1-5.9-1.5 1.5M7.6 16.4l-1.5 1.5m0-11.8 1.5 1.5m8.8 8.8 1.5 1.5" />
+        </>
+      ) : null}
+    </svg>
+  );
+}
+
+function RingMeter({ value = 0, label, tone = "emerald" }) {
+  const radius = 34;
+  const circumference = 2 * Math.PI * radius;
+  const safeValue = Math.max(0, Math.min(100, value));
+  const offset = circumference - (safeValue / 100) * circumference;
+  const tones = {
+    emerald: "#22c55e",
+    blue: "#3b82f6",
+    purple: "#8b5cf6",
+    cyan: "#06b6d4",
+  };
+
+  return (
+    <div className="flex flex-col items-center justify-center">
+      <div className="relative h-24 w-24">
+        <svg viewBox="0 0 96 96" className="h-24 w-24 -rotate-90">
+          <circle cx="48" cy="48" r={radius} stroke="rgba(255,255,255,0.08)" strokeWidth="8" fill="none" />
+          <circle
+            cx="48"
+            cy="48"
+            r={radius}
+            stroke={tones[tone] || tones.emerald}
+            strokeWidth="8"
+            fill="none"
+            strokeDasharray={circumference}
+            strokeDashoffset={offset}
+            strokeLinecap="round"
+          />
+        </svg>
+        <div className="absolute inset-0 flex items-center justify-center text-lg font-semibold text-white">{safeValue}%</div>
+      </div>
+      <p className="mt-3 text-xs uppercase tracking-[0.24em] text-zinc-500">{label}</p>
+    </div>
+  );
+}
+
+function LineChart({ values, tone = "emerald" }) {
+  const tones = {
+    emerald: { stroke: "#22c55e", glow: "rgba(34,197,94,0.25)" },
+    blue: { stroke: "#3b82f6", glow: "rgba(59,130,246,0.25)" },
+    purple: { stroke: "#8b5cf6", glow: "rgba(139,92,246,0.25)" },
+    cyan: { stroke: "#06b6d4", glow: "rgba(6,182,212,0.25)" },
+  };
+
+  const safeValues = values.length ? values : [12, 20, 28, 22, 36, 42, 55];
+  const width = 260;
+  const height = 92;
+  const max = Math.max(...safeValues, 1);
+  const step = width / Math.max(safeValues.length - 1, 1);
+  const points = safeValues.map((value, index) => {
+    const x = index * step;
+    const y = height - (value / max) * (height - 10) - 5;
+    return `${x},${y}`;
+  }).join(" ");
+  const areaPoints = `0,${height} ${points} ${width},${height}`;
+
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} className="mt-6 h-24 w-full overflow-visible">
+      <defs>
+        <linearGradient id={`line-fill-${tone}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={tones[tone]?.glow || tones.emerald.glow} />
+          <stop offset="100%" stopColor="rgba(255,255,255,0)" />
+        </linearGradient>
+      </defs>
+      <polygon points={areaPoints} fill={`url(#line-fill-${tone})`} />
+      <polyline points={points} fill="none" stroke={tones[tone]?.stroke || tones.emerald.stroke} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+      {safeValues.map((value, index) => {
+        const x = index * step;
+        const y = height - (value / max) * (height - 10) - 5;
+        return <circle key={`${tone}-dot-${index}`} cx={x} cy={y} r="2.5" fill={tones[tone]?.stroke || tones.emerald.stroke} />;
+      })}
+    </svg>
+  );
+}
+
 function Waveform() {
   const bars = [42, 75, 58, 90, 34, 68, 52, 81, 37, 61, 46, 73, 55, 88, 49, 66, 41, 70, 53, 79];
 
@@ -284,6 +433,7 @@ function workspaceStatesMatch(left, right) {
 
 export function BusinessOSShell({ locked = false, authReady = true }) {
   const [activeTab, setActiveTab] = useState("command");
+  const [activeSidebarSection, setActiveSidebarSection] = useState("overview");
   const [brainSubTab, setBrainSubTab] = useState("profile");
   const [themeMode, setThemeMode] = useState("dark");
   const [showPricingModal, setShowPricingModal] = useState(false);
@@ -302,8 +452,14 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
   const [isUploading, setIsUploading] = useState(false);
   const [isConfiguringVoice, setIsConfiguringVoice] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [currentTime, setCurrentTime] = useState(() => new Date());
   const fileInputRef = useRef(null);
   const autosaveTimerRef = useRef(null);
+
+  useEffect(() => {
+    const interval = setInterval(() => setCurrentTime(new Date()), 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     if (!auth) return undefined;
@@ -484,7 +640,7 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
 
     const hints = [
       callsToday ? `${callsToday} handled today` : "No calls today",
-      leadsCaptured ? `${leadsCaptured} total calls in pipeline` : "No leads captured yet",
+      leadsCaptured ? `${leadsCaptured} total conversations in motion` : "No leads captured yet",
       appointmentsBooked ? `${appointmentsBooked} booked from live data` : "No booked calls yet",
       revenueCaptured ? "Calculated from booked calls and revenue fields" : "Set Average Job Value or revenue fields",
       missedCallsSaved ? "Recovered from follow-up and callback outcomes" : "No recovered missed calls yet",
@@ -541,22 +697,13 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
   const cardClasses = isLightMode ? "border-zinc-300 bg-white text-black shadow-[0_18px_50px_rgba(0,0,0,0.06)]" : "border-zinc-800 bg-[#0f0f11] text-white";
   const mutedText = isLightMode ? "text-zinc-700" : "text-zinc-400";
   const softText = isLightMode ? "text-zinc-500" : "text-zinc-500";
-  const overviewMenu = [
-    ["command", "Overview"],
-    ["command", "Calls"],
-    ["command", "Leads"],
-    ["command", "Operations"],
-    ["ai", "AI Advisor"],
-    ["brain", "Knowledge"],
-    ["brain", "Files"],
-    ["brain", "Settings"],
-  ];
   const rangeLabel = useMemo(() => {
     const end = new Date();
     const start = new Date();
     start.setDate(end.getDate() - 6);
     return `${start.toLocaleDateString([], { month: "short", day: "numeric" })} - ${end.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" })}`;
   }, []);
+  const timeLabel = useMemo(() => currentTime.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }), [currentTime]);
   const revenueTotal = useMemo(() => calls.reduce((total, call) => total + Number(call.revenue || 0), 0), [calls]);
   const recentCalls = useMemo(() => [...calls].sort((left, right) => {
     const leftTime = left.timestamp?.toDate ? left.timestamp.toDate().getTime() : left.timestamp ? new Date(left.timestamp).getTime() : 0;
@@ -577,7 +724,7 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
     if (revenueTotal) items.push({ title: `Revenue tracked: $${revenueTotal.toLocaleString()}`, subtitle: "Pulled from real call records." });
     if (recentCalls.length) items.push({ title: `${recentCalls.length} recent calls loaded`, subtitle: "Dashboard is syncing completed call data." });
     if (knowledgeFiles.length) items.push({ title: `${knowledgeFiles.length} files indexed`, subtitle: "Executive AI can answer from uploaded business docs." });
-    if (workspace.phoneNumber) items.push({ title: workspace.phoneNumber, subtitle: "Active voice line stored in Firestore." });
+    if (workspace.phoneNumber) items.push({ title: workspace.phoneNumber, subtitle: "Active Fugth Voice line linked to this workspace." });
     if (!items.length) items.push({ title: "No business activity yet", subtitle: "Connect the workflow and your first real numbers will replace this empty state." });
     return items.slice(0, 4);
   }, [knowledgeFiles.length, recentCalls.length, revenueTotal, workspace.phoneNumber]);
@@ -680,7 +827,7 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
           },
           { merge: true }
         );
-        setSaveMessage("Changes synced to Firebase.");
+        setSaveMessage("Changes synced to your workspace.");
       } catch {
         setSaveMessage("Autosave failed. Use Save Workspace to retry.");
       }
@@ -716,7 +863,7 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
       });
       setSaveMessage("Knowledge file uploaded.");
     } catch (error) {
-      setSaveMessage("Upload failed. Check Firebase Storage rules.");
+      setSaveMessage("Upload failed. Try again in a moment.");
     }
 
     event.target.value = "";
@@ -897,14 +1044,19 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
           </div>
 
           <nav className="space-y-2 px-4 pb-6">
-            {overviewMenu.map(([key, title], index) => (
+            {sidebarItems.map((item, index) => (
               <button
-                key={`${key}-${title}`}
-                onClick={() => setActiveTab(key)}
-                className={`flex w-full items-center gap-3 rounded-2xl border px-4 py-4 text-left transition ${activeTab === key && index === 0 ? `${isLightMode ? "border-zinc-400 bg-zinc-200 text-black" : "border-indigo-500/30 bg-indigo-500/12 text-white"}` : `${isLightMode ? "border-zinc-300 bg-white text-zinc-700 hover:border-zinc-400 hover:bg-zinc-50 hover:text-black" : "border-transparent bg-transparent text-zinc-400 hover:border-white/6 hover:bg-white/[0.03] hover:text-white"}`}`}
+                key={`${item.key}-${item.section}`}
+                onClick={() => {
+                  setActiveTab(item.key);
+                  setActiveSidebarSection(item.section);
+                }}
+                className={`flex w-full items-center gap-3 rounded-2xl border px-4 py-4 text-left transition ${activeSidebarSection === item.section ? `${isLightMode ? "border-zinc-400 bg-zinc-200 text-black" : "border-indigo-500/30 bg-indigo-500/12 text-white"}` : `${isLightMode ? "border-zinc-300 bg-white text-zinc-700 hover:border-zinc-400 hover:bg-zinc-50 hover:text-black" : "border-transparent bg-transparent text-zinc-400 hover:border-white/6 hover:bg-white/[0.03] hover:text-white"}`}`}
               >
-                <div className={`h-8 w-8 rounded-xl ${activeTab === key && index === 0 ? "bg-white/10" : "bg-white/[0.04]"}`} />
-                <p className="text-sm font-medium">{title}</p>
+                <div className={`flex h-8 w-8 items-center justify-center rounded-xl ${activeSidebarSection === item.section ? "bg-white/10" : "bg-white/[0.04]"}`}>
+                  <SidebarIcon name={item.icon} active={activeSidebarSection === item.section} />
+                </div>
+                <p className="text-sm font-medium">{item.label}</p>
               </button>
             ))}
           </nav>
@@ -935,6 +1087,9 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
                 <p className={`mt-2 text-sm ${softText}`}>Here is what is happening with your business today.</p>
               </div>
               <div className="flex flex-wrap items-center gap-3">
+                <div className={`rounded-2xl border px-4 py-3 text-sm ${isLightMode ? "border-zinc-300 bg-white text-black" : "border-white/6 bg-white/[0.03] text-white"}`}>
+                  {timeLabel}
+                </div>
                 {!locked ? (
                   <button onClick={() => setShowPricingModal(true)} className="rounded-xl bg-gradient-to-r from-indigo-500 to-blue-500 px-5 py-3 text-sm font-semibold text-white shadow-[0_12px_40px_rgba(79,70,229,0.35)] transition hover:opacity-95">
                     {currentPlanMeta ? "Upgrade" : "Choose Plan"}
@@ -954,25 +1109,25 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
                   <p className="text-sm text-zinc-400">Revenue This Week</p>
                   <p className="mt-4 text-5xl font-semibold tracking-[-0.04em] text-white">{locked ? "--" : scoreCards[3].value}</p>
                   <p className="mt-3 text-sm text-emerald-400">{scoreCards[3].hint}</p>
-                  <MiniBars values={metricVisuals.revenue} tone="emerald" />
+                  <LineChart values={metricVisuals.revenue} tone="emerald" />
                 </SectionCard>
                 <SectionCard>
                   <p className="text-sm text-zinc-400">Calls Today</p>
                   <p className="mt-4 text-5xl font-semibold tracking-[-0.04em] text-white">{locked ? "--" : scoreCards[0].value}</p>
                   <p className="mt-3 text-sm text-sky-400">{scoreCards[0].hint}</p>
-                  <MiniBars values={metricVisuals.calls} tone="blue" />
+                  <LineChart values={metricVisuals.calls} tone="blue" />
                 </SectionCard>
                 <SectionCard>
                   <p className="text-sm text-zinc-400">Appointments Booked</p>
                   <p className="mt-4 text-5xl font-semibold tracking-[-0.04em] text-white">{locked ? "--" : scoreCards[2].value}</p>
                   <p className="mt-3 text-sm text-violet-400">{scoreCards[2].hint}</p>
-                  <MiniBars values={metricVisuals.booked} tone="purple" />
+                  <LineChart values={metricVisuals.booked} tone="purple" />
                 </SectionCard>
                 <SectionCard>
                   <p className="text-sm text-zinc-400">AI Response Rate</p>
                   <p className="mt-4 text-5xl font-semibold tracking-[-0.04em] text-white">{locked ? "--" : scoreCards[5].value}</p>
                   <p className="mt-3 text-sm text-cyan-400">{scoreCards[5].hint}</p>
-                  <MiniBars values={metricVisuals.rate} tone="cyan" />
+                  <LineChart values={metricVisuals.rate} tone="cyan" />
                 </SectionCard>
               </div>
 
@@ -991,7 +1146,7 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
                         </div>
                         <span className="text-zinc-500">&gt;</span>
                       </div>
-                    )) : <EmptyPanel title="No activity yet" body="Real activity will appear here as calls, uploads, and notifications sync into Firebase." />}
+                    )) : <EmptyPanel title="No activity yet" body="Real activity will appear here as calls, uploads, and customer updates flow into Fugth." />}
                   </div>
                 </SectionCard>
 
@@ -1016,9 +1171,9 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
                     <span className="text-sm text-zinc-500">0 live</span>
                   </div>
                   <div className="flex min-h-[260px] flex-col items-center justify-center text-center">
-                    <div className="flex h-20 w-20 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-2xl text-zinc-300">C</div>
+                    <RingMeter value={calls.length ? Math.min(100, Math.round((calls.filter((call) => call.aiHandled).length / calls.length) * 100)) : 0} label="active coverage" tone="cyan" />
                     <p className="mt-6 text-2xl font-semibold text-white">No live calls right now</p>
-                    <p className="mt-3 max-w-xs text-sm leading-7 text-zinc-500">Completed calls will appear here automatically after webhook ingestion and can be played back from the dashboard.</p>
+                    <p className="mt-3 max-w-xs text-sm leading-7 text-zinc-500">Completed calls will appear here automatically and can be played back from the dashboard.</p>
                   </div>
                 </SectionCard>
               </div>
@@ -1054,11 +1209,11 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
                           </div>
                           <div className="w-full max-w-[220px] rounded-2xl border border-white/6 bg-black/20 p-4">
                             <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">Transcript</p>
-                            <p className="mt-3 text-sm leading-7 text-zinc-400">{call.transcript || "Transcript will appear once the provider includes it in the call payload."}</p>
+                            <p className="mt-3 text-sm leading-7 text-zinc-400">{call.transcript || "Transcript will appear here once the call summary is ready."}</p>
                           </div>
                         </div>
                       </div>
-                    )) : <EmptyPanel title="No recorded calls yet" body="The dashboard will populate this library automatically after real calls land in Firestore." />}
+                    )) : <EmptyPanel title="No recorded calls yet" body="The dashboard will populate this library automatically as real calls arrive." />}
                   </div>
                 </SectionCard>
 
@@ -1068,7 +1223,7 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
                       <h3 className="text-xl font-semibold text-white">Revenue Overview</h3>
                       <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-zinc-300">{scoreCards[3].value}</span>
                     </div>
-                    <MiniBars values={metricVisuals.revenue} tone="purple" />
+                    <LineChart values={metricVisuals.revenue} tone="purple" />
                     <div className="mt-5 flex items-center justify-between text-xs uppercase tracking-[0.18em] text-zinc-500">
                       <span>Last 7 Days</span>
                       <span>{calls.length} calls tracked</span>
@@ -1143,7 +1298,7 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
                 <div className={`rounded-[2rem] border border-dashed border-zinc-700 bg-[#0f0f11] p-8 ${locked ? "opacity-65" : "opacity-100"}`}>
                   <p className="text-xs uppercase tracking-[0.32em] text-zinc-500">Knowledge Base</p>
                   <h3 className="mt-3 text-2xl font-bold text-white">Upload real business documents</h3>
-                  <p className="mt-3 max-w-xl text-sm leading-7 text-zinc-400">Files upload to Firebase Storage and metadata lands in your user workspace.</p>
+                  <p className="mt-3 max-w-xl text-sm leading-7 text-zinc-400">Upload your real company documents so Fugth can answer and route with better context.</p>
                   <div className="mt-8 rounded-[1.75rem] border border-zinc-800 bg-black/40 p-8 text-center">
                     <p className="text-base font-medium text-white">Choose PDFs, docs, or images</p>
                     <p className="mt-2 text-sm text-zinc-500">Pricing sheets, FAQs, policies, and promo assets.</p>
@@ -1195,7 +1350,7 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div className="rounded-2xl border border-zinc-800 bg-black/40 p-4">
                         <p className="text-sm font-medium text-white">Calendar Sync</p>
-                        <p className="mt-2 text-sm text-zinc-500">Keep this connected through your scheduling provider. The Business Brain stores the rules and context.</p>
+                        <p className="mt-2 text-sm text-zinc-500">Keep your schedule aligned so Fugth can route requests with the right availability and rules.</p>
                         <button className="mt-4 rounded-full border border-zinc-700 px-4 py-2 text-sm text-white">Calendar setup</button>
                       </div>
                       <div className="rounded-2xl border border-zinc-800 bg-black/40 p-4">
@@ -1214,7 +1369,7 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
                   {workspace.hours ? (
                     <div className="mt-5 rounded-2xl border border-zinc-800 bg-black/40 p-4 text-sm leading-8 text-zinc-300 whitespace-pre-wrap">{workspace.hours}</div>
                   ) : (
-                    <EmptyPanel title="No hours configured" body="Add business hours in the profile form above and save them to Firestore." />
+                    <EmptyPanel title="No hours configured" body="Add business hours in the profile form above and save them to your workspace." />
                   )}
                 </div>
 
@@ -1314,7 +1469,7 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
                         ["Record Conversations", true],
                         ["Sentiment Analysis", true],
                         ["Owner Metadata Routing", Boolean(workspace.assistantId)],
-                        ["Webhook Ready", true],
+                        ["Fugth Sync Ready", true],
                       ].map(([label, enabled]) => (
                         <div key={label} className="flex items-center justify-between rounded-2xl border border-zinc-800 bg-black/40 p-4">
                           <span className="text-sm text-white">{label}</span>
@@ -1325,7 +1480,7 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
                       ))}
                     </div>
                     <div className="mt-6 rounded-[1.75rem] border border-zinc-800 bg-black/40 p-5 text-sm leading-7 text-zinc-400">
-                      Keep `VOICE_PRIVATE_KEY` on the server only. `NEXT_PUBLIC_VOICE_PUBLIC_KEY` can stay public for future browser-side voice widgets, but this provisioning flow stays server-side.
+                      Fugth Voice runs as a private business line. Once connected, the number, assistant identity, and routing status stay attached to this workspace.
                     </div>
                   </div>
                 </div>
