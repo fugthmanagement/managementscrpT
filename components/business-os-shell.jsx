@@ -247,6 +247,32 @@ function normalizeKnowledgeFile(id, data) {
   };
 }
 
+function normalizeWorkspaceState(input) {
+  return {
+    ...defaultWorkspace,
+    ...input,
+    automations: Array.isArray(input?.automations) ? input.automations.join("\n") : input?.automations || "",
+    averageJobValue: String(input?.averageJobValue ?? defaultWorkspace.averageJobValue),
+  };
+}
+
+function buildWorkspacePayload(input) {
+  const normalized = normalizeWorkspaceState(input);
+
+  return {
+    ...normalized,
+    averageJobValue: Number(normalized.averageJobValue || 0),
+    automations: normalized.automations
+      .split("\n")
+      .map((item) => item.trim())
+      .filter(Boolean),
+  };
+}
+
+function workspaceStatesMatch(left, right) {
+  return JSON.stringify(normalizeWorkspaceState(left)) === JSON.stringify(normalizeWorkspaceState(right));
+}
+
 export function BusinessOSShell({ locked = false, authReady = true }) {
   const [activeTab, setActiveTab] = useState("command");
   const [brainSubTab, setBrainSubTab] = useState("profile");
@@ -267,6 +293,7 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
   const [isConfiguringVoice, setIsConfiguringVoice] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const fileInputRef = useRef(null);
+  const autosaveTimerRef = useRef(null);
 
   useEffect(() => {
     if (!auth) return undefined;
@@ -536,12 +563,7 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
       await setDoc(
         doc(db, "users", user.uid),
         {
-          ...workspaceDraft,
-          averageJobValue: Number(workspaceDraft.averageJobValue || 0),
-          automations: workspaceDraft.automations
-            .split("\n")
-            .map((item) => item.trim())
-            .filter(Boolean),
+          ...buildWorkspacePayload(workspaceDraft),
           updatedAt: serverTimestamp(),
         },
         { merge: true }
@@ -555,6 +577,38 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
       return false;
     }
   }
+
+  useEffect(() => {
+    if (locked || !authReady || !user || !db || !dataReady || showOnboarding) {
+      return undefined;
+    }
+
+    if (workspaceStatesMatch(workspaceDraft, workspace)) {
+      return undefined;
+    }
+
+    autosaveTimerRef.current = setTimeout(async () => {
+      try {
+        await setDoc(
+          doc(db, "users", user.uid),
+          {
+            ...buildWorkspacePayload(workspaceDraft),
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true }
+        );
+        setSaveMessage("Changes synced to Firebase.");
+      } catch {
+        setSaveMessage("Autosave failed. Use Save Workspace to retry.");
+      }
+    }, 900);
+
+    return () => {
+      if (autosaveTimerRef.current) {
+        clearTimeout(autosaveTimerRef.current);
+      }
+    };
+  }, [authReady, dataReady, db, locked, showOnboarding, user, workspace, workspaceDraft]);
 
   async function handleFileUpload(event) {
     const file = event.target.files?.[0];
