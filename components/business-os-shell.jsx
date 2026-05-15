@@ -97,6 +97,14 @@ function EmptyPanel({ title, body, action }) {
   );
 }
 
+function InfoChip({ label, value }) {
+  return (
+    <div className="rounded-full border border-zinc-800 bg-black/40 px-3 py-2 text-xs uppercase tracking-[0.2em] text-zinc-400">
+      <span className="text-zinc-600">{label}</span> {value}
+    </div>
+  );
+}
+
 function formatTimestamp(value) {
   const date = value?.toDate ? value.toDate() : value ? new Date(value) : null;
   if (!date || Number.isNaN(date.getTime())) return "No timestamp";
@@ -107,6 +115,27 @@ function formatFileSize(size) {
   if (!size) return "Unknown size";
   if (size < 1024 * 1024) return `${Math.round(size / 1024)} KB`;
   return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+async function parseJsonResponse(response) {
+  const raw = await response.text();
+
+  try {
+    return {
+      ok: response.ok,
+      status: response.status,
+      payload: raw ? JSON.parse(raw) : {},
+      raw,
+    };
+  } catch {
+    return {
+      ok: false,
+      status: response.status,
+      payload: null,
+      raw,
+      parseError: true,
+    };
+  }
 }
 
 function normalizeCall(id, data) {
@@ -350,6 +379,32 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
   }, [calls, locked, workspace.averageJobValue]);
 
   const currentTheme = tabThemes[activeTab];
+  const commandChips = useMemo(() => {
+    return [
+      ["Calls", calls.length],
+      ["Booked", leadGroups.find((group) => group.name === "Booked")?.count || 0],
+      ["Files", knowledgeFiles.length],
+      ["Line", workspace.phoneNumber || "offline"],
+    ];
+  }, [calls.length, knowledgeFiles.length, leadGroups, workspace.phoneNumber]);
+
+  const brainChips = useMemo(() => {
+    return [
+      ["Business", workspace.businessName || "unset"],
+      ["Industry", workspace.industry || "unset"],
+      ["Voice", workspace.voiceConfigured ? "ready" : "pending"],
+      ["Docs", knowledgeFiles.length],
+    ];
+  }, [knowledgeFiles.length, workspace.businessName, workspace.industry, workspace.voiceConfigured]);
+
+  const aiChips = useMemo(() => {
+    return [
+      ["Context", dataReady ? "loaded" : "loading"],
+      ["Complaints", leadGroups.find((group) => group.name === "Complaints")?.count || 0],
+      ["Follow-Ups", followUps.length],
+      ["Tone", workspace.tone || defaultWorkspace.tone],
+    ];
+  }, [dataReady, followUps.length, leadGroups, workspace.tone]);
 
   async function sendToGemini(input = chatInput) {
     if (!input.trim() || locked) return;
@@ -472,9 +527,15 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
           industry,
         }),
       });
-      const payload = await response.json();
+      const result = await parseJsonResponse(response);
 
-      if (!response.ok) {
+      if (result.parseError) {
+        throw new Error("/api/setup-voice returned HTML instead of JSON. Redeploy, then open /api/setup-voice in the browser and confirm it returns JSON.");
+      }
+
+      const payload = result.payload || {};
+
+      if (!result.ok) {
         throw new Error(payload.error || "Voice provisioning failed.");
       }
 
@@ -629,11 +690,11 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.35em] text-zinc-500">Fugth Management OS</p>
                 <h2 className="mt-2 text-2xl font-bold text-white sm:text-3xl">{currentTheme.label}</h2>
-                <p className="mt-2 max-w-2xl text-sm leading-7 text-zinc-400">
-                  {activeTab === "command" && "Run the front desk, watch revenue movement, review calls, and trigger next actions."}
-                  {activeTab === "brain" && "Define how the AI speaks, books, answers, and reasons from your business documents."}
-                  {activeTab === "ai" && "Use a focused executive workspace for analysis, drafting, and command-style business decisions."}
-                </p>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {activeTab === "command" && commandChips.map(([label, value]) => <InfoChip key={label} label={label} value={value} />)}
+                  {activeTab === "brain" && brainChips.map(([label, value]) => <InfoChip key={label} label={label} value={value} />)}
+                  {activeTab === "ai" && aiChips.map(([label, value]) => <InfoChip key={label} label={label} value={value} />)}
+                </div>
               </div>
               <div className={`inline-flex rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.28em] ${currentTheme.badge}`}>
                 {locked ? "Preview Mode" : "Interactive"}
@@ -647,7 +708,6 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.35em] text-zinc-500">Command Center</p>
                   <h2 className="mt-3 text-3xl font-bold text-white">Money, Calls, and Daily Momentum</h2>
-                  <p className="mt-3 max-w-3xl text-sm leading-7 text-zinc-400">Live operations from your Firestore workspace.</p>
                 </div>
                 <div className="rounded-2xl border border-zinc-800 bg-zinc-950 px-5 py-4">
                   <p className="text-xs uppercase tracking-[0.32em] text-zinc-500">This Week</p>
@@ -671,9 +731,8 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
                   <div className="flex items-center justify-between gap-4">
                     <div>
                       <h3 className="text-xl font-bold text-white">AI Call Center</h3>
-                      <p className="mt-2 text-sm text-zinc-500">Caller info, AI summary, transcript, recording player, sentiment, and action controls.</p>
                     </div>
-                    <span className="rounded-full border border-zinc-800 bg-black px-3 py-1 text-xs text-zinc-400">47 calls archived</span>
+                    <span className="rounded-full border border-zinc-800 bg-black px-3 py-1 text-xs text-zinc-400">{calls.length} live calls</span>
                   </div>
                   <div className="mt-6 space-y-4">
                     {calls.length ? calls.map((call) => (
@@ -713,7 +772,6 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
                 <div className="space-y-6">
                   <div className={`rounded-[2rem] border border-zinc-800 bg-[#0f0f11] p-6 ${locked ? "opacity-65" : "opacity-100"}`}>
                     <h3 className="text-xl font-bold text-white">Smart Follow-Ups</h3>
-                    <p className="mt-2 text-sm text-zinc-500">Derived from real call outcomes and summaries.</p>
                     <div className="mt-5 space-y-3">
                       {followUps.length ? followUps.map((item) => (
                         <div key={item.customer} className="rounded-2xl border border-zinc-800 bg-black/40 p-4">
@@ -739,7 +797,6 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
 
                   <div className={`rounded-[2rem] border border-zinc-800 bg-[#0f0f11] p-6 ${locked ? "opacity-65" : "opacity-100"}`}>
                     <h3 className="text-xl font-bold text-white">Lead and Email Engine</h3>
-                    <p className="mt-2 text-sm text-zinc-500">Collect emails, promo send, touchback reminders, and categorized customer buckets.</p>
                     <div className="mt-5 space-y-3">
                       {leadGroups.map((group) => (
                         <div key={group.name} className="rounded-2xl border border-zinc-800 bg-black/40 p-4">
@@ -755,7 +812,6 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
 
                   <div className={`rounded-[2rem] border border-zinc-800 bg-[#0f0f11] p-6 ${locked ? "opacity-65" : "opacity-100"}`}>
                     <h3 className="text-xl font-bold text-white">Live Notifications</h3>
-                    <p className="mt-2 text-sm text-zinc-500">Reads from notifications or falls back to recent live call activity.</p>
                     <div className="mt-5 space-y-3">
                       {feedItems.length ? feedItems.map((item) => (
                         <div key={item.id} className="rounded-2xl border border-zinc-800 bg-black/40 p-4 text-sm leading-7 text-zinc-300">
@@ -775,7 +831,6 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.35em] text-zinc-500">Business Brain</p>
                 <h2 className="mt-3 text-3xl font-bold text-white">Train Your AI Employee</h2>
-                <p className="mt-3 max-w-3xl text-sm leading-7 text-zinc-400">Everything here writes to the logged-in user workspace in Firestore.</p>
               </div>
 
               <div className="flex flex-wrap gap-6 border-b border-zinc-900 pb-4">
@@ -941,7 +996,6 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
                   <div className={`rounded-[2rem] border border-zinc-800 bg-[#0f0f11] p-8 ${locked ? "opacity-65" : "opacity-100"}`}>
                     <p className="text-xs font-semibold uppercase tracking-[0.35em] text-zinc-500">Voice Infrastructure</p>
                     <h3 className="mt-3 text-2xl font-bold text-white">Dedicated line and assistant provisioning</h3>
-                    <p className="mt-3 text-sm leading-7 text-zinc-400">Provision the Voice Network from your saved business name and industry, then store the assigned line back into your workspace.</p>
 
                     <div className="mt-6 rounded-[1.75rem] border border-zinc-800 bg-black/40 p-5">
                       <p className="text-xs uppercase tracking-[0.28em] text-zinc-600">Business</p>
@@ -1004,7 +1058,6 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
               <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                   <h2 className="text-3xl font-bold text-white">Executive AI</h2>
-                  <p className="text-zinc-500">Your personalized business analyst, strategist, and operator assistant.</p>
                 </div>
                 <button className="rounded-2xl border border-zinc-800 bg-[#0f0f11] px-4 py-2 text-sm text-zinc-300">🎙️ Voice Mode</button>
               </div>
