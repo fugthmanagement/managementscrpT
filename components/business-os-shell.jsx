@@ -31,7 +31,7 @@ const defaultWorkspace = {
   assistantId: "",
   phoneNumber: "",
   voiceConfigured: false,
-  planTier: "starter",
+  planTier: "",
 };
 
 const pricingPlans = [
@@ -147,6 +147,15 @@ function PricingCards({ currentPlan = "starter", compact = false }) {
       {pricingPlans.map((plan) => {
         const featured = plan.key === "growth";
         const current = currentPlan === plan.key;
+        const currentIndex = pricingPlans.findIndex((item) => item.key === currentPlan);
+        const planIndex = pricingPlans.findIndex((item) => item.key === plan.key);
+        const actionLabel = current
+          ? "Current Plan"
+          : currentIndex === -1
+            ? "Get On This Plan"
+            : planIndex > currentIndex
+              ? `Upgrade to ${plan.name}`
+              : `Switch to ${plan.name}`;
 
         return (
           <div key={plan.key} className={`rounded-[2rem] border p-5 transition ${featured ? "border-zinc-500 bg-white text-black shadow-[0_18px_50px_rgba(255,255,255,0.08)]" : "border-zinc-800 bg-black/40 text-white"}`}>
@@ -163,9 +172,9 @@ function PricingCards({ currentPlan = "starter", compact = false }) {
               href={stripeLinks[plan.key]}
               target="_blank"
               rel="noreferrer"
-              className={`mt-6 flex items-center justify-center rounded-2xl px-4 py-3 text-sm font-bold transition ${featured ? "bg-black text-white hover:bg-zinc-800" : "bg-white text-black hover:bg-zinc-200"}`}
+              className={`mt-6 flex items-center justify-center rounded-2xl px-4 py-3 text-sm font-bold transition ${current ? "pointer-events-none opacity-60" : ""} ${featured ? "bg-black text-white hover:bg-zinc-800" : "bg-white text-black hover:bg-zinc-200"}`}
             >
-              {current ? "Manage Plan" : plan.key === "growth" ? "Start 7-Day Trial" : "Choose Plan"}
+              {actionLabel}
             </a>
           </div>
         );
@@ -277,6 +286,7 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
   const [activeTab, setActiveTab] = useState("command");
   const [brainSubTab, setBrainSubTab] = useState("profile");
   const [themeMode, setThemeMode] = useState("dark");
+  const [showPricingModal, setShowPricingModal] = useState(false);
   const [chatInput, setChatInput] = useState("");
   const [chatLog, setChatLog] = useState([]);
   const [isTyping, setIsTyping] = useState(false);
@@ -486,6 +496,18 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
 
   const currentTheme = tabThemes[activeTab];
   const isLightMode = themeMode === "light";
+  const userName = useMemo(() => {
+    if (workspace.businessName) return workspace.businessName;
+    if (user?.email) return user.email.split("@")[0];
+    return "Owner";
+  }, [user?.email, workspace.businessName]);
+  const greeting = useMemo(() => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good morning";
+    if (hour < 18) return "Good afternoon";
+    return "Good evening";
+  }, []);
+  const currentPlanMeta = useMemo(() => pricingPlans.find((plan) => plan.key === workspace.planTier) || null, [workspace.planTier]);
   const commandChips = useMemo(() => {
     return [
       ["Calls", calls.length],
@@ -519,6 +541,67 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
   const cardClasses = isLightMode ? "border-zinc-300 bg-white text-black shadow-[0_18px_50px_rgba(0,0,0,0.06)]" : "border-zinc-800 bg-[#0f0f11] text-white";
   const mutedText = isLightMode ? "text-zinc-700" : "text-zinc-400";
   const softText = isLightMode ? "text-zinc-500" : "text-zinc-500";
+  const overviewMenu = [
+    ["command", "Overview"],
+    ["command", "Calls"],
+    ["command", "Leads"],
+    ["command", "Operations"],
+    ["ai", "AI Advisor"],
+    ["brain", "Knowledge"],
+    ["brain", "Files"],
+    ["brain", "Settings"],
+  ];
+  const rangeLabel = useMemo(() => {
+    const end = new Date();
+    const start = new Date();
+    start.setDate(end.getDate() - 6);
+    return `${start.toLocaleDateString([], { month: "short", day: "numeric" })} - ${end.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" })}`;
+  }, []);
+  const revenueTotal = useMemo(() => calls.reduce((total, call) => total + Number(call.revenue || 0), 0), [calls]);
+  const recentCalls = useMemo(() => [...calls].sort((left, right) => {
+    const leftTime = left.timestamp?.toDate ? left.timestamp.toDate().getTime() : left.timestamp ? new Date(left.timestamp).getTime() : 0;
+    const rightTime = right.timestamp?.toDate ? right.timestamp.toDate().getTime() : right.timestamp ? new Date(right.timestamp).getTime() : 0;
+    return rightTime - leftTime;
+  }).slice(0, 5), [calls]);
+  const actionQueue = useMemo(() => {
+    const items = [];
+    if (followUps.length) items.push({ title: `${followUps.length} calls need follow-up`, subtitle: "Text back, estimate, or callback." });
+    const complaintCount = leadGroups.find((group) => group.name === "Complaints")?.count || 0;
+    if (complaintCount) items.push({ title: `${complaintCount} unhappy callers`, subtitle: "Review summaries and recover the account." });
+    if (!workspace.voiceConfigured) items.push({ title: "Voice network not configured", subtitle: "Finish business profile and provision a line." });
+    if (!knowledgeFiles.length) items.push({ title: "Knowledge base empty", subtitle: "Upload pricing sheets, FAQs, or service docs." });
+    return items.slice(0, 4);
+  }, [followUps.length, knowledgeFiles.length, leadGroups, workspace.voiceConfigured]);
+  const insightCards = useMemo(() => {
+    const items = [];
+    if (revenueTotal) items.push({ title: `Revenue tracked: $${revenueTotal.toLocaleString()}`, subtitle: "Pulled from real call records." });
+    if (recentCalls.length) items.push({ title: `${recentCalls.length} recent calls loaded`, subtitle: "Dashboard is syncing completed call data." });
+    if (knowledgeFiles.length) items.push({ title: `${knowledgeFiles.length} files indexed`, subtitle: "Executive AI can answer from uploaded business docs." });
+    if (workspace.phoneNumber) items.push({ title: workspace.phoneNumber, subtitle: "Active voice line stored in Firestore." });
+    if (!items.length) items.push({ title: "No business activity yet", subtitle: "Connect the workflow and your first real numbers will replace this empty state." });
+    return items.slice(0, 4);
+  }, [knowledgeFiles.length, recentCalls.length, revenueTotal, workspace.phoneNumber]);
+  const chartValues = useMemo(() => {
+    const byDay = new Array(7).fill(0);
+    const now = new Date();
+    calls.forEach((call) => {
+      const date = call.timestamp?.toDate ? call.timestamp.toDate() : call.timestamp ? new Date(call.timestamp) : null;
+      if (!date || Number.isNaN(date.getTime())) return;
+      const diff = Math.floor((now - date) / (1000 * 60 * 60 * 24));
+      const index = 6 - diff;
+      if (index >= 0 && index < 7) {
+        byDay[index] += Number(call.revenue || 0) || 1;
+      }
+    });
+    const max = Math.max(...byDay, 1);
+    return byDay.map((value) => Math.round((value / max) * 100));
+  }, [calls]);
+  const metricVisuals = useMemo(() => ({
+    revenue: chartValues,
+    calls: chartValues.map((value, index) => Math.max(18, value - (index % 2 ? 16 : 6))),
+    booked: chartValues.map((value, index) => Math.max(14, value - 12 + index * 2)),
+    rate: chartValues.map((value, index) => Math.max(20, value - 8 + (index % 3) * 4)),
+  }), [chartValues]);
 
   async function sendToGemini(input = chatInput) {
     if (!input.trim() || locked) return;
@@ -748,6 +831,7 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
 
   return (
     <div className={`relative min-h-screen overflow-hidden ${shellClasses}`}>
+      <PricingModal currentPlan={workspace.planTier} open={showPricingModal} onClose={() => setShowPricingModal(false)} />
       {showOnboarding ? (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/85 px-4 backdrop-blur-xl">
           <div className="w-full max-w-lg rounded-[2rem] border border-zinc-800 bg-zinc-950 p-8 shadow-[0_20px_100px_rgba(0,0,0,0.45)] sm:p-10">
@@ -801,124 +885,164 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
         <div className="absolute bottom-0 left-1/3 h-64 w-64 rounded-full bg-zinc-500/10 blur-3xl" />
       </div>
       <div className={`flex min-h-screen flex-col lg:flex-row ${locked ? "select-none" : ""}`}>
-        <aside className={`w-full border-b lg:min-h-screen lg:w-72 lg:border-b-0 lg:border-r ${asideClasses}`}>
-          <div className="p-6 lg:p-8">
-            <p className={`text-xs font-semibold uppercase tracking-[0.35em] ${softText}`}>Fugth</p>
-            <h1 className={`mt-2 text-2xl font-black tracking-tight ${isLightMode ? "text-black" : "text-white"}`}>MANAGEMENT</h1>
-            <p className={`mt-4 text-sm leading-7 ${softText}`}>
-              Consumer Business OS for calls, operations, uploads, reminders, and executive AI guidance.
-            </p>
+        <aside className={`w-full border-b lg:min-h-screen lg:w-[220px] lg:border-b-0 lg:border-r ${isLightMode ? asideClasses : "border-white/6 bg-[#070b14]/95"}`}>
+          <div className="p-6">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 via-violet-500 to-cyan-400 text-xl font-black text-white shadow-[0_10px_35px_rgba(99,102,241,0.35)]">F</div>
+              <div>
+                <p className={`text-xl font-semibold ${isLightMode ? "text-black" : "text-white"}`}>Fugth</p>
+                <p className={`text-sm ${softText}`}>Management OS</p>
+              </div>
+            </div>
           </div>
 
-          <nav className="space-y-2 px-4 pb-6 lg:px-6">
-            {[
-              ["command", "⚡ Command Center", "Calls, emails, recordings, follow-ups"],
-              ["brain", "🧠 Business Brain", "Knowledge, settings, hours, files, calendar"],
-              ["ai", "🤖 Executive AI", "ChatGPT-style consulting with your business context"],
-            ].map(([key, title, subtitle]) => (
+          <nav className="space-y-2 px-4 pb-6">
+            {overviewMenu.map(([key, title], index) => (
               <button
-                key={key}
+                key={`${key}-${title}`}
                 onClick={() => setActiveTab(key)}
-                className={`w-full rounded-2xl border px-4 py-4 text-left transition ${activeTab === key ? `${isLightMode ? "border-zinc-400 bg-zinc-200 text-black" : `border-zinc-700 bg-zinc-900 text-white ${tabThemes[key].glow}`}` : `${isLightMode ? "border-zinc-300 bg-white text-zinc-700 hover:border-zinc-400 hover:bg-zinc-50 hover:text-black" : "border-zinc-900 bg-zinc-950 text-zinc-400 hover:border-zinc-800 hover:bg-zinc-900/60 hover:text-white"}`}`}
+                className={`flex w-full items-center gap-3 rounded-2xl border px-4 py-4 text-left transition ${activeTab === key && index === 0 ? `${isLightMode ? "border-zinc-400 bg-zinc-200 text-black" : "border-indigo-500/30 bg-indigo-500/12 text-white"}` : `${isLightMode ? "border-zinc-300 bg-white text-zinc-700 hover:border-zinc-400 hover:bg-zinc-50 hover:text-black" : "border-transparent bg-transparent text-zinc-400 hover:border-white/6 hover:bg-white/[0.03] hover:text-white"}`}`}
               >
-                <p className="text-sm font-semibold">{title}</p>
-                <p className={`mt-1 text-xs leading-6 ${softText}`}>{subtitle}</p>
+                <div className={`h-8 w-8 rounded-xl ${activeTab === key && index === 0 ? "bg-white/10" : "bg-white/[0.04]"}`} />
+                <p className="text-sm font-medium">{title}</p>
               </button>
             ))}
           </nav>
 
-          <div className="px-6 pb-6 lg:mt-auto">
-            <div className={`flex items-center gap-3 rounded-2xl border px-4 py-3 ${isLightMode ? "border-zinc-300 bg-white" : "border-zinc-900 bg-zinc-950/80"}`}>
+          <div className="mt-auto px-4 pb-4">
+            <div className={`flex items-center gap-3 rounded-2xl border px-4 py-3 ${isLightMode ? "border-zinc-300 bg-white" : "border-white/6 bg-white/[0.02]"}`}>
               <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
               <span className={`text-xs font-medium ${softText}`}>System Operational</span>
             </div>
+            <button onClick={() => setThemeMode((current) => current === "dark" ? "light" : "dark")} className={`mt-4 flex w-full items-center justify-between rounded-2xl border px-4 py-3 text-sm ${isLightMode ? "border-zinc-300 bg-white text-black" : "border-white/6 bg-white/[0.02] text-white"}`}>
+              <span>{themeMode === "dark" ? "Dark" : "Light"}</span>
+              <span className={softText}>Theme</span>
+            </button>
+            {!locked ? (
+              <div className={`mt-6 rounded-2xl border p-4 ${isLightMode ? "border-zinc-300 bg-white" : "border-white/6 bg-white/[0.02]"}`}>
+                <p className={`text-sm font-semibold ${isLightMode ? "text-black" : "text-white"}`}>{userName}</p>
+                <p className={`mt-1 truncate text-xs ${softText}`}>{user?.email || "No account email"}</p>
+              </div>
+            ) : null}
           </div>
         </aside>
 
-        <main className={`relative flex-1 overflow-y-auto p-5 sm:p-8 lg:p-10 ${mainClasses}`}>
-          <div className={`mb-8 rounded-[2rem] border p-5 backdrop-blur sm:p-6 ${currentTheme.glow} ${isLightMode ? "border-zinc-300 bg-white/80" : "border-zinc-800 bg-black/30"}`}>
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <main className={`relative flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 ${isLightMode ? mainClasses : "bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.08),transparent_28%),linear-gradient(180deg,#060912_0%,#090d16_100%)]"}`}>
+          <div className={`mb-6 rounded-[2rem] border p-5 backdrop-blur sm:p-6 ${isLightMode ? "border-zinc-300 bg-white/80" : "border-white/6 bg-[rgba(10,14,22,0.72)]"}`}>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <p className={`text-xs font-semibold uppercase tracking-[0.35em] ${softText}`}>Fugth Management OS</p>
-                <h2 className={`mt-2 text-2xl font-bold sm:text-3xl ${isLightMode ? "text-black" : "text-white"}`}>{currentTheme.label}</h2>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {activeTab === "command" && commandChips.map(([label, value]) => <InfoChip key={label} label={label} value={value} />)}
-                  {activeTab === "brain" && brainChips.map(([label, value]) => <InfoChip key={label} label={label} value={value} />)}
-                  {activeTab === "ai" && aiChips.map(([label, value]) => <InfoChip key={label} label={label} value={value} />)}
-                </div>
+                <h1 className={`text-3xl font-semibold tracking-tight ${isLightMode ? "text-black" : "text-white"}`}>{greeting}, {userName}</h1>
+                <p className={`mt-2 text-sm ${softText}`}>Here is what is happening with your business today.</p>
               </div>
               <div className="flex flex-wrap items-center gap-3">
-                <ThemeSwitch themeMode={themeMode} onToggle={() => setThemeMode((current) => current === "dark" ? "light" : "dark")} />
-                {!locked && workspace.planTier !== "elite" ? (
-                  <a href={stripeLinks.growth} target="_blank" rel="noreferrer" className="rounded-full bg-white px-4 py-2 text-xs font-bold uppercase tracking-[0.24em] text-black transition hover:bg-zinc-200">
-                    Upgrade
-                  </a>
-                ) : null}
-                <div className={`inline-flex rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.28em] ${currentTheme.badge}`}>
-                  {locked ? "Preview Mode" : workspace.planTier}
-                </div>
                 {!locked ? (
-                  <div className={`rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.24em] ${isLightMode ? "border-zinc-300 bg-white text-black" : "border-zinc-700 bg-zinc-950 text-white"}`}>
-                    {workspace.businessName || user?.email || "Profile"}
-                  </div>
+                  <button onClick={() => setShowPricingModal(true)} className="rounded-xl bg-gradient-to-r from-indigo-500 to-blue-500 px-5 py-3 text-sm font-semibold text-white shadow-[0_12px_40px_rgba(79,70,229,0.35)] transition hover:opacity-95">
+                    {currentPlanMeta ? "Upgrade" : "Choose Plan"}
+                  </button>
                 ) : null}
+                <div className={`rounded-2xl border px-4 py-3 text-sm ${isLightMode ? "border-zinc-300 bg-white text-black" : "border-white/6 bg-white/[0.03] text-white"}`}>
+                  {rangeLabel}
+                </div>
               </div>
             </div>
           </div>
 
           {activeTab === "command" && (
-            <div className="mx-auto max-w-7xl space-y-8">
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.35em] text-zinc-500">Command Center</p>
-                  <h2 className="mt-3 text-3xl font-bold text-white">Money, Calls, and Daily Momentum</h2>
-                </div>
-                <div className="rounded-2xl border border-zinc-800 bg-zinc-950 px-5 py-4">
-                  <p className="text-xs uppercase tracking-[0.32em] text-zinc-500">This Week</p>
-                  <p className="mt-2 text-3xl font-semibold text-white">{locked ? "--" : scoreCards[3].value}</p>
-                  <p className="mt-1 text-sm text-zinc-500">{scoreCards[3].hint}</p>
-                </div>
+            <div className="mx-auto max-w-7xl space-y-5">
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <SectionCard>
+                  <p className="text-sm text-zinc-400">Revenue This Week</p>
+                  <p className="mt-4 text-5xl font-semibold tracking-[-0.04em] text-white">{locked ? "--" : scoreCards[3].value}</p>
+                  <p className="mt-3 text-sm text-emerald-400">{scoreCards[3].hint}</p>
+                  <MiniBars values={metricVisuals.revenue} tone="emerald" />
+                </SectionCard>
+                <SectionCard>
+                  <p className="text-sm text-zinc-400">Calls Today</p>
+                  <p className="mt-4 text-5xl font-semibold tracking-[-0.04em] text-white">{locked ? "--" : scoreCards[0].value}</p>
+                  <p className="mt-3 text-sm text-sky-400">{scoreCards[0].hint}</p>
+                  <MiniBars values={metricVisuals.calls} tone="blue" />
+                </SectionCard>
+                <SectionCard>
+                  <p className="text-sm text-zinc-400">Appointments Booked</p>
+                  <p className="mt-4 text-5xl font-semibold tracking-[-0.04em] text-white">{locked ? "--" : scoreCards[2].value}</p>
+                  <p className="mt-3 text-sm text-violet-400">{scoreCards[2].hint}</p>
+                  <MiniBars values={metricVisuals.booked} tone="purple" />
+                </SectionCard>
+                <SectionCard>
+                  <p className="text-sm text-zinc-400">AI Response Rate</p>
+                  <p className="mt-4 text-5xl font-semibold tracking-[-0.04em] text-white">{locked ? "--" : scoreCards[5].value}</p>
+                  <p className="mt-3 text-sm text-cyan-400">{scoreCards[5].hint}</p>
+                  <MiniBars values={metricVisuals.rate} tone="cyan" />
+                </SectionCard>
               </div>
 
-              <div className={`grid gap-4 md:grid-cols-2 xl:grid-cols-3 ${locked ? "opacity-60" : "opacity-100"}`}>
-                {scoreCards.map((card) => (
-                  <div key={card.label} className="rounded-3xl border border-zinc-800 bg-zinc-950 p-6">
-                    <p className="text-sm text-zinc-500">{card.label}</p>
-                    <p className="mt-3 text-4xl font-semibold tracking-[-0.05em] text-white">{card.value}</p>
-                    <p className="mt-3 text-xs uppercase tracking-[0.25em] text-zinc-600">{card.hint}</p>
-                  </div>
-                ))}
-              </div>
-
-              <div className="grid gap-6 xl:grid-cols-[1.25fr_0.75fr]">
-                <div className={`rounded-[2rem] border border-zinc-800 bg-[#0f0f11] p-6 ${locked ? "opacity-65" : "opacity-100"}`}>
+              <div className="grid gap-4 xl:grid-cols-[1.3fr_0.85fr_0.85fr]">
+                <SectionCard>
                   <div className="flex items-center justify-between gap-4">
-                    <div>
-                      <h3 className="text-xl font-bold text-white">AI Call Center</h3>
-                    </div>
-                    <span className="rounded-full border border-zinc-800 bg-black px-3 py-1 text-xs text-zinc-400">{calls.length} live calls</span>
+                    <h3 className="text-xl font-semibold text-white">Recent Activity</h3>
+                    <span className="rounded-full border border-white/10 bg-white/[0.03] px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-zinc-300">{feedItems.length} events</span>
                   </div>
-                  <div className="mt-6 space-y-4">
-                    {calls.length ? calls.map((call) => (
-                      <div key={`${call.caller}-${call.date}`} className={`rounded-3xl border p-5 ${isLightMode ? "border-zinc-300 bg-white" : "border-zinc-800 bg-black/40"}`}>
+                  <div className="mt-5 space-y-3">
+                    {feedItems.length ? feedItems.map((item) => (
+                      <div key={item.id} className="flex items-center justify-between gap-4 rounded-2xl border border-white/6 bg-white/[0.02] px-4 py-4">
+                        <div>
+                          <p className="text-sm font-medium text-white">{item.text}</p>
+                          <p className="mt-1 text-xs uppercase tracking-[0.2em] text-zinc-500">{item.createdAt}</p>
+                        </div>
+                        <span className="text-zinc-500">&gt;</span>
+                      </div>
+                    )) : <EmptyPanel title="No activity yet" body="Real activity will appear here as calls, uploads, and notifications sync into Firebase." />}
+                  </div>
+                </SectionCard>
+
+                <SectionCard>
+                  <div className="flex items-center justify-between gap-4">
+                    <h3 className="text-xl font-semibold text-white">Action Queue</h3>
+                    <span className="rounded-full bg-white/5 px-3 py-1 text-xs font-semibold text-zinc-300">{actionQueue.length}</span>
+                  </div>
+                  <div className="mt-5 space-y-3">
+                    {actionQueue.length ? actionQueue.map((item) => (
+                      <div key={item.title} className="rounded-2xl border border-white/6 bg-white/[0.02] px-4 py-4">
+                        <p className="text-sm font-medium text-white">{item.title}</p>
+                        <p className="mt-1 text-sm text-zinc-500">{item.subtitle}</p>
+                      </div>
+                    )) : <EmptyPanel title="Queue is clear" body="No outstanding actions are currently derived from your real data." />}
+                  </div>
+                </SectionCard>
+
+                <SectionCard>
+                  <div className="flex items-center justify-between gap-4">
+                    <h3 className="text-xl font-semibold text-white">Live Calls</h3>
+                    <span className="text-sm text-zinc-500">0 live</span>
+                  </div>
+                  <div className="flex min-h-[260px] flex-col items-center justify-center text-center">
+                    <div className="flex h-20 w-20 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-2xl text-zinc-300">C</div>
+                    <p className="mt-6 text-2xl font-semibold text-white">No live calls right now</p>
+                    <p className="mt-3 max-w-xs text-sm leading-7 text-zinc-500">Completed calls will appear here automatically after webhook ingestion and can be played back from the dashboard.</p>
+                  </div>
+                </SectionCard>
+              </div>
+
+              <div className="grid gap-4 xl:grid-cols-[1.45fr_0.95fr]">
+                <SectionCard>
+                  <h3 className="text-xl font-semibold text-white">Call Library</h3>
+                  <div className="mt-5 space-y-4">
+                    {recentCalls.length ? recentCalls.map((call) => (
+                      <div key={call.id} className="rounded-[1.5rem] border border-white/6 bg-white/[0.02] p-4">
                         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                          <div>
+                          <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-3">
-                              <h4 className={`text-lg font-medium ${isLightMode ? "text-black" : "text-white"}`}>{call.caller}</h4>
+                              <p className="text-lg font-semibold text-white">{call.caller}</p>
                               <span className={`rounded-full border px-3 py-1 text-xs ${sentimentStyles[call.sentiment]}`}>{call.sentiment}</span>
-                              <span className="rounded-full border border-zinc-800 px-3 py-1 text-xs text-zinc-400">{call.outcome}</span>
+                              <span className="rounded-full border border-white/10 px-3 py-1 text-xs text-zinc-400">{call.outcome}</span>
                             </div>
-                            <p className={`mt-2 text-sm ${softText}`}>{call.phone} · {call.date} · {call.duration}</p>
-                            <p className={`mt-4 text-sm leading-7 ${mutedText}`}>{call.summary}</p>
-                            <div className={`mt-4 rounded-2xl border p-4 text-sm leading-7 ${isLightMode ? "border-zinc-300 bg-zinc-50 text-zinc-700" : "border-zinc-800 bg-zinc-950/80 text-zinc-400"}`}>
-                              <span className={`block text-xs uppercase tracking-[0.28em] ${softText}`}>Transcript</span>
-                              {call.transcript}
-                            </div>
+                            <p className="mt-2 text-sm text-zinc-500">{call.phone} · {call.date} · {call.duration}</p>
+                            <p className="mt-4 text-sm leading-7 text-zinc-300">{call.summary}</p>
                             {call.recording ? (
-                              <div className={`mt-4 rounded-[1.6rem] border p-4 ${isLightMode ? "border-zinc-300 bg-zinc-100" : "border-zinc-800 bg-zinc-950"}`}>
-                                <div className="flex items-center justify-between gap-3">
-                                  <span className={`text-xs font-semibold uppercase tracking-[0.28em] ${softText}`}>Media</span>
-                                  <a href={call.recording} target="_blank" rel="noreferrer" className={`rounded-full px-3 py-1.5 text-xs font-semibold ${isLightMode ? "bg-black text-white" : "bg-white text-black"}`}>
+                              <div className="mt-4 rounded-2xl border border-white/6 bg-black/20 p-4">
+                                <div className="flex items-center justify-between gap-4">
+                                  <p className="text-xs font-semibold uppercase tracking-[0.28em] text-zinc-500">Recording</p>
+                                  <a href={call.recording} target="_blank" rel="noreferrer" className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-black">
                                     Open File
                                   </a>
                                 </div>
@@ -928,76 +1052,40 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
                               </div>
                             ) : null}
                           </div>
-                          <div className={`rounded-2xl border px-4 py-3 text-sm ${isLightMode ? "border-zinc-300 bg-zinc-100 text-zinc-700" : "border-zinc-800 bg-zinc-950 text-zinc-300"}`}>
-                            {call.rating ? `Listen & Rate ${"⭐".repeat(call.rating)}` : "Recording metadata"}
+                          <div className="w-full max-w-[220px] rounded-2xl border border-white/6 bg-black/20 p-4">
+                            <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">Transcript</p>
+                            <p className="mt-3 text-sm leading-7 text-zinc-400">{call.transcript || "Transcript will appear once the provider includes it in the call payload."}</p>
                           </div>
-                        </div>
-                        <div className="mt-5">
-                          <Waveform />
-                        </div>
-                        <div className="mt-5 flex flex-wrap gap-2">
-                          {call.recording ? <a href={call.recording} target="_blank" rel="noreferrer" className="rounded-full border border-zinc-800 bg-zinc-950 px-3 py-2 text-xs text-zinc-300 transition hover:border-zinc-700 hover:text-white">Open Recording</a> : <span className="rounded-full border border-zinc-800 bg-zinc-950 px-3 py-2 text-xs text-zinc-500">No recording URL</span>}
-                          <button className="rounded-full border border-zinc-800 bg-zinc-950 px-3 py-2 text-xs text-zinc-300 transition hover:border-zinc-700 hover:text-white">Generate Follow-Up</button>
                         </div>
                       </div>
-                    )) : (
-                      <EmptyPanel title="No live call records yet" body="Connect your call pipeline or webhook so completed calls appear here automatically." />
-                    )}
+                    )) : <EmptyPanel title="No recorded calls yet" body="The dashboard will populate this library automatically after real calls land in Firestore." />}
                   </div>
-                </div>
+                </SectionCard>
 
-                <div className="space-y-6">
-                  <div className={`rounded-[2rem] border border-zinc-800 bg-[#0f0f11] p-6 ${locked ? "opacity-65" : "opacity-100"}`}>
-                    <h3 className="text-xl font-bold text-white">Smart Follow-Ups</h3>
-                    <div className="mt-5 space-y-3">
-                      {followUps.length ? followUps.map((item) => (
-                        <div key={item.customer} className="rounded-2xl border border-zinc-800 bg-black/40 p-4">
-                          <div className="flex items-center justify-between gap-3">
-                            <p className="font-medium text-white">{item.customer}</p>
-                            <div className="flex gap-2">
-                              {[
-                                "Send Text",
-                                "Send Email",
-                                "Auto Follow-Up",
-                              ].map((label) => (
-                                <button key={label} className="rounded-full border border-zinc-800 bg-zinc-950 px-3 py-1.5 text-xs text-zinc-300">
-                                  {label}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                          <p className="mt-2 text-sm leading-6 text-zinc-400">{item.reason}</p>
-                        </div>
-                      )) : <EmptyPanel title="No follow-ups detected" body="Follow-up actions appear when calls arrive with inquiry, quote, or callback signals." />}
+                <div className="space-y-4">
+                  <SectionCard>
+                    <div className="flex items-center justify-between gap-4">
+                      <h3 className="text-xl font-semibold text-white">Revenue Overview</h3>
+                      <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-zinc-300">{scoreCards[3].value}</span>
                     </div>
-                  </div>
+                    <MiniBars values={metricVisuals.revenue} tone="purple" />
+                    <div className="mt-5 flex items-center justify-between text-xs uppercase tracking-[0.18em] text-zinc-500">
+                      <span>Last 7 Days</span>
+                      <span>{calls.length} calls tracked</span>
+                    </div>
+                  </SectionCard>
 
-                  <div className={`rounded-[2rem] border border-zinc-800 bg-[#0f0f11] p-6 ${locked ? "opacity-65" : "opacity-100"}`}>
-                    <h3 className="text-xl font-bold text-white">Lead and Email Engine</h3>
+                  <SectionCard>
+                    <h3 className="text-xl font-semibold text-white">AI Insights</h3>
                     <div className="mt-5 space-y-3">
-                      {leadGroups.map((group) => (
-                        <div key={group.name} className="rounded-2xl border border-zinc-800 bg-black/40 p-4">
-                          <div className="flex items-center justify-between">
-                            <p className="font-medium text-white">{group.name}</p>
-                            <span className="text-sm text-zinc-400">{group.count}</span>
-                          </div>
-                          <p className="mt-2 text-sm leading-6 text-zinc-500">{group.description}</p>
+                      {insightCards.map((item) => (
+                        <div key={item.title} className="rounded-2xl border border-white/6 bg-white/[0.02] px-4 py-4">
+                          <p className="text-sm font-medium text-white">{item.title}</p>
+                          <p className="mt-1 text-sm text-zinc-500">{item.subtitle}</p>
                         </div>
                       ))}
                     </div>
-                  </div>
-
-                  <div className={`rounded-[2rem] border border-zinc-800 bg-[#0f0f11] p-6 ${locked ? "opacity-65" : "opacity-100"}`}>
-                    <h3 className="text-xl font-bold text-white">Live Notifications</h3>
-                    <div className="mt-5 space-y-3">
-                      {feedItems.length ? feedItems.map((item) => (
-                        <div key={item.id} className="rounded-2xl border border-zinc-800 bg-black/40 p-4 text-sm leading-7 text-zinc-300">
-                          <p>{item.text}</p>
-                          <p className="mt-2 text-xs uppercase tracking-[0.22em] text-zinc-600">{item.createdAt}</p>
-                        </div>
-                      )) : <EmptyPanel title="No activity yet" body="Recent activity will appear once calls, uploads, or notifications start flowing." />}
-                    </div>
-                  </div>
+                  </SectionCard>
                 </div>
               </div>
             </div>
@@ -1324,6 +1412,63 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
             </div>
           )}
         </main>
+      </div>
+    </div>
+  );
+}
+
+function MiniBars({ values, tone = "emerald" }) {
+  const colors = {
+    emerald: "from-emerald-500/20 to-emerald-400",
+    blue: "from-sky-500/20 to-sky-400",
+    purple: "from-violet-500/20 to-violet-400",
+    cyan: "from-cyan-500/20 to-cyan-400",
+  };
+
+  const safeValues = values.length ? values : [2, 4, 3, 6, 5, 7, 4];
+
+  return (
+    <div className="mt-6 flex h-16 items-end gap-2">
+      {safeValues.map((value, index) => (
+        <div
+          key={`${tone}-${index}`}
+          className={`flex-1 rounded-full bg-gradient-to-t ${colors[tone] || colors.emerald}`}
+          style={{ height: `${Math.max(14, Math.min(100, value))}%` }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function SectionCard({ children, className = "" }) {
+  return <div className={`rounded-[1.8rem] border border-white/6 bg-[rgba(14,17,25,0.88)] p-5 shadow-[0_20px_80px_rgba(0,0,0,0.22)] ${className}`}>{children}</div>;
+}
+
+function PricingModal({ currentPlan, open, onClose }) {
+  if (!open) return null;
+
+  const currentPlanMeta = pricingPlans.find((plan) => plan.key === currentPlan) || null;
+
+  return (
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/75 px-4 backdrop-blur-xl">
+      <div className="w-full max-w-5xl rounded-[2rem] border border-white/10 bg-[#090c14] p-6 shadow-[0_30px_120px_rgba(0,0,0,0.45)] sm:p-8">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.35em] text-zinc-500">Plans & Billing</p>
+            <h3 className="mt-3 text-3xl font-bold text-white">Choose your operating plan.</h3>
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-zinc-400">
+              {currentPlanMeta
+                ? `Current plan: ${currentPlanMeta.name}. Upgrade or switch using the Stripe links below.`
+                : "No active plan is stored on this account yet. Start on any plan below."}
+            </p>
+          </div>
+          <button onClick={onClose} type="button" className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/10">
+            Close
+          </button>
+        </div>
+        <div className="mt-8">
+          <PricingCards currentPlan={currentPlan} />
+        </div>
       </div>
     </div>
   );
