@@ -6,13 +6,64 @@ function getErrorText(payload, fallback) {
   return payload.message || payload.error || fallback;
 }
 
+async function parseProviderResponse(response, stage) {
+  const raw = await response.text();
+  let payload = null;
+
+  try {
+    payload = raw ? JSON.parse(raw) : null;
+  } catch {
+    payload = null;
+  }
+
+  if (!response.ok) {
+    const detail = payload
+      ? getErrorText(payload, `${stage} failed.`)
+      : `${stage} failed with ${response.status}. Upstream returned non-JSON content.`;
+
+    return {
+      ok: false,
+      status: response.status,
+      error: detail,
+      raw: raw?.slice(0, 300) || "",
+      payload,
+    };
+  }
+
+  if (!payload) {
+    return {
+      ok: false,
+      status: 502,
+      error: `${stage} succeeded with a non-JSON response.`,
+      raw: raw?.slice(0, 300) || "",
+      payload: null,
+    };
+  }
+
+  return {
+    ok: true,
+    status: response.status,
+    payload,
+    raw,
+  };
+}
+
+export async function GET() {
+  return NextResponse.json({
+    route: "setup-voice",
+    ok: true,
+    hasVoicePrivateKey: Boolean(process.env.VOICE_PRIVATE_KEY || process.env.VAPI_PRIVATE_KEY),
+    hasVoicePublicKey: Boolean(process.env.NEXT_PUBLIC_VOICE_PUBLIC_KEY),
+  });
+}
+
 export async function POST(req) {
   try {
     const { userId, businessName, industry } = await req.json();
-    const privateKey = process.env.VOICE_PRIVATE_KEY;
+    const privateKey = process.env.VOICE_PRIVATE_KEY || process.env.VAPI_PRIVATE_KEY;
 
     if (!privateKey) {
-      return NextResponse.json({ error: "VOICE_PRIVATE_KEY is missing from environment variables." }, { status: 500 });
+      return NextResponse.json({ error: "VOICE_PRIVATE_KEY or VAPI_PRIVATE_KEY is missing from environment variables." }, { status: 500 });
     }
 
     if (!userId || !businessName || !industry) {
@@ -32,6 +83,7 @@ export async function POST(req) {
       headers: {
         Authorization: `Bearer ${privateKey}`,
         "Content-Type": "application/json",
+        Accept: "application/json",
       },
       body: JSON.stringify({
         name: `${businessName} Receptionist`,
@@ -47,10 +99,20 @@ export async function POST(req) {
       }),
     });
 
-    const assistantPayload = await assistantRes.json();
-    if (!assistantRes.ok) {
-      return NextResponse.json({ error: getErrorText(assistantPayload, "Assistant provisioning failed.") }, { status: assistantRes.status });
+    const assistantResult = await parseProviderResponse(assistantRes, "Assistant provisioning");
+    if (!assistantResult.ok) {
+      return NextResponse.json(
+        {
+          error: assistantResult.error,
+          stage: "assistant",
+          upstreamStatus: assistantResult.status,
+          upstreamPreview: assistantResult.raw,
+        },
+        { status: assistantResult.status }
+      );
     }
+
+    const assistantPayload = assistantResult.payload;
 
     const assistantId = assistantPayload.id;
     if (!assistantId) {
@@ -62,6 +124,7 @@ export async function POST(req) {
       headers: {
         Authorization: `Bearer ${privateKey}`,
         "Content-Type": "application/json",
+        Accept: "application/json",
       },
       body: JSON.stringify({
         assistantId,
@@ -69,10 +132,21 @@ export async function POST(req) {
       }),
     });
 
-    const numberPayload = await numberRes.json();
-    if (!numberRes.ok) {
-      return NextResponse.json({ error: getErrorText(numberPayload, "Phone number provisioning failed."), assistantId }, { status: numberRes.status });
+    const numberResult = await parseProviderResponse(numberRes, "Phone number provisioning");
+    if (!numberResult.ok) {
+      return NextResponse.json(
+        {
+          error: numberResult.error,
+          stage: "phone-number",
+          upstreamStatus: numberResult.status,
+          upstreamPreview: numberResult.raw,
+          assistantId,
+        },
+        { status: numberResult.status }
+      );
     }
+
+    const numberPayload = numberResult.payload;
 
     const phoneNumber = numberPayload.number || numberPayload.phoneNumber || numberPayload.tel || "";
 
@@ -84,6 +158,6 @@ export async function POST(req) {
       phoneNumberPayload: numberPayload,
     });
   } catch (error) {
-    return NextResponse.json({ error: error.message || "Voice setup failed." }, { status: 500 });
+    return NextResponse.json({ error: error.message || "Voice setup failed.", stage: "route" }, { status: 500 });
   }
 }
