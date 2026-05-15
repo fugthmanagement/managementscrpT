@@ -7,6 +7,12 @@ import { addDoc, collection, doc, onSnapshot, query, serverTimestamp, setDoc } f
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { auth, db, storage } from "../lib/firebase";
 
+const stripeLinks = {
+  starter: "https://buy.stripe.com/dRmeVdaGld685fo4984ko00",
+  growth: "https://buy.stripe.com/3cI14n5m1d68cHQ6hg4ko01",
+  elite: "https://buy.stripe.com/5kQ7sL4hXaY037gbBA4ko02",
+};
+
 const defaultWorkspace = {
   businessName: "",
   services: "",
@@ -25,7 +31,32 @@ const defaultWorkspace = {
   assistantId: "",
   phoneNumber: "",
   voiceConfigured: false,
+  planTier: "starter",
 };
+
+const pricingPlans = [
+  {
+    key: "starter",
+    name: "Starter",
+    price: "$49",
+    badge: "Launch",
+    description: "One line, one operator, clean entry into the OS.",
+  },
+  {
+    key: "growth",
+    name: "Growth",
+    price: "$149",
+    badge: "Popular",
+    description: "Better follow-up, more throughput, stronger business memory.",
+  },
+  {
+    key: "elite",
+    name: "Elite",
+    price: "$499",
+    badge: "Scale",
+    description: "Premium deployment for businesses running AI like infrastructure.",
+  },
+];
 
 const metricLabels = [
   "Calls Today",
@@ -89,10 +120,56 @@ function Waveform() {
 
 function EmptyPanel({ title, body, action }) {
   return (
-    <div className="rounded-[2rem] border border-dashed border-zinc-800 bg-black/20 p-6 text-center">
+    <div className="rounded-[2rem] border border-dashed border-zinc-800 bg-gradient-to-br from-black/60 to-zinc-900/40 p-6 text-center">
       <p className="text-sm font-semibold text-white">{title}</p>
       <p className="mt-2 text-sm leading-7 text-zinc-500">{body}</p>
       {action ? <div className="mt-4">{action}</div> : null}
+    </div>
+  );
+}
+
+function ThemeSwitch({ themeMode, onToggle }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className="inline-flex items-center gap-3 rounded-full border border-zinc-700 bg-zinc-950 px-4 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-zinc-300 transition hover:border-zinc-500"
+    >
+      <span className={`h-2.5 w-2.5 rounded-full ${themeMode === "light" ? "bg-black" : "bg-white"}`} />
+      {themeMode === "light" ? "Light" : "Dark"}
+    </button>
+  );
+}
+
+function PricingCards({ currentPlan = "starter", compact = false }) {
+  return (
+    <div className={`grid gap-4 ${compact ? "lg:grid-cols-3" : "md:grid-cols-3"}`}>
+      {pricingPlans.map((plan) => {
+        const featured = plan.key === "growth";
+        const current = currentPlan === plan.key;
+
+        return (
+          <div key={plan.key} className={`rounded-[2rem] border p-5 transition ${featured ? "border-zinc-500 bg-white text-black shadow-[0_18px_50px_rgba(255,255,255,0.08)]" : "border-zinc-800 bg-black/40 text-white"}`}>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className={`text-xs uppercase tracking-[0.3em] ${featured ? "text-black/55" : "text-zinc-500"}`}>{plan.badge}</p>
+                <h3 className="mt-2 text-2xl font-bold">{plan.name}</h3>
+              </div>
+              {current ? <span className={`rounded-full px-3 py-1 text-[10px] uppercase tracking-[0.26em] ${featured ? "bg-black text-white" : "border border-zinc-700 text-zinc-300"}`}>Current</span> : null}
+            </div>
+            <p className="mt-4 text-4xl font-black tracking-tight">{plan.price}</p>
+            <p className={`mt-3 text-sm leading-7 ${featured ? "text-black/70" : "text-zinc-400"}`}>{plan.description}</p>
+            <a
+              href={stripeLinks[plan.key]}
+              target="_blank"
+              rel="noreferrer"
+              className={`mt-6 flex items-center justify-center rounded-2xl px-4 py-3 text-sm font-bold transition ${featured ? "bg-black text-white hover:bg-zinc-800" : "bg-white text-black hover:bg-zinc-200"}`}
+            >
+              {current ? "Manage Plan" : plan.key === "growth" ? "Start 7-Day Trial" : "Choose Plan"}
+            </a>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -173,6 +250,7 @@ function normalizeKnowledgeFile(id, data) {
 export function BusinessOSShell({ locked = false, authReady = true }) {
   const [activeTab, setActiveTab] = useState("command");
   const [brainSubTab, setBrainSubTab] = useState("profile");
+  const [themeMode, setThemeMode] = useState("dark");
   const [chatInput, setChatInput] = useState("");
   const [chatLog, setChatLog] = useState([]);
   const [isTyping, setIsTyping] = useState(false);
@@ -234,6 +312,7 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
         assistantId: data.assistantId || "",
         phoneNumber: data.phoneNumber || "",
         voiceConfigured: Boolean(data.voiceConfigured),
+        planTier: data.planTier || defaultWorkspace.planTier,
       };
       setWorkspace(nextWorkspace);
       setWorkspaceDraft(nextWorkspace);
@@ -379,6 +458,7 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
   }, [calls, locked, workspace.averageJobValue]);
 
   const currentTheme = tabThemes[activeTab];
+  const isLightMode = themeMode === "light";
   const commandChips = useMemo(() => {
     return [
       ["Calls", calls.length],
@@ -405,6 +485,13 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
       ["Tone", workspace.tone || defaultWorkspace.tone],
     ];
   }, [dataReady, followUps.length, leadGroups, workspace.tone]);
+
+  const shellClasses = isLightMode ? "bg-[#f4f3ef] text-black" : "bg-black text-white";
+  const asideClasses = isLightMode ? "border-zinc-300 bg-[#eae9e3]" : "border-zinc-900 bg-[#0a0a0a]";
+  const mainClasses = isLightMode ? "bg-[#f7f6f2]" : "bg-[#050505]/95";
+  const cardClasses = isLightMode ? "border-zinc-300 bg-white text-black shadow-[0_18px_50px_rgba(0,0,0,0.06)]" : "border-zinc-800 bg-[#0f0f11] text-white";
+  const mutedText = isLightMode ? "text-zinc-700" : "text-zinc-400";
+  const softText = isLightMode ? "text-zinc-500" : "text-zinc-500";
 
   async function sendToGemini(input = chatInput) {
     if (!input.trim() || locked) return;
@@ -585,23 +672,28 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
 
   const overlay = locked && !authReady ? null : locked ? (
     <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="mx-4 w-full max-w-xl rounded-[2rem] border border-zinc-800 bg-zinc-950/95 p-8 text-center shadow-[0_0_100px_rgba(255,255,255,0.05)] sm:p-10">
-        <h2 className="text-3xl font-extrabold tracking-tight text-white sm:text-4xl">AI Business OS</h2>
-        <p className="mt-4 text-sm leading-8 text-zinc-400 sm:text-base">
-          You are viewing a live preview of Fugth Management. Explore the Command Center, Business Brain, and Executive AI before unlocking the full interactive system.
-        </p>
-        <div className="mt-8 flex flex-col gap-4">
-          <Link href="/login" className="w-full rounded-2xl bg-white px-6 py-4 text-lg font-bold text-black transition hover:bg-zinc-200">
-            Create Account / Log In
-          </Link>
-          <p className="text-sm text-zinc-600">Real workspace data loads after authentication. No demo data is being shown.</p>
+      <div className="mx-4 w-full max-w-6xl rounded-[2.2rem] border border-zinc-700 bg-zinc-950/95 p-8 shadow-[0_0_100px_rgba(255,255,255,0.05)] sm:p-10">
+        <div className="grid gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:items-start">
+          <div>
+            <h2 className="text-3xl font-extrabold tracking-tight text-white sm:text-4xl">AI Business OS</h2>
+            <p className="mt-4 text-sm leading-8 text-zinc-400 sm:text-base">
+              Preview the full product, then unlock it with a plan. New accounts should see pricing first, not a plain wall of text.
+            </p>
+            <div className="mt-8 flex flex-col gap-4">
+              <Link href="/login" className="w-full rounded-2xl bg-white px-6 py-4 text-lg font-bold text-black transition hover:bg-zinc-200">
+                Create Account / Log In
+              </Link>
+              <p className="text-sm text-zinc-600">Real workspace data loads after authentication. No demo data is being shown.</p>
+            </div>
+          </div>
+          <PricingCards currentPlan={workspace.planTier} compact />
         </div>
       </div>
     </div>
   ) : null;
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-black text-white">
+    <div className={`relative min-h-screen overflow-hidden ${shellClasses}`}>
       {showOnboarding ? (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/85 px-4 backdrop-blur-xl">
           <div className="w-full max-w-lg rounded-[2rem] border border-zinc-800 bg-zinc-950 p-8 shadow-[0_20px_100px_rgba(0,0,0,0.45)] sm:p-10">
@@ -649,12 +741,17 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
       ) : null}
       {overlay}
       <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${currentTheme.panel}`} />
+      <div className="pointer-events-none absolute inset-0 opacity-50">
+        <div className="absolute -left-20 top-10 h-72 w-72 rounded-full bg-white/5 blur-3xl" />
+        <div className="absolute right-0 top-1/3 h-80 w-80 rounded-full bg-white/5 blur-3xl" />
+        <div className="absolute bottom-0 left-1/3 h-64 w-64 rounded-full bg-zinc-500/10 blur-3xl" />
+      </div>
       <div className={`flex min-h-screen flex-col lg:flex-row ${locked ? "select-none" : ""}`}>
-        <aside className="w-full border-b border-zinc-900 bg-[#0a0a0a] lg:min-h-screen lg:w-72 lg:border-b-0 lg:border-r">
+        <aside className={`w-full border-b lg:min-h-screen lg:w-72 lg:border-b-0 lg:border-r ${asideClasses}`}>
           <div className="p-6 lg:p-8">
-            <p className="text-xs font-semibold uppercase tracking-[0.35em] text-zinc-500">Fugth</p>
-            <h1 className="mt-2 text-2xl font-black tracking-tight text-white">MANAGEMENT</h1>
-            <p className="mt-4 text-sm leading-7 text-zinc-500">
+            <p className={`text-xs font-semibold uppercase tracking-[0.35em] ${softText}`}>Fugth</p>
+            <h1 className={`mt-2 text-2xl font-black tracking-tight ${isLightMode ? "text-black" : "text-white"}`}>MANAGEMENT</h1>
+            <p className={`mt-4 text-sm leading-7 ${softText}`}>
               Consumer Business OS for calls, operations, uploads, reminders, and executive AI guidance.
             </p>
           </div>
@@ -668,36 +765,49 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
               <button
                 key={key}
                 onClick={() => setActiveTab(key)}
-                className={`w-full rounded-2xl border px-4 py-4 text-left transition ${activeTab === key ? `border-zinc-700 bg-zinc-900 text-white ${tabThemes[key].glow}` : "border-zinc-900 bg-zinc-950 text-zinc-400 hover:border-zinc-800 hover:bg-zinc-900/60 hover:text-white"}`}
+                className={`w-full rounded-2xl border px-4 py-4 text-left transition ${activeTab === key ? `${isLightMode ? "border-zinc-400 bg-zinc-200 text-black" : `border-zinc-700 bg-zinc-900 text-white ${tabThemes[key].glow}`}` : `${isLightMode ? "border-zinc-300 bg-white text-zinc-700 hover:border-zinc-400 hover:bg-zinc-50 hover:text-black" : "border-zinc-900 bg-zinc-950 text-zinc-400 hover:border-zinc-800 hover:bg-zinc-900/60 hover:text-white"}`}`}
               >
                 <p className="text-sm font-semibold">{title}</p>
-                <p className="mt-1 text-xs leading-6 text-zinc-500">{subtitle}</p>
+                <p className={`mt-1 text-xs leading-6 ${softText}`}>{subtitle}</p>
               </button>
             ))}
           </nav>
 
           <div className="px-6 pb-6 lg:mt-auto">
-            <div className="flex items-center gap-3 rounded-2xl border border-zinc-900 bg-zinc-950/80 px-4 py-3">
+            <div className={`flex items-center gap-3 rounded-2xl border px-4 py-3 ${isLightMode ? "border-zinc-300 bg-white" : "border-zinc-900 bg-zinc-950/80"}`}>
               <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-              <span className="text-xs font-medium text-zinc-500">System Operational</span>
+              <span className={`text-xs font-medium ${softText}`}>System Operational</span>
             </div>
           </div>
         </aside>
 
-        <main className="relative flex-1 overflow-y-auto bg-[#050505]/95 p-5 sm:p-8 lg:p-10">
-          <div className={`mb-8 rounded-[2rem] border border-zinc-800 bg-black/30 p-5 backdrop-blur sm:p-6 ${currentTheme.glow}`}>
+        <main className={`relative flex-1 overflow-y-auto p-5 sm:p-8 lg:p-10 ${mainClasses}`}>
+          <div className={`mb-8 rounded-[2rem] border p-5 backdrop-blur sm:p-6 ${currentTheme.glow} ${isLightMode ? "border-zinc-300 bg-white/80" : "border-zinc-800 bg-black/30"}`}>
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.35em] text-zinc-500">Fugth Management OS</p>
-                <h2 className="mt-2 text-2xl font-bold text-white sm:text-3xl">{currentTheme.label}</h2>
+                <p className={`text-xs font-semibold uppercase tracking-[0.35em] ${softText}`}>Fugth Management OS</p>
+                <h2 className={`mt-2 text-2xl font-bold sm:text-3xl ${isLightMode ? "text-black" : "text-white"}`}>{currentTheme.label}</h2>
                 <div className="mt-4 flex flex-wrap gap-2">
                   {activeTab === "command" && commandChips.map(([label, value]) => <InfoChip key={label} label={label} value={value} />)}
                   {activeTab === "brain" && brainChips.map(([label, value]) => <InfoChip key={label} label={label} value={value} />)}
                   {activeTab === "ai" && aiChips.map(([label, value]) => <InfoChip key={label} label={label} value={value} />)}
                 </div>
               </div>
-              <div className={`inline-flex rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.28em] ${currentTheme.badge}`}>
-                {locked ? "Preview Mode" : "Interactive"}
+              <div className="flex flex-wrap items-center gap-3">
+                <ThemeSwitch themeMode={themeMode} onToggle={() => setThemeMode((current) => current === "dark" ? "light" : "dark")} />
+                {!locked && workspace.planTier !== "elite" ? (
+                  <a href={stripeLinks.growth} target="_blank" rel="noreferrer" className="rounded-full bg-white px-4 py-2 text-xs font-bold uppercase tracking-[0.24em] text-black transition hover:bg-zinc-200">
+                    Upgrade
+                  </a>
+                ) : null}
+                <div className={`inline-flex rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.28em] ${currentTheme.badge}`}>
+                  {locked ? "Preview Mode" : workspace.planTier}
+                </div>
+                {!locked ? (
+                  <div className={`rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.24em] ${isLightMode ? "border-zinc-300 bg-white text-black" : "border-zinc-700 bg-zinc-950 text-white"}`}>
+                    {workspace.businessName || user?.email || "Profile"}
+                  </div>
+                ) : null}
               </div>
             </div>
           </div>
@@ -736,22 +846,35 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
                   </div>
                   <div className="mt-6 space-y-4">
                     {calls.length ? calls.map((call) => (
-                      <div key={`${call.caller}-${call.date}`} className="rounded-3xl border border-zinc-800 bg-black/40 p-5">
+                      <div key={`${call.caller}-${call.date}`} className={`rounded-3xl border p-5 ${isLightMode ? "border-zinc-300 bg-white" : "border-zinc-800 bg-black/40"}`}>
                         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                           <div>
                             <div className="flex flex-wrap items-center gap-3">
-                              <h4 className="text-lg font-medium text-white">{call.caller}</h4>
+                              <h4 className={`text-lg font-medium ${isLightMode ? "text-black" : "text-white"}`}>{call.caller}</h4>
                               <span className={`rounded-full border px-3 py-1 text-xs ${sentimentStyles[call.sentiment]}`}>{call.sentiment}</span>
                               <span className="rounded-full border border-zinc-800 px-3 py-1 text-xs text-zinc-400">{call.outcome}</span>
                             </div>
-                            <p className="mt-2 text-sm text-zinc-500">{call.phone} · {call.date} · {call.duration}</p>
-                            <p className="mt-4 text-sm leading-7 text-zinc-300">{call.summary}</p>
-                            <div className="mt-4 rounded-2xl border border-zinc-800 bg-zinc-950/80 p-4 text-sm leading-7 text-zinc-400">
-                              <span className="block text-xs uppercase tracking-[0.28em] text-zinc-600">Transcript</span>
+                            <p className={`mt-2 text-sm ${softText}`}>{call.phone} · {call.date} · {call.duration}</p>
+                            <p className={`mt-4 text-sm leading-7 ${mutedText}`}>{call.summary}</p>
+                            <div className={`mt-4 rounded-2xl border p-4 text-sm leading-7 ${isLightMode ? "border-zinc-300 bg-zinc-50 text-zinc-700" : "border-zinc-800 bg-zinc-950/80 text-zinc-400"}`}>
+                              <span className={`block text-xs uppercase tracking-[0.28em] ${softText}`}>Transcript</span>
                               {call.transcript}
                             </div>
+                            {call.recording ? (
+                              <div className={`mt-4 rounded-[1.6rem] border p-4 ${isLightMode ? "border-zinc-300 bg-zinc-100" : "border-zinc-800 bg-zinc-950"}`}>
+                                <div className="flex items-center justify-between gap-3">
+                                  <span className={`text-xs font-semibold uppercase tracking-[0.28em] ${softText}`}>Media</span>
+                                  <a href={call.recording} target="_blank" rel="noreferrer" className={`rounded-full px-3 py-1.5 text-xs font-semibold ${isLightMode ? "bg-black text-white" : "bg-white text-black"}`}>
+                                    Open File
+                                  </a>
+                                </div>
+                                <audio controls className="mt-4 w-full">
+                                  <source src={call.recording} />
+                                </audio>
+                              </div>
+                            ) : null}
                           </div>
-                          <div className="rounded-2xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-sm text-zinc-300">
+                          <div className={`rounded-2xl border px-4 py-3 text-sm ${isLightMode ? "border-zinc-300 bg-zinc-100 text-zinc-700" : "border-zinc-800 bg-zinc-950 text-zinc-300"}`}>
                             {call.rating ? `Listen & Rate ${"⭐".repeat(call.rating)}` : "Recording metadata"}
                           </div>
                         </div>
@@ -987,6 +1110,21 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
                 ) : (
                   <EmptyPanel title="No automations saved" body="Add automation rules in the textarea above and save the workspace." />
                 )}
+              </div>
+
+              <div className={`rounded-[2rem] border p-6 ${locked ? "opacity-65" : "opacity-100"} ${cardClasses}`}>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <h3 className="text-xl font-bold">Plans & Billing</h3>
+                    <p className={`mt-2 text-sm ${softText}`}>Pricing is visible inside the app, and lower plans keep an upgrade path in the top-right corner.</p>
+                  </div>
+                  <div className={`rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.24em] ${isLightMode ? "border-zinc-300 bg-zinc-100 text-black" : "border-zinc-700 bg-zinc-950 text-white"}`}>
+                    Current Plan: {workspace.planTier}
+                  </div>
+                </div>
+                <div className="mt-6">
+                  <PricingCards currentPlan={workspace.planTier} />
+                </div>
               </div>
                 </>
               )}
