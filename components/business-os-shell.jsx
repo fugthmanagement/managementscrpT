@@ -522,7 +522,7 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
         planTier: data.planTier || defaultWorkspace.planTier,
         planStatus: data.planStatus || defaultWorkspace.planStatus,
         billingActive: Boolean(data.billingActive),
-        notificationEmail: data.notificationEmail || currentUser?.email || "",
+        notificationEmail: data.notificationEmail || user?.email || "", // ✨ Fixed notification email pulling user
         dailyDigest: data.dailyDigest !== false,
         mobileAlerts: data.mobileAlerts !== false,
         compactView: Boolean(data.compactView),
@@ -1151,6 +1151,7 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
                   <option value="Law Firm">Law Firm</option>
                   <option value="Auto Repair">Auto Repair</option>
                   <option value="Medical Spa">Medical Spa</option>
+                  <option value="Other">Other</option> {/* ✨ Fixed Options */}
                 </select>
               </div>
               <button
