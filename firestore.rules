@@ -1,0 +1,32 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    match /users/{userId} {
+      allow read, create, update: if isOwner(userId);
+      allow delete: if false;
+
+      match /calls/{callId} {
+        allow read, create, update: if isOwner(userId);
+        allow delete: if false;
+      }
+
+      match /knowledgeFiles/{fileId} {
+        allow read, create, update: if isOwner(userId);
+        allow delete: if isOwner(userId);
+      }
+
+      match /notifications/{notificationId} {
+        allow read, create, update: if isOwner(userId);
+        allow delete: if false;
+      }
+    }
+  }
+}
