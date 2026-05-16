@@ -89,21 +89,21 @@ const profileFields = [
 
 const tabThemes = {
   command: {
-    badge: "border-emerald-900/70 bg-emerald-950/70 text-emerald-300",
-    panel: "from-emerald-500/10 via-transparent to-transparent",
-    glow: "shadow-[0_0_50px_rgba(16,185,129,0.08)]",
+    badge: "border-zinc-700 bg-zinc-900 text-white",
+    panel: "from-white/5 via-transparent to-transparent",
+    glow: "shadow-[0_0_50px_rgba(255,255,255,0.05)]",
     label: "Revenue Ops",
   },
   brain: {
-    badge: "border-sky-900/70 bg-sky-950/70 text-sky-300",
-    panel: "from-sky-500/10 via-transparent to-transparent",
-    glow: "shadow-[0_0_50px_rgba(14,165,233,0.08)]",
+    badge: "border-zinc-700 bg-zinc-900 text-white",
+    panel: "from-white/5 via-transparent to-transparent",
+    glow: "shadow-[0_0_50px_rgba(255,255,255,0.05)]",
     label: "AI Training Core",
   },
   ai: {
-    badge: "border-amber-900/70 bg-amber-950/70 text-amber-300",
-    panel: "from-amber-500/10 via-transparent to-transparent",
-    glow: "shadow-[0_0_50px_rgba(245,158,11,0.08)]",
+    badge: "border-zinc-700 bg-zinc-900 text-white",
+    panel: "from-white/5 via-transparent to-transparent",
+    glow: "shadow-[0_0_50px_rgba(255,255,255,0.05)]",
     label: "Strategic Intelligence",
   },
 };
@@ -182,17 +182,11 @@ function SidebarIcon({ name, active = false }) {
   );
 }
 
-function RingMeter({ value = 0, label, tone = "emerald" }) {
+function RingMeter({ value = 0, label }) {
   const radius = 34;
   const circumference = 2 * Math.PI * radius;
   const safeValue = Math.max(0, Math.min(100, value));
   const offset = circumference - (safeValue / 100) * circumference;
-  const tones = {
-    emerald: "#22c55e",
-    blue: "#3b82f6",
-    purple: "#8b5cf6",
-    cyan: "#06b6d4",
-  };
 
   return (
     <div className="flex flex-col items-center justify-center">
@@ -203,7 +197,7 @@ function RingMeter({ value = 0, label, tone = "emerald" }) {
             cx="48"
             cy="48"
             r={radius}
-            stroke={tones[tone] || tones.emerald}
+            stroke="#ffffff"
             strokeWidth="8"
             fill="none"
             strokeDasharray={circumference}
@@ -218,14 +212,7 @@ function RingMeter({ value = 0, label, tone = "emerald" }) {
   );
 }
 
-function LineChart({ values, tone = "emerald" }) {
-  const tones = {
-    emerald: { stroke: "#22c55e", glow: "rgba(34,197,94,0.25)" },
-    blue: { stroke: "#3b82f6", glow: "rgba(59,130,246,0.25)" },
-    purple: { stroke: "#8b5cf6", glow: "rgba(139,92,246,0.25)" },
-    cyan: { stroke: "#06b6d4", glow: "rgba(6,182,212,0.25)" },
-  };
-
+function LineChart({ values }) {
   const safeValues = values.length ? values : [12, 20, 28, 22, 36, 42, 55];
   const width = 260;
   const height = 92;
@@ -241,17 +228,17 @@ function LineChart({ values, tone = "emerald" }) {
   return (
     <svg viewBox={`0 0 ${width} ${height}`} className="mt-6 h-24 w-full overflow-visible">
       <defs>
-        <linearGradient id={`line-fill-${tone}`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={tones[tone]?.glow || tones.emerald.glow} />
+        <linearGradient id="line-fill-mono" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="rgba(255,255,255,0.15)" />
           <stop offset="100%" stopColor="rgba(255,255,255,0)" />
         </linearGradient>
       </defs>
-      <polygon points={areaPoints} fill={`url(#line-fill-${tone})`} />
-      <polyline points={points} fill="none" stroke={tones[tone]?.stroke || tones.emerald.stroke} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+      <polygon points={areaPoints} fill="url(#line-fill-mono)" />
+      <polyline points={points} fill="none" stroke="#ffffff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
       {safeValues.map((value, index) => {
         const x = index * step;
         const y = height - (value / max) * (height - 10) - 5;
-        return <circle key={`${tone}-dot-${index}`} cx={x} cy={y} r="2.5" fill={tones[tone]?.stroke || tones.emerald.stroke} />;
+        return <circle key={`mono-dot-${index}`} cx={x} cy={y} r="2.5" fill="#ffffff" />;
       })}
     </svg>
   );
@@ -475,7 +462,6 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
   const [devDialing, setDevDialing] = useState(false);
   const [devStatusLog, setDevStatusLog] = useState("");
 
-  // Checks if the active logged-in user belongs to the Administrative rank
   const isDevAdmin = user && (
     user.email?.toLowerCase() === "fugthmanagement@gmail.com" || 
     user.email?.toLowerCase() === "mepenginestudio@gmail.com"
@@ -731,39 +717,13 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
   const currentPlanMeta = useMemo(() => pricingPlans.find((plan) => plan.key === workspace.planTier) || null, [workspace.planTier]);
   const hasPaidPlan = Boolean(user && workspace.billingActive && workspace.planTier);
   const guestLabel = user ? null : "Guest";
-  const commandChips = useMemo(() => {
-    return [
-      ["Calls", calls.length],
-      ["Booked", leadGroups.find((group) => group.name === "Booked")?.count || 0],
-      ["Files", knowledgeFiles.length],
-      ["Line", workspace.phoneNumber || "offline"],
-    ];
-  }, [calls.length, knowledgeFiles.length, leadGroups, workspace.phoneNumber]);
-
-  const brainChips = useMemo(() => {
-    return [
-      ["Business", workspace.businessName || "unset"],
-      ["Industry", workspace.industry || "unset"],
-      ["Voice", workspace.voiceConfigured ? "ready" : "pending"],
-      ["Docs", knowledgeFiles.length],
-    ];
-  }, [knowledgeFiles.length, workspace.businessName, workspace.industry, workspace.voiceConfigured]);
-
-  const aiChips = useMemo(() => {
-    return [
-      ["Context", dataReady ? "loaded" : "loading"],
-      ["Complaints", leadGroups.find((group) => group.name === "Complaints")?.count || 0],
-      ["Follow-Ups", followUps.length],
-      ["Tone", workspace.tone || defaultWorkspace.tone],
-    ];
-  }, [dataReady, followUps.length, leadGroups, workspace.tone]);
-
-  const shellClasses = isLightMode ? "bg-[#f4f3ef] text-black" : "bg-black text-white";
-  const asideClasses = isLightMode ? "border-zinc-300 bg-[#eae9e3]" : "border-zinc-900 bg-[#0a0a0a]";
-  const mainClasses = isLightMode ? "bg-[#f7f6f2]" : "bg-[#050505]/95";
-  const cardClasses = isLightMode ? "border-zinc-300 bg-white text-black shadow-[0_18px_50px_rgba(0,0,0,0.06)]" : "border-zinc-800 bg-[#0f0f11] text-white";
-  const mutedText = isLightMode ? "text-zinc-700" : "text-zinc-400";
+  
+  const shellClasses = isLightMode ? "bg-white text-black" : "bg-black text-white";
+  const asideClasses = isLightMode ? "border-zinc-300 bg-zinc-100" : "border-zinc-900 bg-zinc-950";
+  const mainClasses = isLightMode ? "bg-zinc-50" : "bg-black";
+  const cardClasses = isLightMode ? "border-zinc-300 bg-white text-black shadow-sm" : "border-zinc-800 bg-[#0f0f11] text-white";
   const softText = isLightMode ? "text-zinc-500" : "text-zinc-500";
+  
   const rangeLabel = useMemo(() => {
     const end = new Date();
     const start = new Date();
@@ -777,6 +737,7 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
     const rightTime = right.timestamp?.toDate ? right.timestamp.toDate().getTime() : right.timestamp ? new Date(right.timestamp).getTime() : 0;
     return rightTime - leftTime;
   }).slice(0, 5), [calls]);
+  
   const actionQueue = useMemo(() => {
     const items = [];
     if (followUps.length) items.push({ title: `${followUps.length} calls need follow-up`, subtitle: "Text back, estimate, or callback." });
@@ -786,6 +747,7 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
     if (!knowledgeFiles.length) items.push({ title: "Knowledge base empty", subtitle: "Upload pricing sheets, FAQs, or service docs." });
     return items.slice(0, 4);
   }, [followUps.length, knowledgeFiles.length, leadGroups, workspace.voiceConfigured]);
+  
   const insightCards = useMemo(() => {
     const items = [];
     if (revenueTotal) items.push({ title: `Revenue tracked: $${revenueTotal.toLocaleString()}`, subtitle: "Pulled from real call records." });
@@ -795,6 +757,7 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
     if (!items.length) items.push({ title: "No business activity yet", subtitle: "Connect the workflow and your first real numbers will replace this empty state." });
     return items.slice(0, 4);
   }, [knowledgeFiles.length, recentCalls.length, revenueTotal, workspace.phoneNumber]);
+  
   const chartValues = useMemo(() => {
     const byDay = new Array(7).fill(0);
     const now = new Date();
@@ -810,6 +773,7 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
     const max = Math.max(...byDay, 1);
     return byDay.map((value) => Math.round((value / max) * 100));
   }, [calls]);
+  
   const metricVisuals = useMemo(() => ({
     revenue: chartValues,
     calls: chartValues.map((value, index) => Math.max(18, value - (index % 2 ? 16 : 6))),
@@ -955,7 +919,6 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
     }
   }
 
-  // DEV ADMIN: Outbound Call Handler
   const handleDevOutboundCall = async (e) => {
     e.preventDefault();
     if (!devPhoneNumber) return alert("Please specify a target phone number.");
@@ -1083,7 +1046,7 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
       const result = await parseJsonResponse(response);
 
       if (result.parseError) {
-        throw new Error("/api/setup-voice returned HTML instead of JSON. Redeploy, then open /api/setup-voice in the browser and confirm it returns JSON.");
+        throw new Error("/api/setup-voice returned HTML instead of JSON.");
       }
 
       const payload = result.payload || {};
@@ -1147,9 +1110,9 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
   }
 
   const sentimentStyles = {
-    Positive: "border-emerald-900 bg-emerald-950 text-emerald-300",
-    Neutral: "border-amber-900 bg-amber-950 text-amber-300",
-    Negative: "border-rose-900 bg-rose-950 text-rose-300",
+    Positive: "border-zinc-500 bg-zinc-800 text-white",
+    Neutral: "border-zinc-700 bg-zinc-900 text-zinc-300",
+    Negative: "border-zinc-800 bg-black text-zinc-500",
   };
 
   const overlay = null;
@@ -1207,13 +1170,13 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
       <div className="pointer-events-none absolute inset-0 opacity-50">
         <div className="absolute -left-20 top-10 h-72 w-72 rounded-full bg-white/5 blur-3xl" />
         <div className="absolute right-0 top-1/3 h-80 w-80 rounded-full bg-white/5 blur-3xl" />
-        <div className="absolute bottom-0 left-1/3 h-64 w-64 rounded-full bg-zinc-500/10 blur-3xl" />
+        <div className="absolute bottom-0 left-1/3 h-64 w-64 rounded-full bg-white/5 blur-3xl" />
       </div>
       <div className={`flex min-h-screen flex-col lg:flex-row ${locked ? "select-none" : ""}`}>
-        <aside className={`w-full border-b lg:min-h-screen lg:w-[220px] lg:border-b-0 lg:border-r ${isLightMode ? asideClasses : "border-white/6 bg-[#070b14]/95"}`}>
+        <aside className={`w-full border-b lg:min-h-screen lg:w-[220px] lg:border-b-0 lg:border-r ${isLightMode ? asideClasses : "border-white/10 bg-black"}`}>
           <div className="p-6">
             <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 via-violet-500 to-cyan-400 text-xl font-black text-white shadow-[0_10px_35px_rgba(99,102,241,0.35)]">F</div>
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-xl font-black text-black shadow-[0_10px_35px_rgba(255,255,255,0.15)]">F</div>
               <div>
                 <p className={`text-xl font-semibold ${isLightMode ? "text-black" : "text-white"}`}>Fugth</p>
                 <p className={`text-sm ${softText}`}>Management OS</p>
@@ -1229,7 +1192,7 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
                   setActiveTab(item.key);
                   setActiveSidebarSection(item.section);
                 }}
-                className={`flex w-full items-center gap-3 rounded-2xl border px-4 py-4 text-left transition ${activeSidebarSection === item.section ? `${isLightMode ? "border-zinc-400 bg-zinc-200 text-black" : "border-indigo-500/30 bg-indigo-500/12 text-white"}` : `${isLightMode ? "border-zinc-300 bg-white text-zinc-700 hover:border-zinc-400 hover:bg-zinc-50 hover:text-black" : "border-transparent bg-transparent text-zinc-400 hover:border-white/6 hover:bg-white/[0.03] hover:text-white"}`}`}
+                className={`flex w-full items-center gap-3 rounded-2xl border px-4 py-4 text-left transition ${activeSidebarSection === item.section ? `${isLightMode ? "border-zinc-400 bg-zinc-200 text-black" : "border-white/30 bg-white/10 text-white"}` : `${isLightMode ? "border-zinc-300 bg-white text-zinc-700 hover:border-zinc-400 hover:bg-zinc-50 hover:text-black" : "border-transparent bg-transparent text-zinc-400 hover:border-white/10 hover:bg-white/5 hover:text-white"}`}`}
               >
                 <div className={`flex h-8 w-8 items-center justify-center rounded-xl ${activeSidebarSection === item.section ? "bg-white/10" : "bg-white/[0.04]"}`}>
                   <SidebarIcon name={item.icon} active={activeSidebarSection === item.section} />
@@ -1238,7 +1201,6 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
               </button>
             ))}
 
-            {/* 🚨 SAFEGUARDED DEV TAB ONLY ACCESSIBLE BY PIERRE */}
             {isDevAdmin && (
               <button
                 onClick={() => {
@@ -1247,14 +1209,14 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
                 }}
                 className={`flex w-full items-center gap-3 rounded-2xl border px-4 py-4 text-left font-bold tracking-wide uppercase transition-all ${
                   activeSidebarSection === "dev_ops" 
-                    ? "border-red-500/30 bg-red-500/10 text-red-400 shadow-[0_0_20px_rgba(239,68,68,0.15)]"
-                    : "border-transparent bg-transparent text-zinc-500 hover:border-red-500/20 hover:bg-red-500/5 hover:text-red-400"
+                    ? "border-white/30 bg-white/10 text-white shadow-[0_0_20px_rgba(255,255,255,0.1)]"
+                    : "border-transparent bg-transparent text-zinc-500 hover:border-white/20 hover:bg-white/5 hover:text-white"
                 }`}
               >
-                <div className={`flex h-8 w-8 items-center justify-center rounded-xl ${activeSidebarSection === "dev_ops" ? "bg-red-500/20" : "bg-white/[0.04]"}`}>
+                <div className={`flex h-8 w-8 items-center justify-center rounded-xl ${activeSidebarSection === "dev_ops" ? "bg-white/20" : "bg-white/[0.04]"}`}>
                   <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-zinc-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
                   </span>
                 </div>
                 <p className="text-sm font-bold">Dev Ops</p>
@@ -1263,21 +1225,21 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
           </nav>
 
           <div className="mt-auto px-4 pb-4">
-            <div className={`flex items-center gap-3 rounded-2xl border px-4 py-3 ${isLightMode ? "border-zinc-300 bg-white" : "border-white/6 bg-white/[0.02]"}`}>
-              <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+            <div className={`flex items-center gap-3 rounded-2xl border px-4 py-3 ${isLightMode ? "border-zinc-300 bg-white" : "border-white/10 bg-zinc-900/50"}`}>
+              <div className="h-2 w-2 rounded-full bg-white animate-pulse" />
               <span className={`text-xs font-medium ${softText}`}>System Operational</span>
             </div>
-            <button onClick={() => setThemeMode((current) => current === "dark" ? "light" : "dark")} className={`mt-4 flex w-full items-center justify-between rounded-2xl border px-4 py-3 text-sm ${isLightMode ? "border-zinc-300 bg-white text-black" : "border-white/6 bg-white/[0.02] text-white"}`}>
+            <button onClick={() => setThemeMode((current) => current === "dark" ? "light" : "dark")} className={`mt-4 flex w-full items-center justify-between rounded-2xl border px-4 py-3 text-sm ${isLightMode ? "border-zinc-300 bg-white text-black" : "border-white/10 bg-zinc-900/50 text-white"}`}>
               <span>{themeMode === "dark" ? "Dark" : "Light"}</span>
               <span className={softText}>Theme</span>
             </button>
             {!locked ? (
-              <div className={`mt-6 rounded-2xl border p-4 ${isLightMode ? "border-zinc-300 bg-white" : "border-white/6 bg-white/[0.02]"}`}>
+              <div className={`mt-6 rounded-2xl border p-4 ${isLightMode ? "border-zinc-300 bg-white" : "border-white/10 bg-zinc-900/50"}`}>
                 <p className={`text-sm font-semibold ${isLightMode ? "text-black" : "text-white"}`}>{userName}</p>
                 <p className={`mt-1 truncate text-xs ${softText}`}>{user?.email || "No account email"}</p>
               </div>
             ) : (
-              <div className={`mt-6 rounded-2xl border p-4 ${isLightMode ? "border-zinc-300 bg-white" : "border-white/6 bg-white/[0.02]"}`}>
+              <div className={`mt-6 rounded-2xl border p-4 ${isLightMode ? "border-zinc-300 bg-white" : "border-white/10 bg-zinc-900/50"}`}>
                 <p className={`text-sm font-semibold ${isLightMode ? "text-black" : "text-white"}`}>{guestLabel}</p>
                 <p className={`mt-1 text-xs ${softText}`}>Browse the product before you create an account.</p>
               </div>
@@ -1285,24 +1247,24 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
           </div>
         </aside>
 
-        <main className={`relative flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 ${isLightMode ? mainClasses : "bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.08),transparent_28%),linear-gradient(180deg,#060912_0%,#090d16_100%)]"}`}>
-          <div className={`mb-6 rounded-[2rem] border p-5 backdrop-blur sm:p-6 ${isLightMode ? "border-zinc-300 bg-white/80" : "border-white/6 bg-[rgba(10,14,22,0.72)]"}`}>
+        <main className={`relative flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 ${isLightMode ? mainClasses : "bg-black"}`}>
+          <div className={`mb-6 rounded-[2rem] border p-5 backdrop-blur sm:p-6 ${isLightMode ? "border-zinc-300 bg-white/80" : "border-white/10 bg-zinc-900/70"}`}>
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <h1 className={`text-3xl font-semibold tracking-tight ${isLightMode ? "text-black" : "text-white"}`}>{greeting}, {userName}</h1>
                 <p className={`mt-2 text-sm ${softText}`}>Here is what is happening with your business today.</p>
               </div>
               <div className="flex flex-wrap items-center gap-3">
-                {!user ? <div className="rounded-2xl border border-blue-500/20 bg-blue-500/10 px-4 py-3 text-sm font-semibold text-blue-200">Guest</div> : null}
-                <div className={`rounded-2xl border px-4 py-3 text-sm ${isLightMode ? "border-zinc-300 bg-white text-black" : "border-white/6 bg-white/[0.03] text-white"}`}>
+                {!user ? <div className="rounded-2xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm font-semibold text-white">Guest</div> : null}
+                <div className={`rounded-2xl border px-4 py-3 text-sm ${isLightMode ? "border-zinc-300 bg-white text-black" : "border-white/10 bg-zinc-900/50 text-white"}`}>
                   {timeLabel}
                 </div>
                 {!locked ? (
-                  <button onClick={() => setShowPricingModal(true)} className="rounded-xl bg-gradient-to-r from-indigo-500 to-blue-500 px-5 py-3 text-sm font-semibold text-white shadow-[0_12px_40px_rgba(79,70,229,0.35)] transition hover:opacity-95">
+                  <button onClick={() => setShowPricingModal(true)} className="rounded-xl bg-white px-5 py-3 text-sm font-semibold text-black shadow-[0_12px_40px_rgba(255,255,255,0.15)] transition hover:opacity-95">
                     {currentPlanMeta ? "Upgrade" : "Choose Plan"}
                   </button>
-                ) : <Link href="/login" className="rounded-xl bg-gradient-to-r from-indigo-500 to-blue-500 px-5 py-3 text-sm font-semibold text-white shadow-[0_12px_40px_rgba(79,70,229,0.35)] transition hover:opacity-95">Create Account</Link>}
-                <div className={`rounded-2xl border px-4 py-3 text-sm ${isLightMode ? "border-zinc-300 bg-white text-black" : "border-white/6 bg-white/[0.03] text-white"}`}>
+                ) : <Link href="/login" className="rounded-xl bg-white px-5 py-3 text-sm font-semibold text-black shadow-[0_12px_40px_rgba(255,255,255,0.15)] transition hover:opacity-95">Create Account</Link>}
+                <div className={`rounded-2xl border px-4 py-3 text-sm ${isLightMode ? "border-zinc-300 bg-white text-black" : "border-white/10 bg-zinc-900/50 text-white"}`}>
                   {rangeLabel}
                 </div>
               </div>
@@ -1315,26 +1277,26 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
                 <SectionCard>
                   <p className="text-sm text-zinc-400">Revenue This Week</p>
                   <p className="mt-4 text-5xl font-semibold tracking-[-0.04em] text-white">{scoreCards[3].value}</p>
-                  <p className="mt-3 text-sm text-emerald-400">{scoreCards[3].hint}</p>
-                  <LineChart values={metricVisuals.revenue} tone="emerald" />
+                  <p className="mt-3 text-sm text-zinc-400">{scoreCards[3].hint}</p>
+                  <LineChart values={metricVisuals.revenue} />
                 </SectionCard>
                 <SectionCard>
                   <p className="text-sm text-zinc-400">Calls Today</p>
                   <p className="mt-4 text-5xl font-semibold tracking-[-0.04em] text-white">{scoreCards[0].value}</p>
-                  <p className="mt-3 text-sm text-sky-400">{scoreCards[0].hint}</p>
-                  <LineChart values={metricVisuals.calls} tone="blue" />
+                  <p className="mt-3 text-sm text-zinc-400">{scoreCards[0].hint}</p>
+                  <LineChart values={metricVisuals.calls} />
                 </SectionCard>
                 <SectionCard>
                   <p className="text-sm text-zinc-400">Appointments Booked</p>
                   <p className="mt-4 text-5xl font-semibold tracking-[-0.04em] text-white">{scoreCards[2].value}</p>
-                  <p className="mt-3 text-sm text-violet-400">{scoreCards[2].hint}</p>
-                  <LineChart values={metricVisuals.booked} tone="purple" />
+                  <p className="mt-3 text-sm text-zinc-400">{scoreCards[2].hint}</p>
+                  <LineChart values={metricVisuals.booked} />
                 </SectionCard>
                 <SectionCard>
                   <p className="text-sm text-zinc-400">AI Response Rate</p>
                   <p className="mt-4 text-5xl font-semibold tracking-[-0.04em] text-white">{scoreCards[5].value}</p>
-                  <p className="mt-3 text-sm text-cyan-400">{scoreCards[5].hint}</p>
-                  <LineChart values={metricVisuals.rate} tone="cyan" />
+                  <p className="mt-3 text-sm text-zinc-400">{scoreCards[5].hint}</p>
+                  <LineChart values={metricVisuals.rate} />
                 </SectionCard>
               </div>
 
@@ -1342,11 +1304,11 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
                 <SectionCard>
                   <div className="flex items-center justify-between gap-4">
                     <h3 className="text-xl font-semibold text-white">Recent Activity</h3>
-                    <span className="rounded-full border border-white/10 bg-white/[0.03] px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-zinc-300">{feedItems.length} events</span>
+                    <span className="rounded-full border border-white/20 bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-zinc-300">{feedItems.length} events</span>
                   </div>
                   <div className="mt-5 space-y-3">
                     {feedItems.length ? feedItems.map((item) => (
-                      <div key={item.id} className="flex items-center justify-between gap-4 rounded-2xl border border-white/6 bg-white/[0.02] px-4 py-4">
+                      <div key={item.id} className="flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/5 px-4 py-4">
                         <div>
                           <p className="text-sm font-medium text-white">{item.text}</p>
                           <p className="mt-1 text-xs uppercase tracking-[0.2em] text-zinc-500">{item.createdAt}</p>
@@ -1360,11 +1322,11 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
                 <SectionCard>
                   <div className="flex items-center justify-between gap-4">
                     <h3 className="text-xl font-semibold text-white">Action Queue</h3>
-                    <span className="rounded-full bg-white/5 px-3 py-1 text-xs font-semibold text-zinc-300">{actionQueue.length}</span>
+                    <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white">{actionQueue.length}</span>
                   </div>
                   <div className="mt-5 space-y-3">
                     {actionQueue.length ? actionQueue.map((item) => (
-                      <div key={item.title} className="rounded-2xl border border-white/6 bg-white/[0.02] px-4 py-4">
+                      <div key={item.title} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-4">
                         <p className="text-sm font-medium text-white">{item.title}</p>
                         <p className="mt-1 text-sm text-zinc-500">{item.subtitle}</p>
                       </div>
@@ -1378,7 +1340,7 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
                     <span className="text-sm text-zinc-500">0 live</span>
                   </div>
                   <div className="flex min-h-[260px] flex-col items-center justify-center text-center">
-                    <RingMeter value={calls.length ? Math.min(100, Math.round((calls.filter((call) => call.aiHandled).length / calls.length) * 100)) : 0} label="active coverage" tone="cyan" />
+                    <RingMeter value={calls.length ? Math.min(100, Math.round((calls.filter((call) => call.aiHandled).length / calls.length) * 100)) : 0} label="active coverage" />
                     <p className="mt-6 text-2xl font-semibold text-white">No live calls right now</p>
                     <p className="mt-3 max-w-xs text-sm leading-7 text-zinc-500">Completed calls will appear here automatically and can be played back from the dashboard.</p>
                   </div>
@@ -1390,31 +1352,31 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
                   <h3 className="text-xl font-semibold text-white">Call Library</h3>
                   <div className="mt-5 space-y-4">
                     {recentCalls.length ? recentCalls.map((call) => (
-                      <div key={call.id} className="rounded-[1.5rem] border border-white/6 bg-white/[0.02] p-4">
+                      <div key={call.id} className="rounded-[1.5rem] border border-white/10 bg-white/5 p-4">
                         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-3">
                               <p className="text-lg font-semibold text-white">{call.caller}</p>
                               <span className={`rounded-full border px-3 py-1 text-xs ${sentimentStyles[call.sentiment]}`}>{call.sentiment}</span>
-                              <span className="rounded-full border border-white/10 px-3 py-1 text-xs text-zinc-400">{call.outcome}</span>
+                              <span className="rounded-full border border-white/20 px-3 py-1 text-xs text-zinc-400">{call.outcome}</span>
                             </div>
                             <p className="mt-2 text-sm text-zinc-500">{call.phone} · {call.date} · {call.duration}</p>
                             <p className="mt-4 text-sm leading-7 text-zinc-300">{call.summary}</p>
                             {call.recording ? (
-                              <div className="mt-4 rounded-2xl border border-white/6 bg-black/20 p-4">
+                              <div className="mt-4 rounded-2xl border border-white/10 bg-black/50 p-4">
                                 <div className="flex items-center justify-between gap-4">
                                   <p className="text-xs font-semibold uppercase tracking-[0.28em] text-zinc-500">Recording</p>
                                   <a href={call.recording} target="_blank" rel="noreferrer" className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-black">
                                     Open File
                                   </a>
                                 </div>
-                                <audio controls className="mt-4 w-full">
+                                <audio controls className="mt-4 w-full opacity-80 grayscale">
                                   <source src={call.recording} />
                                 </audio>
                               </div>
                             ) : null}
                           </div>
-                          <div className="w-full max-w-[220px] rounded-2xl border border-white/6 bg-black/20 p-4">
+                          <div className="w-full max-w-[220px] rounded-2xl border border-white/10 bg-black/50 p-4">
                             <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">Transcript</p>
                             <p className="mt-3 text-sm leading-7 text-zinc-400">{call.transcript || "Transcript will appear here once the call summary is ready."}</p>
                           </div>
@@ -1428,9 +1390,9 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
                   <SectionCard>
                     <div className="flex items-center justify-between gap-4">
                       <h3 className="text-xl font-semibold text-white">Revenue Overview</h3>
-                      <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-zinc-300">{scoreCards[3].value}</span>
+                      <span className="rounded-full border border-white/20 bg-white/5 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-zinc-300">{scoreCards[3].value}</span>
                     </div>
-                    <LineChart values={metricVisuals.revenue} tone="purple" />
+                    <LineChart values={metricVisuals.revenue} />
                     <div className="mt-5 flex items-center justify-between text-xs uppercase tracking-[0.18em] text-zinc-500">
                       <span>Last 7 Days</span>
                       <span>{calls.length} calls tracked</span>
@@ -1441,7 +1403,7 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
                     <h3 className="text-xl font-semibold text-white">AI Insights</h3>
                     <div className="mt-5 space-y-3">
                       {insightCards.map((item) => (
-                        <div key={item.title} className="rounded-2xl border border-white/6 bg-white/[0.02] px-4 py-4">
+                        <div key={item.title} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-4">
                           <p className="text-sm font-medium text-white">{item.title}</p>
                           <p className="mt-1 text-sm text-zinc-500">{item.subtitle}</p>
                         </div>
@@ -1528,7 +1490,7 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
                           <button
                             key={option}
                             onClick={() => user && setWorkspaceDraft((current) => ({ ...current, tone: option }))}
-                            className={`rounded-full border px-4 py-2 text-sm transition ${workspaceDraft.tone === option ? "border-zinc-600 bg-white text-black" : "border-zinc-800 bg-black text-zinc-400 hover:border-zinc-700 hover:text-white"}`}
+                            className={`rounded-full border px-4 py-2 text-sm transition ${workspaceDraft.tone === option ? "border-zinc-500 bg-white text-black" : "border-zinc-800 bg-black text-zinc-400 hover:border-zinc-600 hover:text-white"}`}
                           >
                             {option}
                           </button>
@@ -1559,12 +1521,12 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
                       <div className="rounded-2xl border border-zinc-800 bg-black/40 p-4">
                         <p className="text-sm font-medium text-white">Calendar Sync</p>
                         <p className="mt-2 text-sm text-zinc-500">Keep your schedule aligned so Fugth can route requests with the right availability and rules.</p>
-                        <button className="mt-4 rounded-full border border-zinc-700 px-4 py-2 text-sm text-white">Calendar setup</button>
+                        <button className="mt-4 rounded-full border border-zinc-700 px-4 py-2 text-sm text-white hover:border-zinc-500 hover:bg-zinc-900 transition">Calendar setup</button>
                       </div>
                       <div className="rounded-2xl border border-zinc-800 bg-black/40 p-4">
                         <p className="text-sm font-medium text-white">Booking Rules</p>
                         <p className="mt-2 text-sm text-zinc-500">Use Operating Hours, pricing, and emergency protocol fields to shape how bookings behave.</p>
-                        <button onClick={saveWorkspace} className="mt-4 rounded-full border border-zinc-700 px-4 py-2 text-sm text-white">Save rules</button>
+                        <button onClick={saveWorkspace} className="mt-4 rounded-full border border-zinc-700 px-4 py-2 text-sm text-white hover:border-zinc-500 hover:bg-zinc-900 transition">Save rules</button>
                       </div>
                     </div>
                   </div>
@@ -1591,11 +1553,11 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
                         <p className="mt-2 text-sm text-zinc-500">{file.type} · {formatFileSize(file.size)}</p>
                         <div className="mt-3 flex flex-wrap gap-2">
                           <span className="rounded-full border border-zinc-700 px-2 py-1 text-xs text-zinc-400">#{file.tag}</span>
-                          <span className="rounded-full border border-emerald-900 bg-emerald-950 px-2 py-1 text-xs text-emerald-300">{file.status}</span>
+                          <span className="rounded-full border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-white">{file.status}</span>
                         </div>
                         <p className="mt-3 text-xs uppercase tracking-[0.2em] text-zinc-600">Used in {file.usageCount} AI responses</p>
                         <div className="mt-4 flex gap-2">
-                          {file.url ? <a href={file.url} target="_blank" rel="noreferrer" className="rounded-full border border-zinc-700 px-3 py-1.5 text-xs text-white">Open</a> : null}
+                          {file.url ? <a href={file.url} target="_blank" rel="noreferrer" className="rounded-full border border-zinc-700 px-3 py-1.5 text-xs text-white hover:bg-zinc-800 transition">Open</a> : null}
                         </div>
                       </div>
                     )) : <EmptyPanel title="No files uploaded" body="Upload your real documents above to ground the chatbot and voice assistant in company data." />}
@@ -1647,15 +1609,15 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
                     </div>
 
                     {workspace.phoneNumber ? (
-                      <div className="mt-4 rounded-[1.75rem] border border-emerald-900/60 bg-emerald-950/20 p-5">
-                        <p className="text-xs uppercase tracking-[0.28em] text-emerald-400">Active Line</p>
+                      <div className="mt-4 rounded-[1.75rem] border border-zinc-700 bg-zinc-900/50 p-5">
+                        <p className="text-xs uppercase tracking-[0.28em] text-white">Active Line</p>
                         <p className="mt-2 text-3xl font-mono text-white">{workspace.phoneNumber}</p>
                         <p className="mt-2 text-sm text-zinc-400">Assistant ID: {workspace.assistantId || "Stored"}</p>
                       </div>
                     ) : (
-                      <div className="mt-4 rounded-[1.75rem] border border-rose-900/50 bg-rose-950/20 p-5">
-                        <p className="text-sm font-semibold text-rose-300">System disconnected</p>
-                        <p className="mt-2 text-sm leading-7 text-zinc-400">No active line is assigned to this account yet.</p>
+                      <div className="mt-4 rounded-[1.75rem] border border-zinc-800 bg-zinc-900/50 p-5">
+                        <p className="text-sm font-semibold text-zinc-400">System disconnected</p>
+                        <p className="mt-2 text-sm leading-7 text-zinc-500">No active line is assigned to this account yet.</p>
                       </div>
                     )}
 
@@ -1687,8 +1649,8 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
                       ].map(([label, enabled]) => (
                         <div key={label} className="flex items-center justify-between rounded-2xl border border-zinc-800 bg-black/40 p-4">
                           <span className="text-sm text-white">{label}</span>
-                          <div className={`relative h-6 w-12 rounded-full ${enabled ? "bg-green-500" : "bg-zinc-700"}`}>
-                            <div className={`absolute top-1 h-4 w-4 rounded-full bg-white transition ${enabled ? "right-1" : "left-1"}`} />
+                          <div className={`relative h-6 w-12 rounded-full ${enabled ? "bg-white" : "bg-zinc-800"}`}>
+                            <div className={`absolute top-1 h-4 w-4 rounded-full ${enabled ? "bg-black" : "bg-zinc-500"} transition ${enabled ? "right-1" : "left-1"}`} />
                           </div>
                         </div>
                       ))}
@@ -1709,11 +1671,11 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
                         <h3 className="mt-3 text-2xl font-bold text-white">Account, alerts, and session controls</h3>
                       </div>
                       {user ? (
-                        <button onClick={handleLogout} className="rounded-full border border-zinc-700 px-4 py-2 text-sm font-semibold text-white transition hover:border-zinc-500">
+                        <button onClick={handleLogout} className="rounded-full border border-zinc-700 px-4 py-2 text-sm font-semibold text-white transition hover:border-zinc-500 hover:bg-zinc-900">
                           Log Out
                         </button>
                       ) : (
-                        <Link href="/login" className="rounded-full border border-zinc-700 px-4 py-2 text-sm font-semibold text-white transition hover:border-zinc-500">
+                        <Link href="/login" className="rounded-full border border-zinc-700 px-4 py-2 text-sm font-semibold text-white transition hover:border-zinc-500 hover:bg-zinc-900">
                           Sign In
                         </Link>
                       )}
@@ -1741,8 +1703,8 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
                           className="flex items-center justify-between rounded-2xl border border-zinc-800 bg-black/40 p-4 text-left"
                         >
                           <span className="text-sm font-medium text-white">{label}</span>
-                          <span className={`relative h-6 w-12 rounded-full ${workspaceDraft[field] ? "bg-blue-500" : "bg-zinc-700"}`}>
-                            <span className={`absolute top-1 h-4 w-4 rounded-full bg-white transition ${workspaceDraft[field] ? "right-1" : "left-1"}`} />
+                          <span className={`relative h-6 w-12 rounded-full ${workspaceDraft[field] ? "bg-white" : "bg-zinc-800"}`}>
+                            <span className={`absolute top-1 h-4 w-4 rounded-full ${workspaceDraft[field] ? "bg-black" : "bg-zinc-500"} transition ${workspaceDraft[field] ? "right-1" : "left-1"}`} />
                           </span>
                         </button>
                       ))}
@@ -1789,7 +1751,7 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
                 <div>
                   <h2 className="text-3xl font-bold text-white">Executive AI</h2>
                 </div>
-                <button className="rounded-2xl border border-zinc-800 bg-[#0f0f11] px-4 py-2 text-sm text-zinc-300">🎙️ Voice Mode</button>
+                <button className="rounded-2xl border border-zinc-800 bg-[#0f0f11] px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-900 transition">🎙️ Voice Mode</button>
               </div>
 
               <div className="flex flex-1 gap-6 min-h-[500px] flex-col xl:flex-row">
@@ -1800,7 +1762,7 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
                         <button
                           key={suggestion}
                           onClick={() => sendToGemini(suggestion)}
-                          className="rounded-full border border-zinc-800 bg-black px-4 py-2 text-left text-xs text-zinc-300 transition hover:border-zinc-700 hover:text-white"
+                          className="rounded-full border border-zinc-800 bg-black px-4 py-2 text-left text-xs text-zinc-300 transition hover:border-zinc-600 hover:text-white"
                         >
                           {suggestion}
                         </button>
@@ -1813,7 +1775,7 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
                         <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${msg.role === "user" ? "bg-zinc-800 text-white" : "bg-white text-black"}`}>
                           {msg.role === "user" ? "ME" : "AI"}
                         </div>
-                        <div className={`rounded-2xl p-4 text-sm leading-relaxed ${msg.role === "user" ? "rounded-tr-sm bg-blue-600 text-white shadow-lg" : "rounded-tl-sm border border-zinc-800 bg-zinc-900 text-zinc-200"}`}>
+                        <div className={`rounded-2xl p-4 text-sm leading-relaxed ${msg.role === "user" ? "rounded-tr-sm bg-white text-black shadow-lg" : "rounded-tl-sm border border-zinc-800 bg-zinc-900 text-zinc-200"}`}>
                           {msg.text}
                         </div>
                       </div>
@@ -1862,28 +1824,24 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
             </div>
           )}
 
-          {/* DEV PANEL VIEW LAYER */}
           {activeSidebarSection === "dev_ops" && isDevAdmin && (
             <div className="space-y-8 animate-fadeIn p-2">
-              {/* High-End Glass Headliner */}
-              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between border border-red-500/20 bg-gradient-to-r from-red-950/20 to-zinc-950 p-8 rounded-[2rem] backdrop-blur-xl">
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between border border-white/20 bg-zinc-900 p-8 rounded-[2rem] backdrop-blur-xl">
                 <div>
                   <div className="flex items-center gap-3">
-                    <span className="px-3 py-1 text-[10px] font-black tracking-widest uppercase bg-red-500 text-black rounded-md">Admin Root</span>
+                    <span className="px-3 py-1 text-[10px] font-black tracking-widest uppercase bg-white text-black rounded-md">Admin Root</span>
                     <h2 className="text-3xl font-black tracking-tight text-white">System Command & Cold-Call Simulator</h2>
                   </div>
                   <p className="text-zinc-400 mt-2 text-sm max-w-xl">
                     Live workspace overriding panel. Spin up instant automated trial phone lines to demonstrate interactive performance capabilities live to target owners during prospecting.
                   </p>
                 </div>
-                <div className="text-right text-xs font-mono text-zinc-500 bg-black/40 px-4 py-3 rounded-xl border border-white/5">
-                  Target Auth ID: <span className="text-red-400 font-bold">{user?.uid}</span>
+                <div className="text-right text-xs font-mono text-zinc-500 bg-black/40 px-4 py-3 rounded-xl border border-white/10">
+                  Target Auth ID: <span className="text-white font-bold">{user?.uid}</span>
                 </div>
               </div>
 
-              {/* The Core Call Machine Layout */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Configuration & Tuning Block */}
                 <div className="lg:col-span-2 space-y-6 rounded-[2rem] border border-white/10 bg-zinc-900/30 p-6 backdrop-blur-md">
                   <h3 className="text-lg font-bold text-white tracking-wide">1. Fine-Tune Temporary Agent Context</h3>
                   
@@ -1894,7 +1852,7 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
                         type="text" 
                         value={devBusinessName}
                         onChange={(e) => setDevBusinessName(e.target.value)}
-                        className="w-full bg-zinc-950 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-red-500/50"
+                        className="w-full bg-zinc-950 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-white/40"
                       />
                     </div>
                     <div>
@@ -1902,7 +1860,7 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
                       <select
                         value={devVoiceId}
                         onChange={(e) => setDevVoiceId(e.target.value)}
-                        className="w-full bg-zinc-950 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-red-500/50"
+                        className="w-full bg-zinc-950 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-white/40"
                       >
                         <option value="sara">Sara (Polite, Inbound Conversationalist)</option>
                         <option value="rachel">Rachel (Professional Intake / Legal)</option>
@@ -1917,13 +1875,12 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
                       rows={5}
                       value={devCustomPrompt}
                       onChange={(e) => setDevCustomPrompt(e.target.value)}
-                      className="w-full bg-zinc-950 border border-white/10 rounded-xl p-4 text-sm font-mono text-zinc-300 focus:outline-none focus:border-red-500/50 leading-relaxed"
+                      className="w-full bg-zinc-950 border border-white/10 rounded-xl p-4 text-sm font-mono text-zinc-300 focus:outline-none focus:border-white/40 leading-relaxed"
                     />
                   </div>
                 </div>
 
-                {/* Instant Action Fire Dial Block */}
-                <div className="space-y-6 flex flex-col justify-between rounded-[2rem] border border-red-500/20 bg-gradient-to-b from-zinc-900/60 to-black p-6 shadow-2xl">
+                <div className="space-y-6 flex flex-col justify-between rounded-[2rem] border border-white/20 bg-zinc-900 p-6 shadow-2xl">
                   <div>
                     <h3 className="text-lg font-bold text-white tracking-wide">2. Outbound Targeting Gun</h3>
                     <p className="text-xs text-zinc-500 mt-1">Enter any business cell or prospect line to command our network to initiate a direct live phone call simulation.</p>
@@ -1936,7 +1893,7 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
                           placeholder="+15551234567 or 5551234567"
                           value={devPhoneNumber}
                           onChange={(e) => setDevPhoneNumber(e.target.value)}
-                          className="w-full bg-zinc-950 border border-white/10 rounded-xl px-4 py-4 text-lg font-mono font-bold tracking-widest text-center text-white focus:outline-none focus:border-red-500/50 shadow-inner"
+                          className="w-full bg-black border border-white/10 rounded-xl px-4 py-4 text-lg font-mono font-bold tracking-widest text-center text-white focus:outline-none focus:border-white/40 shadow-inner"
                         />
                       </div>
 
@@ -1946,7 +1903,7 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
                         className={`w-full py-4 rounded-xl font-bold tracking-wide uppercase transition-all shadow-xl flex items-center justify-center gap-2 ${
                           devDialing 
                             ? "bg-zinc-800 text-zinc-500 cursor-not-allowed" 
-                            : "bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white shadow-red-950/50"
+                            : "bg-white text-black hover:bg-zinc-200"
                         }`}
                       >
                         {devDialing ? (
@@ -1961,29 +1918,27 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
                     </form>
                   </div>
 
-                  {/* Real-time Infrastructure System Activity Log */}
-                  <div className="rounded-xl bg-black border border-white/5 p-4 font-mono text-[11px] space-y-2">
+                  <div className="rounded-xl bg-black border border-white/10 p-4 font-mono text-[11px] space-y-2">
                     <p className="text-zinc-500 uppercase tracking-widest font-bold text-[9px]">Server Diagnostics Stream</p>
-                    <p className={devStatusLog.includes("failed") || devStatusLog.includes("fault") ? "text-red-400 animate-pulse" : "text-emerald-400"}>
+                    <p className={devStatusLog.includes("failed") || devStatusLog.includes("fault") ? "text-zinc-500 animate-pulse" : "text-white"}>
                       {devStatusLog || "Ready to deploy sandbox outbound streams. System listening."}
                     </p>
                   </div>
                 </div>
               </div>
 
-              {/* Pierre's Custom Operational Fast-Cold-Calling Asset Matrices */}
               <div className="rounded-[2rem] border border-white/10 bg-zinc-950 p-6 space-y-4">
                 <h3 className="text-lg font-bold text-white tracking-wide">3. High-Conversion Scripting Anchors (Pierre's Quick Reference)</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5 space-y-2">
-                    <p className="text-xs font-black tracking-wider text-red-400 uppercase">The Local Competitor Pressure Play</p>
-                    <p className="text-zinc-300 text-sm italic leading-relaxed">
+                    <p className="text-xs font-black tracking-wider text-white uppercase">The Local Competitor Pressure Play</p>
+                    <p className="text-zinc-400 text-sm italic leading-relaxed">
                       "Look, I just ran an infrastructure audit on the businesses in your market zone. Three of your local competitors down the street went live on our system to secure their overflow calls. You guys are currently dropping missed leads straight into an empty voicemail bank—which means you are actively feeding them clients every single evening. Let's plug that leak right now."
                     </p>
                   </div>
                   <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5 space-y-2">
-                    <p className="text-xs font-black tracking-wider text-emerald-400 uppercase">The Revenue Leak Quantification</p>
-                    <p className="text-zinc-300 text-sm italic leading-relaxed">
+                    <p className="text-xs font-black tracking-wider text-white uppercase">The Revenue Leak Quantification</p>
+                    <p className="text-zinc-400 text-sm italic leading-relaxed">
                       "Every single missed phone call in your business represents a high-ticket project handed directly to a competitor on a silver platter. Our 24/7 AI Voice Assistant recovers that lost capital by picking up instantly and booking jobs on your calendar. If it secures just one project a month, it has already cleared its entire annual cost."
                     </p>
                   </div>
@@ -1997,22 +1952,15 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
   );
 }
 
-function MiniBars({ values, tone = "emerald" }) {
-  const colors = {
-    emerald: "from-emerald-500/20 to-emerald-400",
-    blue: "from-sky-500/20 to-sky-400",
-    purple: "from-violet-500/20 to-violet-400",
-    cyan: "from-cyan-500/20 to-cyan-400",
-  };
-
+function MiniBars({ values }) {
   const safeValues = values.length ? values : [2, 4, 3, 6, 5, 7, 4];
 
   return (
     <div className="mt-6 flex h-16 items-end gap-2">
       {safeValues.map((value, index) => (
         <div
-          key={`${tone}-${index}`}
-          className={`flex-1 rounded-full bg-gradient-to-t ${colors[tone] || colors.emerald}`}
+          key={`mono-${index}`}
+          className="flex-1 rounded-full bg-gradient-to-t from-white/20 to-white"
           style={{ height: `${Math.max(14, Math.min(100, value))}%` }}
         />
       ))}
@@ -2021,7 +1969,7 @@ function MiniBars({ values, tone = "emerald" }) {
 }
 
 function SectionCard({ children, className = "" }) {
-  return <div className={`rounded-[1.8rem] border border-white/6 bg-[rgba(14,17,25,0.88)] p-5 shadow-[0_20px_80px_rgba(0,0,0,0.22)] ${className}`}>{children}</div>;
+  return <div className={`rounded-[1.8rem] border border-white/10 bg-[rgba(14,17,25,0.88)] p-5 shadow-[0_20px_80px_rgba(0,0,0,0.5)] ${className}`}>{children}</div>;
 }
 
 function PricingModal({ currentPlan, open, onClose, onCheckout, busyPlan = "", guestMode = false }) {
