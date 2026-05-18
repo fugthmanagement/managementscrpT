@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { addDoc, collection, doc, onSnapshot, query, orderBy, serverTimestamp, setDoc } from "firebase/firestore";
@@ -75,6 +75,15 @@ const pricingPlans = [
     features: ["Unlimited Active Phone Lines", "Custom Voice Cloning Assets", "Deep Bi-directional CRM Syncing", "Dedicated Account Architect"]
   }
 ];
+
+// Bulletproof Date Formatter to prevent Client-Side crashes from Firestore Timestamps
+function formatSafeDate(ts) {
+  if (!ts) return "Recent Session";
+  if (ts.toDate) return ts.toDate().toLocaleString(); 
+  const d = new Date(ts);
+  if (isNaN(d.getTime())) return "Recent Session";
+  return d.toLocaleString();
+}
 
 function Icon({ name, className = "h-5 w-5" }) {
   if (name === "overview") {
@@ -436,7 +445,15 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
           persona: devPersona
         })
       });
-      const data = await res.json();
+
+      const text = await res.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (err) {
+        throw new Error(`Server returned non-JSON response (likely API error): ${text.substring(0, 40)}...`);
+      }
+
       if (res.ok && data.success) {
         setDevStatusLog(`Call launched — ID: ${data.callId || "active"}`);
         await addDoc(collection(db, "users", user.uid, "calls"), {
@@ -673,7 +690,7 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
                       <h4 className="font-bold text-sm text-white">{c.caller || "Inbound Audio Track"}</h4>
                       <span className="text-[10px] bg-zinc-900 text-zinc-400 border border-zinc-800 px-2 py-0.5 rounded font-mono uppercase">{c.outcome || "Processed"}</span>
                     </div>
-                    <p className="text-[11px] text-zinc-500 font-mono mt-1">{c.phone || "Unknown Number"} · {c.timestamp ? new Date(c.timestamp).toLocaleString() : "Recent Session"}</p>
+                    <p className="text-[11px] text-zinc-500 font-mono mt-1">{c.phone || "Unknown Number"} · {formatSafeDate(c.timestamp)}</p>
                     <p className="text-xs text-zinc-300 mt-2.5 leading-relaxed">{c.summary || "No description compiled yet."}</p>
                   </div>
                 ))}
@@ -695,6 +712,7 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
                       <th className="p-3">Client Prospect Name</th>
                       <th className="p-3">Phone Line Signature</th>
                       <th className="p-3">Status Layer</th>
+                      <th className="p-3">Time</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-900">
@@ -705,6 +723,7 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
                         <td className="p-3">
                           <span className="bg-white text-black px-2 py-0.5 rounded text-[10px] font-bold uppercase">{l.status || "Captured"}</span>
                         </td>
+                        <td className="p-3 font-mono text-zinc-500">{formatSafeDate(l.timestamp)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -750,7 +769,7 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
                       <p className="text-zinc-500 font-mono mt-0.5">{appt.phone || "No Line Coordinates"}</p>
                     </div>
                     <span className="font-mono text-zinc-300 bg-zinc-900 border border-zinc-800 px-3 py-1 rounded-md text-[11px]">
-                      {appt.scheduledTime ? new Date(appt.scheduledTime).toLocaleString() : "Unassigned"}
+                      {formatSafeDate(appt.scheduledTime)}
                     </span>
                   </div>
                 ))}
@@ -880,7 +899,7 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
                         className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none"
                       >
                         <option value="">Select industry coordinate</option>
-                        {BUSINESS_TYPES.map(t => <option key={t} value={t.toLowerCase()}>{t}</option>)}
+                        {BUSINESS_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                       </select>
                     </div>
                   </div>
@@ -965,7 +984,20 @@ export function BusinessOSShell({ locked = false, authReady = true }) {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
                 <div className="border border-zinc-900 bg-zinc-950/40 p-5 rounded-[1.8rem]">
                   <h4 className="text-xs font-black uppercase text-zinc-400 tracking-wider mb-3">Recent Audio Transcripts</h4>
-                  <p className="text-xs text-zinc-600 text-center py-8">No recordings yet. Live calls will appear here with playable audio.</p>
+                  <div className="space-y-3">
+                    {calls.filter(c => c.outcome === "Demo Dialed").slice(0, 3).map((c, i) => (
+                      <div key={i} className="p-3 bg-black border border-zinc-900 rounded-xl text-xs flex items-center justify-between">
+                        <div>
+                          <p className="font-bold text-white">{c.caller || "Demo Representative"}</p>
+                          <p className="text-[10px] text-zinc-500 font-mono mt-0.5">{c.phone}</p>
+                        </div>
+                        <span className="text-[9px] uppercase tracking-wider bg-zinc-900 text-zinc-400 border border-zinc-800 px-2 py-1 rounded">Stream Active</span>
+                      </div>
+                    ))}
+                    {calls.filter(c => c.outcome === "Demo Dialed").length === 0 && (
+                      <p className="text-xs text-zinc-600 text-center py-6 border border-dashed border-zinc-900 rounded-xl">No test recordings found in terminal database.</p>
+                    )}
+                  </div>
                 </div>
 
                 <div className="border border-zinc-900 bg-zinc-950/40 p-5 rounded-[1.8rem]">
