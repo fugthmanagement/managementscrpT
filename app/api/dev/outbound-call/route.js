@@ -96,12 +96,10 @@ export async function POST(req) {
         }
       };
     } else {
-      // Fugth (Vapi) style: place customer number under customer.number
+      // Vapi style: phoneNumber is just the E.164 string or { number: to }
       payload = {
         ...payloadBase,
-        phoneNumber: {
-          customer: { number: to }
-        }
+        phoneNumber: to
       };
     }
 
