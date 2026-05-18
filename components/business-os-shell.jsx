@@ -184,6 +184,32 @@ export function BusinessOSShell({ locked = false, authReady = false }) {
   const [vapiInput, setVapiInput] = useState("");
   const [isLinkingVapi, setIsLinkingVapi] = useState(false);
   const [editingVapi, setEditingVapi] = useState(false);
+  
+  // Advisor chat state
+  const [advisorMessages, setAdvisorMessages] = useState([]);
+  const [advisorInput, setAdvisorInput] = useState("");
+  const [advisorLoading, setAdvisorLoading] = useState(false);
+
+  // Helper to sanitize objects before writing to Firestore (remove undefined values)
+  const sanitizeForFirestore = (obj) => {
+    if (obj === null || obj === undefined) return obj;
+    if (Array.isArray(obj)) return obj.map((v) => sanitizeForFirestore(v));
+    if (obj instanceof Date) return obj;
+    if (typeof obj === "object") {
+      const out = {};
+      Object.entries(obj).forEach(([k, v]) => {
+        if (v === undefined) return; // skip undefined
+        // preserve Firestore serverTimestamp sentinel and other special objects
+        if (v && typeof v === 'object' && ('_delegate' in v || 'seconds' in v || 'nanoseconds' in v)) {
+          out[k] = v;
+          return;
+        }
+        out[k] = sanitizeForFirestore(v);
+      });
+      return out;
+    }
+    return obj;
+  };
 
   // Admin detection
   const isAdmin = user && (
@@ -273,14 +299,15 @@ export function BusinessOSShell({ locked = false, authReady = false }) {
 
     setIsInitializing(true);
     try {
-      await setDoc(doc(db, "users", user.uid), {
+      const payload = sanitizeForFirestore({
         businessName: initBusinessName,
         industry: initIndustry === "Other" ? "Other" : initIndustry,
         customIndustry: initIndustry === "Other" ? initCustomIndustry : "",
         createdAt: new Date().toISOString(),
         planTier: "starter",
         planStatus: "trial",
-      }, { merge: true });
+      });
+      await setDoc(doc(db, "users", user.uid), payload, { merge: true });
 
       setShowOnboarding(false);
     } catch (err) {
@@ -296,7 +323,8 @@ export function BusinessOSShell({ locked = false, authReady = false }) {
     setIsSaving(true);
 
     try {
-      await setDoc(doc(db, "users", user.uid), workspace, { merge: true });
+      const payload = sanitizeForFirestore(workspace);
+      await setDoc(doc(db, "users", user.uid), payload, { merge: true });
       alert("Workspace saved successfully!");
     } catch (err) {
       console.error("Save failed:", err);
@@ -334,7 +362,7 @@ export function BusinessOSShell({ locked = false, authReady = false }) {
 
       const result = await res.json();
       if (!res.ok) {
-        throw new Error(result.error || "Vapi error");
+        throw new Error(result.error || "Outbound API error");
       }
 
       // Save call metadata so recordings and logs appear in UI
@@ -391,12 +419,13 @@ export function BusinessOSShell({ locked = false, authReady = false }) {
     if (!user) return;
     setIsLinkingVapi(true);
     try {
-      await setDoc(doc(db, "users", user.uid), {
+      const payload = sanitizeForFirestore({
         vapiNumber: number || vapiInput,
         vapiLinked: true,
         vapiLinkedAt: serverTimestamp(),
         needsVapiLink: false,
-      }, { merge: true });
+      });
+      await setDoc(doc(db, "users", user.uid), payload, { merge: true });
       setVapiInput("");
       setShowLinkVapiModal(false);
       setEditingVapi(false);
@@ -413,6 +442,40 @@ export function BusinessOSShell({ locked = false, authReady = false }) {
       await signOut(auth);
     } catch (err) {
       console.error("Logout failed:", err);
+    }
+  };
+
+  // Build a context-rich prompt for the advisor using workspace and recent activity
+  const buildAdvisorPrompt = (question) => {
+    let ctx = "";
+    if (workspace.businessName) ctx += `Business: ${workspace.businessName}. `;
+    if (workspace.industry) ctx += `Industry: ${workspace.industry}. `;
+    if (workspace.services) ctx += `Services: ${workspace.services}. `;
+    if (workspace.aiCharacter) ctx += `Persona: ${workspace.aiCharacter}. `;
+    if (workspace.ragSections && workspace.ragSections.length) ctx += `Knowledge: ${workspace.ragSections.map(s => s.title).join(', ')}. `;
+    if (calls && calls.length) ctx += `Recent calls: ${calls.slice(0,3).map(c => c.summary || c.outcome || c.caller).join('; ')}. `;
+    return `${ctx}\nUser question: ${question}`;
+  };
+
+  const sendAdvisorMessage = async () => {
+    if (!advisorInput || !advisorInput.trim()) return;
+    const text = advisorInput.trim();
+    setAdvisorMessages((p) => [...p, { role: 'user', text }]);
+    setAdvisorInput("");
+    setAdvisorLoading(true);
+    try {
+      const prompt = buildAdvisorPrompt(text);
+      const res = await fetch('/api/chat', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt })
+      });
+      const data = await res.json();
+      const reply = data?.reply || 'I could not generate a response.';
+      setAdvisorMessages((p) => [...p, { role: 'assistant', text: reply }]);
+    } catch (err) {
+      console.error('Advisor error:', err);
+      setAdvisorMessages((p) => [...p, { role: 'assistant', text: 'Error: ' + (err.message || err) }]);
+    } finally {
+      setAdvisorLoading(false);
     }
   };
 
@@ -608,6 +671,17 @@ export function BusinessOSShell({ locked = false, authReady = false }) {
         </div>
       </header>
 
+          {/* Mobile bottom nav (small screens) */}
+          <div className="lg:hidden fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50">
+            <div className={`flex items-center gap-2 px-3 py-2 rounded-full ${darkMode ? "bg-black/70 border border-zinc-800" : "bg-white/80 border border-zinc-200"}`}>
+              {[{id:'overview', icon:'overview'},{id:'calls', icon:'calls'},{id:'leads', icon:'leads'},{id:'advisor', icon:'chart'},{id:'settings', icon:'settings'}].map((it) => (
+                <button key={it.id} onClick={() => setActiveTab(it.id)} className={`p-2 rounded-full ${activeTab === it.id ? (darkMode ? 'bg-white/10 text-white' : 'bg-black/10 text-black') : 'text-zinc-400 hover:text-white'}`} aria-label={it.id}>
+                  <Icon name={it.icon} className="h-5 w-5" />
+                </button>
+              ))}
+            </div>
+          </div>
+
       <div className="flex">
         {/* Sidebar */}
         <aside className={`w-64 border-r ${darkMode ? "bg-black/50 border-zinc-900" : "bg-white/50 border-zinc-200"} p-6 space-y-8 hidden lg:flex flex-col`}>
@@ -686,9 +760,9 @@ export function BusinessOSShell({ locked = false, authReady = false }) {
               <div className={`rounded-lg p-4 border mt-3 ${darkMode ? "border-zinc-800 bg-black/40" : "border-zinc-200 bg-white/5"}`}>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-center">
                   <div className="md:col-span-2">
-                    <label className="text-sm font-semibold block mb-1">Enter Vapi Phone Number</label>
+                    <label className="text-sm font-semibold block mb-1">Enter assigned phone number</label>
                     <input value={vapiInput} onChange={(e) => setVapiInput(e.target.value)} placeholder="+15551234567" className="w-full p-3 rounded-lg border bg-transparent" />
-                    <p className="text-xs text-zinc-400 mt-2">Paste the Vapi number you were assigned. Example: +15551234567</p>
+                    <p className="text-xs text-zinc-400 mt-2">Paste the assigned phone number you received. Example: +15551234567</p>
                   </div>
                   <div className="flex gap-2 md:flex-col">
                     <button onClick={() => handleLinkVapiNumber(vapiInput)} disabled={isLinkingVapi} className={`py-3 px-4 rounded-lg ${isLinkingVapi ? "bg-zinc-700 text-zinc-400" : "bg-emerald-600 text-white"}`}>
@@ -697,7 +771,7 @@ export function BusinessOSShell({ locked = false, authReady = false }) {
                     <button onClick={() => { setShowLinkVapiModal(false); setEditingVapi(false); setVapiInput(""); }} className="py-3 px-4 rounded-lg bg-white/5">Cancel</button>
                   </div>
                 </div>
-                <div className="text-xs text-zinc-500 mt-3">Quick guide: After purchase, paste the Vapi number provided by Fugth into the field and click Link Number. This will associate the number with your account so calls, recordings and bookings appear in the dashboard.</div>
+                <div className="text-xs text-zinc-500 mt-3">Quick guide: After purchase, paste the assigned phone number into the field and click Link Number. This will associate the number with your account so calls, recordings and bookings appear in the dashboard.</div>
               </div>
             )}
             {/* Overview Tab */}
@@ -867,16 +941,35 @@ export function BusinessOSShell({ locked = false, authReady = false }) {
                 <div className={`border ${darkMode ? "bg-black/30 border-zinc-800" : "bg-white/30 border-zinc-300"} rounded-xl p-6`}>
                   <div className={`mb-6 p-4 rounded-lg ${darkMode ? "bg-white/5" : "bg-black/5"}`}>
                     <p className={`text-sm leading-relaxed ${darkMode ? "text-zinc-300" : "text-zinc-700"}`}>
-                      Hello! I'm your Fugth Management AI Advisor. I can analyze your business performance, suggest optimizations, and answer questions about your operations. Ask me anything about your calls, leads, or business strategy.
+                      Hello! I'm your AI Advisor. I can analyze recent calls, summarize trends, and suggest improvements. Ask about calls, leads, bookings, or strategy.
                     </p>
                   </div>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      placeholder="Ask me anything about your business..."
-                      className={`flex-1 p-3 rounded-lg border ${darkMode ? "bg-black/50 border-zinc-700" : "bg-white/50 border-zinc-300"} focus:outline-none focus:border-white`}
-                    />
-                    <button className="px-4 py-3 bg-white text-black font-bold rounded-lg hover:bg-zinc-200">Send</button>
+
+                  <div className="space-y-4">
+                    <div className={`max-h-64 overflow-y-auto p-3 rounded ${darkMode ? 'bg-black/50' : 'bg-white/50'}`}>
+                      {advisorMessages.length === 0 && (
+                        <div className={`text-sm text-zinc-400`}>No messages yet — ask a question to get started.</div>
+                      )}
+                      {advisorMessages.map((m, i) => (
+                        <div key={i} className={`mb-3 ${m.role === 'user' ? 'text-right' : ''}`}>
+                          <div className={`inline-block max-w-full break-words px-3 py-2 rounded-lg ${m.role === 'user' ? (darkMode ? 'bg-white/10' : 'bg-black/10') : (darkMode ? 'bg-white/5' : 'bg-black/5')}`}>{m.text}</div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={advisorInput}
+                        onChange={(e) => setAdvisorInput(e.target.value)}
+                        onKeyDown={async (e) => { if (e.key === 'Enter') { e.preventDefault(); await sendAdvisorMessage(); } }}
+                        placeholder="Ask me anything about your business..."
+                        className={`flex-1 p-3 rounded-lg border ${darkMode ? "bg-black/50 border-zinc-700" : "bg-white/50 border-zinc-300"} focus:outline-none focus:border-white`}
+                      />
+                      <button onClick={sendAdvisorMessage} disabled={advisorLoading} className="px-4 py-3 bg-white text-black font-bold rounded-lg hover:bg-zinc-200">
+                        {advisorLoading ? 'Thinking...' : 'Send'}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1131,12 +1224,13 @@ export function BusinessOSShell({ locked = false, authReady = false }) {
                       <button type="button" onClick={async () => {
                         if (!user) return;
                         try {
-                          await setDoc(doc(db, "users", user.uid), {
+                          const payload = sanitizeForFirestore({
                             businessName: devBusinessName || workspace.businessName,
                             industry: devIndustry || workspace.industry,
                             customIndustry: devCustomIndustry || workspace.customIndustry,
                             services: devServices || workspace.services,
-                          }, { merge: true });
+                          });
+                          await setDoc(doc(db, "users", user.uid), payload, { merge: true });
                           setDevStatusLog("Applied Dev info to workspace.");
                         } catch (err) {
                           console.error("Apply workspace failed:", err);
