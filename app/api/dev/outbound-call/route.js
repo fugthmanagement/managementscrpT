@@ -96,10 +96,11 @@ export async function POST(req) {
         }
       };
     } else {
-      // Vapi style: phoneNumber is just the E.164 string or { number: to }
+      // Preferred provider object shape: { number: "+1..." }
+      // Some upstreams accept a plain string, others expect an object. Use object form for compatibility.
       payload = {
         ...payloadBase,
-        phoneNumber: to
+        phoneNumber: { number: to }
       };
     }
 
@@ -115,14 +116,29 @@ export async function POST(req) {
 
     if (!resp) return NextResponse.json({ error: 'Upstream request failed (network).' }, { status: 502 });
 
+    const contentType = resp.headers.get('content-type') || '';
     const text = await resp.text();
     let data = null;
-    try { data = JSON.parse(text); } catch (e) { /* keep text */ }
-
-    if (!resp.ok) {
-      return NextResponse.json({ error: 'Upstream provider error', status: resp.status, upstream: data || text }, { status: 502 });
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      // keep text for diagnostics
     }
 
+    if (!resp.ok) {
+      console.error('Upstream provider error', resp.status, resp.statusText, text?.slice?.(0, 1000));
+      return NextResponse.json({
+        error: 'Upstream provider error',
+        status: resp.status,
+        statusText: resp.statusText,
+        contentType,
+        upstream: data || text,
+        attemptedPayload: payload
+      }, { status: 502 });
+    }
+
+    // success
+    console.log('Outbound call success', { callPreview: (data && (data.id || data.callId)) || null });
     return NextResponse.json({ success: true, callId: data?.id || data?.callId || null, upstream: data || text });
   } catch (err) {
     console.error('Outbound route error:', err);
