@@ -179,6 +179,20 @@ export function BusinessOSShell({ locked = false, authReady = false }) {
   const [apptTime, setApptTime] = useState("");
   const [apptNotes, setApptNotes] = useState("");
 
+  // Dev account management
+  const [devNewEmail, setDevNewEmail] = useState("");
+  const [devNewPassword, setDevNewPassword] = useState("");
+  const [devNewPlan, setDevNewPlan] = useState("starter");
+  const [devNewFugthNumber, setDevNewFugthNumber] = useState("");
+  const [devAccounts, setDevAccounts] = useState([]);
+  const [devCreatingAccount, setDevCreatingAccount] = useState(false);
+  const [devAccountsLoading, setDevAccountsLoading] = useState(false);
+  const [lookupEmail, setLookupEmail] = useState("");
+  const [lookupResult, setLookupResult] = useState(null);
+  const [updatePlan, setUpdatePlan] = useState("");
+  const [updateFugthNumber, setUpdateFugthNumber] = useState("");
+  const [updatePassword, setUpdatePassword] = useState("");
+
   // Vapi linking UI state
   const [showLinkVapiModal, setShowLinkVapiModal] = useState(false);
   const [vapiInput, setVapiInput] = useState("");
@@ -216,6 +230,11 @@ export function BusinessOSShell({ locked = false, authReady = false }) {
     user.email?.toLowerCase() === "fugthmanagement@gmail.com" ||
     user.email?.toLowerCase() === "mepenginestudio@gmail.com"
   );
+
+  // Mobile navigation items (include Dev Ops for admin users)
+  const mobileNavItems = isAdmin
+    ? [{ id: 'overview', icon: 'overview' }, { id: 'calls', icon: 'calls' }, { id: 'leads', icon: 'leads' }, { id: 'dev_ops', icon: 'dev' }, { id: 'advisor', icon: 'chart' }, { id: 'settings', icon: 'settings' }]
+    : [{ id: 'overview', icon: 'overview' }, { id: 'calls', icon: 'calls' }, { id: 'leads', icon: 'leads' }, { id: 'advisor', icon: 'chart' }, { id: 'settings', icon: 'settings' }];
 
   // Auth listener
   useEffect(() => {
@@ -292,6 +311,23 @@ export function BusinessOSShell({ locked = false, authReady = false }) {
     });
     return () => unsubscribe();
   }, [user]);
+
+  // Load dev-created accounts for admin view
+  useEffect(() => {
+    if (!user || !db || !isAdmin) return;
+    setDevAccountsLoading(true);
+    const ref = collection(db, "devAccounts");
+    const q = query(ref, orderBy("createdAt", "desc"));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+      setDevAccounts(list);
+      setDevAccountsLoading(false);
+    }, (err) => {
+      console.error('Dev accounts snapshot error', err);
+      setDevAccountsLoading(false);
+    });
+    return () => unsubscribe();
+  }, [user, isAdmin]);
 
   const handleInitialSetup = async (e) => {
     e.preventDefault();
@@ -395,6 +431,47 @@ export function BusinessOSShell({ locked = false, authReady = false }) {
     }
   };
 
+  // Create a new account via server-side admin API
+  const createDevAccount = async () => {
+    if (!user) return setDevStatusLog('Must be logged in as admin.');
+    setDevCreatingAccount(true);
+    try {
+      const token = await auth.currentUser.getIdToken(true);
+      const res = await fetch('/api/dev/create-account', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ email: devNewEmail, password: devNewPassword, displayName: devBusinessName || '', planTier: devNewPlan, planStatus: 'active', fugthNumber: devNewFugthNumber })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || 'Create failed');
+      setDevStatusLog(`Created account ${data.email}`);
+      setDevNewEmail(''); setDevNewPassword(''); setDevNewFugthNumber('');
+    } catch (err) {
+      console.error('Create account failed', err);
+      setDevStatusLog('Create failed: ' + (err.message || err));
+    } finally {
+      setDevCreatingAccount(false);
+    }
+  };
+
+  const updateDevAccount = async ({ uid, planTier, planStatus, fugthNumber, email, password }) => {
+    if (!user) return setDevStatusLog('Must be logged in as admin.');
+    try {
+      const token = await auth.currentUser.getIdToken(true);
+      const res = await fetch('/api/dev/update-account', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ uid, planTier, planStatus, fugthNumber, stripeCustomerId: null, email, password })
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error || 'Update failed');
+      setDevStatusLog('Account updated');
+      return true;
+    } catch (err) {
+      console.error('Update account failed', err);
+      setDevStatusLog('Update failed: ' + (err.message || err));
+      return false;
+    }
+  };
+
   // Dev: create quick appointment under appointments collection
   const createDevAppointment = async ({ name, phone, scheduledTime, notes }) => {
     if (!user) return;
@@ -430,7 +507,7 @@ export function BusinessOSShell({ locked = false, authReady = false }) {
       setShowLinkVapiModal(false);
       setEditingVapi(false);
     } catch (err) {
-      console.error("Vapi link failed:", err);
+      console.error("Fugth link failed:", err);
       alert("Failed to link number: " + (err.message || err));
     } finally {
       setIsLinkingVapi(false);
@@ -478,6 +555,55 @@ export function BusinessOSShell({ locked = false, authReady = false }) {
       setAdvisorLoading(false);
     }
   };
+
+  // Helpers for safe timestamps and simple sparkline
+  const safeCallDate = (call) => {
+    const ts = call?.timestamp;
+    if (!ts) return null;
+    if (ts.seconds) return new Date(ts.seconds * 1000);
+    if (typeof ts === 'string') {
+      const d = new Date(ts);
+      return isNaN(d) ? null : d;
+    }
+    if (typeof ts.toDate === 'function') return ts.toDate();
+    return null;
+  };
+
+  const countCallsToday = (callsList) => {
+    const today = new Date().toDateString();
+    return (callsList || []).reduce((acc, c) => {
+      const d = safeCallDate(c);
+      if (!d) return acc;
+      return acc + (d.toDateString() === today ? 1 : 0);
+    }, 0);
+  };
+
+  const weeklyCounts = (callsList, days = 7) => {
+    const counts = Array(days).fill(0);
+    const now = new Date();
+    for (const c of callsList || []) {
+      const d = safeCallDate(c);
+      if (!d) continue;
+      const diffDays = Math.floor((now.setHours(0,0,0,0) - new Date(d).setHours(0,0,0,0)) / (1000*60*60*24));
+      if (diffDays >= 0 && diffDays < days) {
+        counts[days - 1 - diffDays]++;
+      }
+    }
+    return counts;
+  };
+
+  function Sparkline({ counts = [] }) {
+    const w = 120; const h = 28; const pad = 2;
+    if (!counts || counts.length === 0) return <svg width={w} height={h} />;
+    const max = Math.max(...counts, 1);
+    const step = (w - pad*2) / (counts.length - 1 || 1);
+    const points = counts.map((v, i) => `${pad + i*step},${h - pad - (v / max) * (h - pad*2)}`).join(' ');
+    return (
+      <svg width={w} height={h} className="inline-block">
+        <polyline fill="none" stroke="#10B981" strokeWidth="2" points={points} strokeLinecap="round" strokeLinejoin="round" opacity="0.9" />
+      </svg>
+    );
+  }
 
   if (!authReady) {
     return (
@@ -588,9 +714,9 @@ export function BusinessOSShell({ locked = false, authReady = false }) {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {[
-              { name: "Starter", price: "$49", features: ["1 phone line", "Basic AI", "Email support"], link: stripeLinks.starter },
-              { name: "Growth", price: "$149", features: ["3 phone lines", "Advanced AI", "Priority support"], link: stripeLinks.growth, popular: true },
-              { name: "Elite", price: "$499", features: ["Unlimited lines", "Custom AI", "Dedicated support"], link: stripeLinks.elite }
+              { name: "Starter", price: "$49", features: ["1 Fugth number included", "Basic AI", "Email support", "Lead capture: Standard", "Credits per number: 100/mo"], link: stripeLinks.starter },
+              { name: "Growth", price: "$149", features: ["3 Fugth numbers included", "Advanced AI", "Priority support", "Enhanced lead capture", "Credits per number: 500/mo"], link: stripeLinks.growth, popular: true },
+              { name: "Elite", price: "$499", features: ["Unlimited Fugth numbers", "Custom AI", "Dedicated support", "Priority lead capture", "Credits per number: 5,000/mo"], link: stripeLinks.elite }
             ].map((plan) => (
               <div key={plan.name} className={`border rounded-xl p-6 transition ${plan.popular ? "bg-white/10 border-white/30 scale-105" : "bg-white/5 border-zinc-700"}`}>
                 {plan.popular && <div className="text-xs font-bold text-emerald-400 mb-2">MOST POPULAR</div>}
@@ -655,6 +781,9 @@ export function BusinessOSShell({ locked = false, authReady = false }) {
               >
                 Upgrade
               </button>
+              {isAdmin && (
+                <button onClick={() => setActiveTab('dev_ops')} className="hidden md:block ml-2 px-4 py-2 text-sm font-bold bg-white/5 rounded-lg hover:bg-white/20 transition">Dev</button>
+              )}
               <div className={`flex items-center gap-3 pl-3 border-l ${darkMode ? "border-zinc-800" : "border-zinc-200"}`}>
                 <div className={`w-8 h-8 rounded-full bg-gradient-to-br from-white/30 to-white/10 flex items-center justify-center text-xs font-bold`}>
                   {user.email?.charAt(0).toUpperCase()}
@@ -674,7 +803,7 @@ export function BusinessOSShell({ locked = false, authReady = false }) {
           {/* Mobile bottom nav (small screens) */}
           <div className="lg:hidden fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50">
             <div className={`flex items-center gap-2 px-3 py-2 rounded-full ${darkMode ? "bg-black/70 border border-zinc-800" : "bg-white/80 border border-zinc-200"}`}>
-              {[{id:'overview', icon:'overview'},{id:'calls', icon:'calls'},{id:'leads', icon:'leads'},{id:'advisor', icon:'chart'},{id:'settings', icon:'settings'}].map((it) => (
+              {mobileNavItems.map((it) => (
                 <button key={it.id} onClick={() => setActiveTab(it.id)} className={`p-2 rounded-full ${activeTab === it.id ? (darkMode ? 'bg-white/10 text-white' : 'bg-black/10 text-black') : 'text-zinc-400 hover:text-white'}`} aria-label={it.id}>
                   <Icon name={it.icon} className="h-5 w-5" />
                 </button>
@@ -735,22 +864,22 @@ export function BusinessOSShell({ locked = false, authReady = false }) {
         {/* Main Content */}
         <main className="flex-1 overflow-y-auto">
           <div className="max-w-7xl mx-auto p-6 lg:p-8 space-y-8">
-            {/* Vapi number status and quick link action */}
+            {/* Fugth number status and quick link action */}
             <div className={`rounded-lg p-3 border ${darkMode ? "border-zinc-800 bg-black/30" : "border-zinc-200 bg-white/5"}`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <span className={`h-3 w-3 rounded-full ${workspace.vapiLinked ? "bg-emerald-400" : "bg-red-500"}`} />
                   <div>
-                    <div className="text-sm font-semibold">{workspace.vapiNumber || "No Vapi number assigned"}</div>
-                    <div className="text-xs text-zinc-400">{workspace.vapiLinked ? "Number linked to Vapi" : (workspace.needsVapiLink ? "Please link your Vapi number to finish setup" : "Not linked")}</div>
+                    <div className="text-sm font-semibold">{workspace.vapiNumber || "No Fugth number assigned"}</div>
+                    <div className="text-xs text-zinc-400">{workspace.vapiLinked ? "Fugth number linked" : (workspace.needsVapiLink ? "Please link your Fugth number to finish setup" : "Not linked")}</div>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2">
                   {workspace.vapiLinked ? (
-                    <button onClick={() => { setEditingVapi(true); setVapiInput(workspace.vapiNumber || ""); setShowLinkVapiModal(true); }} className="px-3 py-1 rounded bg-white/5">Change</button>
+                    <button onClick={() => { setEditingVapi(true); setVapiInput(workspace.vapiNumber || ""); setShowLinkVapiModal(true); }} className="px-3 py-1 rounded bg-white/5">Change Fugth Number</button>
                   ) : (
-                    <button onClick={() => setShowLinkVapiModal(true)} className="px-3 py-1 rounded bg-emerald-600 text-white">Link Number</button>
+                    <button onClick={() => setShowLinkVapiModal(true)} className="px-3 py-1 rounded bg-emerald-600 text-white">Link Fugth Number</button>
                   )}
                 </div>
               </div>
@@ -759,19 +888,19 @@ export function BusinessOSShell({ locked = false, authReady = false }) {
             {showLinkVapiModal && (
               <div className={`rounded-lg p-4 border mt-3 ${darkMode ? "border-zinc-800 bg-black/40" : "border-zinc-200 bg-white/5"}`}>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-center">
-                  <div className="md:col-span-2">
-                    <label className="text-sm font-semibold block mb-1">Enter assigned phone number</label>
-                    <input value={vapiInput} onChange={(e) => setVapiInput(e.target.value)} placeholder="+15551234567" className="w-full p-3 rounded-lg border bg-transparent" />
-                    <p className="text-xs text-zinc-400 mt-2">Paste the assigned phone number you received. Example: +15551234567</p>
+                    <div className="md:col-span-2">
+                      <label className="text-sm font-semibold block mb-1">Enter Fugth number</label>
+                      <input value={vapiInput} onChange={(e) => setVapiInput(e.target.value)} placeholder="+15551234567" className="w-full p-3 rounded-lg border bg-transparent" />
+                      <p className="text-xs text-zinc-400 mt-2">Paste your Fugth number. Example: +15551234567</p>
+                    </div>
+                    <div className="flex gap-2 md:flex-col">
+                      <button onClick={() => handleLinkVapiNumber(vapiInput)} disabled={isLinkingVapi} className={`py-3 px-4 rounded-lg ${isLinkingVapi ? "bg-zinc-700 text-zinc-400" : "bg-emerald-600 text-white"}`}>
+                        {isLinkingVapi ? "Linking..." : "Link Fugth Number"}
+                      </button>
+                      <button onClick={() => { setShowLinkVapiModal(false); setEditingVapi(false); setVapiInput(""); }} className="py-3 px-4 rounded-lg bg-white/5">Cancel</button>
+                    </div>
                   </div>
-                  <div className="flex gap-2 md:flex-col">
-                    <button onClick={() => handleLinkVapiNumber(vapiInput)} disabled={isLinkingVapi} className={`py-3 px-4 rounded-lg ${isLinkingVapi ? "bg-zinc-700 text-zinc-400" : "bg-emerald-600 text-white"}`}>
-                      {isLinkingVapi ? "Linking..." : "Link Number"}
-                    </button>
-                    <button onClick={() => { setShowLinkVapiModal(false); setEditingVapi(false); setVapiInput(""); }} className="py-3 px-4 rounded-lg bg-white/5">Cancel</button>
-                  </div>
-                </div>
-                <div className="text-xs text-zinc-500 mt-3">Quick guide: After purchase, paste the assigned phone number into the field and click Link Number. This will associate the number with your account so calls, recordings and bookings appear in the dashboard.</div>
+                  <div className="text-xs text-zinc-500 mt-3">Quick guide: After purchase, paste your Fugth number into the field and click Link Fugth Number. This will associate the number with your account so calls, recordings and bookings appear in the dashboard.</div>
               </div>
             )}
             {/* Overview Tab */}
@@ -786,26 +915,32 @@ export function BusinessOSShell({ locked = false, authReady = false }) {
 
                 {/* Key Metrics Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {[
-                    { label: "Calls Today", value: calls.filter(c => {
-                      const callDate = new Date(c.timestamp?.seconds * 1000);
-                      const today = new Date();
-                      return callDate.toDateString() === today.toDateString();
-                    }).length, icon: "calls", color: "from-blue-500" },
-                    { label: "This Week", value: calls.length, icon: "chart", color: "from-emerald-500" },
-                    { label: "Booked", value: calls.filter(c => c.outcome === "Booked").length, icon: "check", color: "from-emerald-400" },
-                    { label: "Current Plan", value: workspace.planTier || "Starter", icon: "star", color: "from-yellow-500" },
-                  ].map((metric, idx) => (
-                    <div key={idx} className={`bg-gradient-to-br ${metric.color} to-transparent opacity-10 rounded-xl p-6 border ${darkMode ? "border-zinc-800" : "border-zinc-300"} group hover:opacity-20 transition`}>
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className={`text-xs font-bold uppercase tracking-wider ${darkMode ? "text-zinc-400" : "text-zinc-600"}`}>{metric.label}</p>
-                          <p className="text-3xl font-black mt-2">{metric.value}</p>
+                  {(() => {
+                    const callsToday = countCallsToday(calls);
+                    const weekly = weeklyCounts(calls, 7);
+                    const bookedCount = (calls || []).filter(c => c.outcome === 'Booked').length;
+                    const metrics = [
+                      { label: 'Calls Today', value: callsToday, icon: 'calls', color: 'from-blue-500', usesCalls: true },
+                      { label: 'This Week', value: weekly.reduce((a,b)=>a+b,0), icon: 'chart', color: 'from-emerald-500', usesCalls: true, sparkline: weekly },
+                      { label: 'Booked', value: bookedCount, icon: 'check', color: 'from-emerald-400', usesCalls: true },
+                      { label: 'Current Plan', value: workspace.planTier || 'Starter', icon: 'star', color: 'from-yellow-500' },
+                    ];
+
+                    return metrics.map((metric, idx) => (
+                      <div key={idx} className={`bg-gradient-to-br ${metric.color} to-transparent opacity-10 rounded-xl p-6 border ${darkMode ? 'border-zinc-800' : 'border-zinc-300'} group hover:opacity-20 transition`}>
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className={`text-xs font-bold uppercase tracking-wider ${darkMode ? 'text-zinc-400' : 'text-zinc-600'}`}>{metric.label}</p>
+                            <div className="flex items-center gap-3 mt-2">
+                              <p className="text-3xl font-black">{metric.usesCalls && !workspace.vapiLinked ? '—' : metric.value}</p>
+                              {metric.sparkline && workspace.vapiLinked && <Sparkline counts={metric.sparkline} />}
+                            </div>
+                          </div>
+                          <span className="text-4xl opacity-30 group-hover:opacity-50 transition"><Icon name={metric.icon} className="h-9 w-9" /></span>
                         </div>
-                        <span className="text-4xl opacity-30 group-hover:opacity-50 transition"><Icon name={metric.icon} className="h-9 w-9" /></span>
                       </div>
-                    </div>
-                  ))}
+                    ));
+                  })()}
                 </div>
 
                 {/* Recent Activity */}
@@ -818,7 +953,7 @@ export function BusinessOSShell({ locked = false, authReady = false }) {
                           <div>
                             <p className="font-semibold text-sm">{call.caller || "Unknown"}</p>
                             <p className={`text-xs ${darkMode ? "text-zinc-500" : "text-zinc-600"}`}>
-                              {new Date(call.timestamp?.seconds * 1000).toLocaleTimeString()}
+                              {safeCallDate(call)?.toLocaleTimeString() || ''}
                             </p>
                           </div>
                           <span className={`text-xs font-bold px-2 py-1 rounded ${call.outcome === "Booked" ? "bg-green-500/20 text-green-400" : "bg-blue-500/20 text-blue-400"}`}>
@@ -843,8 +978,17 @@ export function BusinessOSShell({ locked = false, authReady = false }) {
                     {calls.length} Calls
                   </div>
                 </div>
+                {!workspace.vapiLinked && (
+                  <div className={`border-2 border-dashed ${darkMode ? "border-zinc-800" : "border-zinc-300"} rounded-xl p-12 text-center`}>
+                    <div className="mb-3">
+                      <Icon name="calls" className="h-12 w-12 mx-auto text-zinc-400" />
+                    </div>
+                    <p className={darkMode ? "text-zinc-400" : "text-zinc-600"}>No Fugth number linked. Link your Fugth number to receive calls and view recordings here.</p>
+                    <div className="mt-4"><button onClick={() => setShowLinkVapiModal(true)} className="px-4 py-2 rounded bg-emerald-600 text-white">Link Fugth Number</button></div>
+                  </div>
+                )}
 
-                {calls.length > 0 ? (
+                {workspace.vapiLinked && calls.length > 0 && (
                   <div className="grid grid-cols-1 gap-4">
                     {calls.map((call) => (
                       <div key={call.id} className={`border ${darkMode ? "bg-black/30 border-zinc-800 hover:border-zinc-700" : "bg-white/30 border-zinc-300 hover:border-zinc-400"} rounded-xl p-6 transition`}>
@@ -858,7 +1002,7 @@ export function BusinessOSShell({ locked = false, authReady = false }) {
                                 </div>
                                 <div>
                                   <h3 className="text-lg font-bold">{call.caller || "Unknown Caller"}</h3>
-                                  <p className={`text-sm ${darkMode ? "text-zinc-400" : "text-zinc-600"}`}>{new Date(call.timestamp?.seconds * 1000).toLocaleString()}</p>
+                                  <p className={`text-sm ${darkMode ? "text-zinc-400" : "text-zinc-600"}`}>{safeCallDate(call)?.toLocaleString() || ''}</p>
                                 </div>
                               </div>
                               <span className={`text-xs font-bold px-3 py-1 rounded-full ${
@@ -886,7 +1030,9 @@ export function BusinessOSShell({ locked = false, authReady = false }) {
                       </div>
                     ))}
                   </div>
-                ) : (
+                )}
+
+                {workspace.vapiLinked && calls.length === 0 && (
                   <div className={`border-2 border-dashed ${darkMode ? "border-zinc-800" : "border-zinc-300"} rounded-xl p-12 text-center`}>
                     <div className="mb-3">
                       <Icon name="calls" className="h-12 w-12 mx-auto text-zinc-400" />
@@ -916,20 +1062,23 @@ export function BusinessOSShell({ locked = false, authReady = false }) {
               <div className="space-y-6">
                 <h2 className="text-3xl font-black">Operations Dashboard</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {[
-                    { label: "Total Calls", value: calls.length, change: "+12%" },
-                    { label: "Booked Appointments", value: calls.filter(c => c.outcome === "Booked").length, change: "+8%" },
-                    { label: "Response Rate", value: "94%", change: "+3%" },
-                    { label: "Avg Duration", value: "2m 34s", change: "-5%" },
-                  ].map((stat, idx) => (
-                    <div key={idx} className={`border ${darkMode ? "bg-black/30 border-zinc-800" : "bg-white/30 border-zinc-300"} rounded-xl p-6`}>
-                      <p className={`text-xs font-bold uppercase tracking-wider ${darkMode ? "text-zinc-400" : "text-zinc-600"}`}>{stat.label}</p>
-                      <div className="flex items-baseline gap-2 mt-3">
-                        <p className="text-3xl font-black">{stat.value}</p>
-                        <p className="text-xs text-emerald-400">{stat.change}</p>
+                  {(() => {
+                    const stats = [
+                      { label: 'Total Calls', value: workspace.vapiLinked ? calls.length : '—', change: '+12%' },
+                      { label: 'Booked Appointments', value: workspace.vapiLinked ? (calls || []).filter(c => c.outcome === 'Booked').length : '—', change: '+8%' },
+                      { label: 'Response Rate', value: workspace.vapiLinked ? '94%' : '—', change: '+3%' },
+                      { label: 'Avg Duration', value: workspace.vapiLinked ? '2m 34s' : '—', change: '-5%' },
+                    ];
+                    return stats.map((stat, idx) => (
+                      <div key={idx} className={`border ${darkMode ? 'bg-black/30 border-zinc-800' : 'bg-white/30 border-zinc-300'} rounded-xl p-6`}>
+                        <p className={`text-xs font-bold uppercase tracking-wider ${darkMode ? 'text-zinc-400' : 'text-zinc-600'}`}>{stat.label}</p>
+                        <div className="flex items-baseline gap-2 mt-3">
+                          <p className="text-3xl font-black">{stat.value}</p>
+                          <p className="text-xs text-emerald-400">{stat.change}</p>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ));
+                  })()}
                 </div>
               </div>
             )}
@@ -1309,6 +1458,82 @@ export function BusinessOSShell({ locked = false, authReady = false }) {
                           <button type="button" onClick={() => { setApptName(""); setApptPhone(""); setApptTime(""); setApptNotes(""); }} className="px-4 py-2 rounded-lg bg-white/5">Clear</button>
                         </div>
                       </form>
+                    </div>
+                    <div className="mt-6 border-t pt-4">
+                      <h4 className="font-bold mb-2">Create Test Account (Admin)</h4>
+                      <div className="space-y-3">
+                        <input value={devNewEmail} onChange={(e) => setDevNewEmail(e.target.value)} placeholder="Email" className="w-full p-2 rounded-lg bg-black/30" />
+                        <input value={devNewPassword} onChange={(e) => setDevNewPassword(e.target.value)} placeholder="Temp password (min 6)" className="w-full p-2 rounded-lg bg-black/30" />
+                        <div className="grid grid-cols-2 gap-2">
+                          <select value={devNewPlan} onChange={(e) => setDevNewPlan(e.target.value)} className="p-2 rounded-lg bg-black/30">
+                            <option value="starter">Starter — 1 Fugth number</option>
+                            <option value="growth">Growth — 3 Fugth numbers</option>
+                            <option value="elite">Elite — Unlimited Fugth numbers</option>
+                          </select>
+                          <input value={devNewFugthNumber} onChange={(e) => setDevNewFugthNumber(e.target.value)} placeholder="Fugth number (optional)" className="p-2 rounded-lg bg-black/30" />
+                        </div>
+                        <div className="flex gap-2">
+                          <button onClick={createDevAccount} disabled={devCreatingAccount} className={`px-4 py-2 rounded-lg ${devCreatingAccount ? 'bg-zinc-700 text-zinc-400' : 'bg-emerald-600 text-white'}`}>{devCreatingAccount ? 'Creating...' : 'Create Account'}</button>
+                          <button onClick={() => { setDevNewEmail(''); setDevNewPassword(''); setDevNewFugthNumber(''); }} className="px-4 py-2 rounded-lg bg-white/5">Clear</button>
+                        </div>
+                        <div className="text-xs text-zinc-500">Creates a Firebase Auth account and a Firestore user document. Users should reset their password on first login.</div>
+                      </div>
+
+                      <div className="mt-4">
+                        <h4 className="font-bold mb-2">Dev Accounts</h4>
+                        {devAccountsLoading ? <div className="text-sm text-zinc-400">Loading...</div> : (
+                          devAccounts.length ? (
+                            <div className="space-y-2 max-h-48 overflow-y-auto">
+                              {devAccounts.map((a) => (
+                                <div key={a.id} className="p-2 rounded border bg-black/20 flex items-center justify-between">
+                                  <div>
+                                    <div className="font-semibold text-sm">{a.email}</div>
+                                    <div className="text-xs text-zinc-400">{a.planTier} • {a.planStatus} • {a.fugthNumber || 'no Fugth number'}</div>
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <button onClick={() => { setLookupEmail(a.email); setLookupResult(a); }} className="px-2 py-1 bg-white/5 rounded">Select</button>
+                                    <button onClick={async () => { await updateDevAccount({ uid: a.uid, planTier: 'starter' }); }} className="px-2 py-1 bg-white/5 rounded">Make Starter</button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-sm text-zinc-500">No dev accounts yet.</div>
+                          )
+                        )}
+                        {lookupResult && (
+                          <div className="mt-4 p-3 border rounded-lg bg-black/30">
+                            <h4 className="font-bold mb-2">Selected Account</h4>
+                            <div className="text-sm text-zinc-300 mb-2">{lookupResult.email} — UID: {lookupResult.uid}</div>
+                            <div className="grid grid-cols-1 gap-2">
+                              <label className="text-xs font-semibold">Plan</label>
+                              <select value={updatePlan || lookupResult.planTier} onChange={(e) => setUpdatePlan(e.target.value)} className="p-2 rounded bg-black/20">
+                                <option value="starter">Starter</option>
+                                <option value="growth">Growth</option>
+                                <option value="elite">Elite</option>
+                              </select>
+
+                              <label className="text-xs font-semibold">Fugth Number</label>
+                              <input value={updateFugthNumber} onChange={(e) => setUpdateFugthNumber(e.target.value)} placeholder={lookupResult.fugthNumber || 'e.g. +15551234567'} className="p-2 rounded bg-black/20" />
+
+                              <label className="text-xs font-semibold">Set Temporary Password</label>
+                              <input value={updatePassword} onChange={(e) => setUpdatePassword(e.target.value)} placeholder="New temporary password" className="p-2 rounded bg-black/20" />
+
+                              <div className="flex gap-2">
+                                <button onClick={async () => {
+                                  const ok = await updateDevAccount({ uid: lookupResult.uid, planTier: updatePlan || lookupResult.planTier, fugthNumber: updateFugthNumber || lookupResult.fugthNumber, password: updatePassword || undefined });
+                                  if (ok) {
+                                    setDevStatusLog('Updated account ' + lookupResult.email);
+                                    setLookupResult(null);
+                                    setUpdatePlan(''); setUpdateFugthNumber(''); setUpdatePassword('');
+                                  }
+                                }} className="px-3 py-2 rounded bg-emerald-600 text-white">Apply Changes</button>
+                                <button onClick={() => { setLookupResult(null); setUpdatePlan(''); setUpdateFugthNumber(''); setUpdatePassword(''); }} className="px-3 py-2 rounded bg-white/5">Clear</button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
