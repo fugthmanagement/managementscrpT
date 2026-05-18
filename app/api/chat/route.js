@@ -6,7 +6,7 @@ export async function POST(req) {
     const apiKey = process.env.GEMINI_API_KEY;
 
     if (!apiKey) {
-      return NextResponse.json({ reply: "API Key missing in Vercel settings." });
+      return NextResponse.json({ reply: "API key missing. Configure GEMINI_API_KEY to enable AI responses." });
     }
 
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
