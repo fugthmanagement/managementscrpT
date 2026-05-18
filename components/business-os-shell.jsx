@@ -145,6 +145,9 @@ export function BusinessOSShell({ locked = false, authReady = false }) {
     serviceArea: "",
     averageJobValue: "200",
     tone: "Professional",
+    aiCharacter: "",
+    ragSections: [],
+    tools: [],
     planTier: "starter",
     planStatus: "trial",
   });
@@ -175,6 +178,12 @@ export function BusinessOSShell({ locked = false, authReady = false }) {
   const [apptPhone, setApptPhone] = useState("");
   const [apptTime, setApptTime] = useState("");
   const [apptNotes, setApptNotes] = useState("");
+
+  // Vapi linking UI state
+  const [showLinkVapiModal, setShowLinkVapiModal] = useState(false);
+  const [vapiInput, setVapiInput] = useState("");
+  const [isLinkingVapi, setIsLinkingVapi] = useState(false);
+  const [editingVapi, setEditingVapi] = useState(false);
 
   // Admin detection
   const isAdmin = user && (
@@ -374,6 +383,28 @@ export function BusinessOSShell({ locked = false, authReady = false }) {
     } catch (err) {
       console.error("Create appointment failed:", err);
       setDevStatusLog("Appointment create failed: " + err.message);
+    }
+  };
+
+  // Link or change Vapi number for the workspace
+  const handleLinkVapiNumber = async (number) => {
+    if (!user) return;
+    setIsLinkingVapi(true);
+    try {
+      await setDoc(doc(db, "users", user.uid), {
+        vapiNumber: number || vapiInput,
+        vapiLinked: true,
+        vapiLinkedAt: serverTimestamp(),
+        needsVapiLink: false,
+      }, { merge: true });
+      setVapiInput("");
+      setShowLinkVapiModal(false);
+      setEditingVapi(false);
+    } catch (err) {
+      console.error("Vapi link failed:", err);
+      alert("Failed to link number: " + (err.message || err));
+    } finally {
+      setIsLinkingVapi(false);
     }
   };
 
@@ -630,6 +661,45 @@ export function BusinessOSShell({ locked = false, authReady = false }) {
         {/* Main Content */}
         <main className="flex-1 overflow-y-auto">
           <div className="max-w-7xl mx-auto p-6 lg:p-8 space-y-8">
+            {/* Vapi number status and quick link action */}
+            <div className={`rounded-lg p-3 border ${darkMode ? "border-zinc-800 bg-black/30" : "border-zinc-200 bg-white/5"}`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className={`h-3 w-3 rounded-full ${workspace.vapiLinked ? "bg-emerald-400" : "bg-red-500"}`} />
+                  <div>
+                    <div className="text-sm font-semibold">{workspace.vapiNumber || "No Vapi number assigned"}</div>
+                    <div className="text-xs text-zinc-400">{workspace.vapiLinked ? "Number linked to Vapi" : (workspace.needsVapiLink ? "Please link your Vapi number to finish setup" : "Not linked")}</div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {workspace.vapiLinked ? (
+                    <button onClick={() => { setEditingVapi(true); setVapiInput(workspace.vapiNumber || ""); setShowLinkVapiModal(true); }} className="px-3 py-1 rounded bg-white/5">Change</button>
+                  ) : (
+                    <button onClick={() => setShowLinkVapiModal(true)} className="px-3 py-1 rounded bg-emerald-600 text-white">Link Number</button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {showLinkVapiModal && (
+              <div className={`rounded-lg p-4 border mt-3 ${darkMode ? "border-zinc-800 bg-black/40" : "border-zinc-200 bg-white/5"}`}>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-center">
+                  <div className="md:col-span-2">
+                    <label className="text-sm font-semibold block mb-1">Enter Vapi Phone Number</label>
+                    <input value={vapiInput} onChange={(e) => setVapiInput(e.target.value)} placeholder="+15551234567" className="w-full p-3 rounded-lg border bg-transparent" />
+                    <p className="text-xs text-zinc-400 mt-2">Paste the Vapi number you were assigned. Example: +15551234567</p>
+                  </div>
+                  <div className="flex gap-2 md:flex-col">
+                    <button onClick={() => handleLinkVapiNumber(vapiInput)} disabled={isLinkingVapi} className={`py-3 px-4 rounded-lg ${isLinkingVapi ? "bg-zinc-700 text-zinc-400" : "bg-emerald-600 text-white"}`}>
+                      {isLinkingVapi ? "Linking..." : "Link Number"}
+                    </button>
+                    <button onClick={() => { setShowLinkVapiModal(false); setEditingVapi(false); setVapiInput(""); }} className="py-3 px-4 rounded-lg bg-white/5">Cancel</button>
+                  </div>
+                </div>
+                <div className="text-xs text-zinc-500 mt-3">Quick guide: After purchase, paste the Vapi number provided by Fugth into the field and click Link Number. This will associate the number with your account so calls, recordings and bookings appear in the dashboard.</div>
+              </div>
+            )}
             {/* Overview Tab */}
             {activeTab === "overview" && (
               <div className="space-y-8">
@@ -902,6 +972,75 @@ export function BusinessOSShell({ locked = false, authReady = false }) {
                         <option>Friendly</option>
                         <option>Aggressive Sales</option>
                       </select>
+                    </div>
+                  </div>
+
+                  {/* AI Brain / RAG Sections */}
+                  <div className="mt-4 border-t pt-4">
+                    <h4 className="text-sm font-bold mb-2">AI Brain — RAG Sections & Toolbox</h4>
+                    <div className="mb-3">
+                      <label className="block text-sm font-semibold">AI Character / Persona</label>
+                      <input value={workspace.aiCharacter || ""} onChange={(e) => setWorkspace({ ...workspace, aiCharacter: e.target.value })} className="w-full p-3 rounded-lg border bg-transparent" placeholder="e.g., Energetic receptionist" />
+                    </div>
+
+                    <div className="mb-3">
+                      <label className="block text-sm font-semibold mb-2">Feature Toolbox</label>
+                      <div className="flex flex-wrap gap-2">
+                        {[
+                          { key: 'leadCapture', label: 'Lead Capture' },
+                          { key: 'booking', label: 'Booking' },
+                          { key: 'payments', label: 'Payments' },
+                          { key: 'sms', label: 'SMS Follow-up' },
+                          { key: 'recordSummaries', label: 'Call Summaries' },
+                        ].map((tool) => {
+                          const enabled = (workspace.tools || []).includes(tool.key);
+                          return (
+                            <label key={tool.key} className="inline-flex items-center gap-2 px-3 py-1 rounded-lg border bg-transparent">
+                              <input type="checkbox" checked={enabled} onChange={(e) => {
+                                const tools = new Set(workspace.tools || []);
+                                if (e.target.checked) tools.add(tool.key); else tools.delete(tool.key);
+                                setWorkspace({ ...workspace, tools: Array.from(tools) });
+                              }} />
+                              <span className="text-sm">{tool.label}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold mb-2">RAG Sections</label>
+                      {(workspace.ragSections || []).map((section, idx) => (
+                        <div key={idx} className="mb-3 p-3 rounded-lg border bg-transparent">
+                          <input value={section.title || ''} onChange={(e) => {
+                            const arr = workspace.ragSections ? [...workspace.ragSections] : [];
+                            arr[idx] = { ...arr[idx], title: e.target.value };
+                            setWorkspace({ ...workspace, ragSections: arr });
+                          }} placeholder="Section title (e.g., Services)" className="w-full p-2 mb-2 rounded border" />
+                          <textarea value={section.content || ''} onChange={(e) => {
+                            const arr = workspace.ragSections ? [...workspace.ragSections] : [];
+                            arr[idx] = { ...arr[idx], content: e.target.value };
+                            setWorkspace({ ...workspace, ragSections: arr });
+                          }} rows={4} className="w-full p-2 rounded border" placeholder="Paste documents or short guidance for this section" />
+                          <div className="flex items-center justify-between mt-2">
+                            <div className="text-xs text-zinc-400">Select tools for this section</div>
+                            <div className="flex gap-2">
+                              <button onClick={() => {
+                                const arr = workspace.ragSections ? [...workspace.ragSections] : [];
+                                arr.splice(idx, 1);
+                                setWorkspace({ ...workspace, ragSections: arr });
+                              }} className="px-2 py-1 rounded bg-white/5 text-sm">Remove</button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                      <div>
+                        <button onClick={() => {
+                          const arr = workspace.ragSections ? [...workspace.ragSections] : [];
+                          arr.push({ title: 'New Section', content: '', tools: [] });
+                          setWorkspace({ ...workspace, ragSections: arr });
+                        }} className="px-3 py-2 rounded bg-white/5">Add Section</button>
+                      </div>
                     </div>
                   </div>
 
