@@ -28,15 +28,28 @@ async function upsertPlan({ planKey, status, userId, email, customerId, subscrip
     updatedAt: now,
   };
 
-  if (userId) {
-    await patchDocument({
-      accessToken,
-      projectId,
-      path: `users/${userId}`,
-      data: payload,
-      updateMask: Object.keys(payload),
-    });
-  }
+      // If this is the first paid conversion for the user, mark that they need to link a Vapi number
+      if (userId) {
+        try {
+          const existingUser = await getDocument({ accessToken, projectId, path: `users/${userId}` });
+          const wasFree = !existingUser?.planTier;
+          const nowPaid = Boolean(planKey);
+          if (nowPaid && wasFree) {
+            payload.needsVapiLink = true;
+          }
+        } catch (err) {
+          // Non-fatal: continue and still patch the user doc
+          console.warn('Could not read existing user when deciding needsVapiLink:', err?.message || err);
+        }
+
+        await patchDocument({
+          accessToken,
+          projectId,
+          path: `users/${userId}`,
+          data: payload,
+          updateMask: Object.keys(payload),
+        });
+      }
 
   if (emailKey) {
     const existing = await getDocument({ accessToken, projectId, path: `billingCustomers/${emailKey}` });
