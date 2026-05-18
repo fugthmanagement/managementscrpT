@@ -777,7 +777,7 @@ export function BusinessOSShell({ locked = false, authReady = false }) {
               </button>
               <button
                 onClick={() => setShowPricingModal(true)}
-                className="hidden md:block px-4 py-2 text-sm font-bold bg-white/10 rounded-lg hover:bg-white/20 transition"
+                className="px-4 py-2 text-sm font-bold bg-white/10 rounded-lg hover:bg-white/20 transition"
               >
                 Upgrade
               </button>
