@@ -1469,6 +1469,7 @@ export function BusinessOSShell({ locked = false, authReady = false }) {
                             <option value="starter">Starter — 1 Fugth number</option>
                             <option value="growth">Growth — 3 Fugth numbers</option>
                             <option value="elite">Elite — Unlimited Fugth numbers</option>
+                            <option value="none">No Plan — Account only</option>
                           </select>
                           <input value={devNewFugthNumber} onChange={(e) => setDevNewFugthNumber(e.target.value)} placeholder="Fugth number (optional)" className="p-2 rounded-lg bg-black/30" />
                         </div>
