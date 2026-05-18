@@ -3,8 +3,114 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { doc, onSnapshot, setDoc, collection, query, orderBy } from "firebase/firestore";
+import { doc, onSnapshot, setDoc, collection, query, orderBy, addDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "../lib/firebase";
+
+function Icon({ name, className = "h-5 w-5" }) {
+  if (name === "overview") {
+    return (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <rect x="3" y="3" width="7" height="7" rx="1" />
+        <rect x="14" y="3" width="7" height="4" rx="1" />
+        <rect x="14" y="10" width="7" height="11" rx="1" />
+        <rect x="3" y="14" width="7" height="7" rx="1" />
+      </svg>
+    );
+  }
+  if (name === "calls") {
+    return (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <path d="M22 16.92V21a1 1 0 0 1-1.11 1 19.86 19.86 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.86 19.86 0 0 1 2 3.11 1 1 0 0 1 3 2h4.09a1 1 0 0 1 1 .75c.12.86.37 1.7.72 2.5a1 1 0 0 1-.24 1L8.7 8.7a16 16 0 0 0 6 6l1.44-1.44a1 1 0 0 1 1-.24c.8.35 1.64.6 2.5.72a1 1 0 0 1 .75 1z" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+  if (name === "leads") {
+    return (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5zM4 20a8 8 0 0 1 16 0" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+  if (name === "chart") {
+    return (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <path d="M3 3v18h18" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M7 13v6M12 9v10M17 5v14" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+  if (name === "book" || name === "knowledge") {
+    return (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <path d="M3 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v11a1 1 0 0 1-1 1H6a2 2 0 0 1-2-2V7z" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M7 7v11" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+  if (name === "check") {
+    return (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <path d="M20 6L9 17l-5-5" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+  if (name === "star") {
+    return (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <path d="M12 .587l3.668 7.431L24 9.748l-6 5.847L19.335 24 12 20.201 4.665 24 6 15.595 0 9.748l8.332-1.73z" strokeWidth="0.6" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+  if (name === "dev") {
+    return (
+      <svg className={className} viewBox="0 0 24 24" fill="none">
+        <circle cx="12" cy="12" r="10" fill="#ef4444" opacity="0.18" />
+        <circle cx="12" cy="12" r="4" fill="#ef4444" />
+      </svg>
+    );
+  }
+  if (name === "mic") {
+    return (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <path d="M12 1v11" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M19 11a7 7 0 01-14 0" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M12 21v-2" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+  if (name === "sun") {
+    return (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <circle cx="12" cy="12" r="4" strokeWidth="1.2" />
+        <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+  if (name === "moon") {
+    return (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <path d="M21 12.79A9 9 0 0111.21 3 7 7 0 0021 12.79z" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+  if (name === "settings") {
+    return (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <path d="M12 15.5A3.5 3.5 0 1 0 12 8.5a3.5 3.5 0 0 0 0 7z" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 1-1 0 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 1 0-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.02a1.65 1.65 0 0 1 1 0h.02a1.65 1.65 0 0 0 1.82-.33l.06-.06A2 2 0 0 1 22 6.17l-.06.06a1.65 1.65 0 0 0-.33 1.82v.02a1.65 1.65 0 0 1 0 1z" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+  if (name === "close") {
+    return (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <path d="M18 6L6 18M6 6l12 12" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+  // default simple dot
+  return <svg className={className} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="currentColor" /></svg>;
+}
 
 // Business types with "Other" option
 const BUSINESS_TYPES = [
@@ -52,6 +158,23 @@ export function BusinessOSShell({ locked = false, authReady = false }) {
   const [initCustomIndustry, setInitCustomIndustry] = useState("");
   const [isInitializing, setIsInitializing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [leads, setLeads] = useState([]);
+
+  // Dev panel state (admin-only)
+  const [devPhoneNumber, setDevPhoneNumber] = useState("");
+  const [devBusinessName, setDevBusinessName] = useState("");
+  const [devIndustry, setDevIndustry] = useState("");
+  const [devCustomIndustry, setDevCustomIndustry] = useState("");
+  const [devServices, setDevServices] = useState("");
+  const [devAssistantName, setDevAssistantName] = useState("Receptionist");
+  const [devVoiceId, setDevVoiceId] = useState("sara");
+  const [devCustomPrompt, setDevCustomPrompt] = useState("You are a professional AI receptionist. Greet the caller, capture name, address, service required, and ask to book an estimate.");
+  const [devDialing, setDevDialing] = useState(false);
+  const [devStatusLog, setDevStatusLog] = useState("");
+  const [apptName, setApptName] = useState("");
+  const [apptPhone, setApptPhone] = useState("");
+  const [apptTime, setApptTime] = useState("");
+  const [apptNotes, setApptNotes] = useState("");
 
   // Admin detection
   const isAdmin = user && (
@@ -84,6 +207,20 @@ export function BusinessOSShell({ locked = false, authReady = false }) {
         setShowOnboarding(true);
       }
     });
+    return () => unsubscribe();
+  }, [user]);
+
+  // Load leads
+  useEffect(() => {
+    if (!user || !db) return;
+
+    const leadsRef = collection(db, "users", user.uid, "leads");
+    const q = query(leadsRef, orderBy("timestamp", "desc"));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+      setLeads(list);
+    });
+
     return () => unsubscribe();
   }, [user]);
 
@@ -157,6 +294,86 @@ export function BusinessOSShell({ locked = false, authReady = false }) {
       alert("Could not save: " + err.message);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  // Dev: Trigger outbound call via server route and save call metadata to Firestore
+  const handleDevOutboundCall = async (e) => {
+    e.preventDefault();
+    if (!devPhoneNumber || !user) {
+      setDevStatusLog("Please enter target number and ensure you're logged in.");
+      return;
+    }
+
+    setDevDialing(true);
+    setDevStatusLog("Dispatching outbound call...");
+
+    try {
+      const payload = {
+        phoneNumber: devPhoneNumber,
+        customPrompt: devCustomPrompt,
+        businessName: devBusinessName || workspace.businessName || "",
+        voiceId: devVoiceId,
+        assistantName: devAssistantName,
+      };
+
+      const res = await fetch("/api/dev/outbound-call", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const result = await res.json();
+      if (!res.ok) {
+        throw new Error(result.error || "Vapi error");
+      }
+
+      // Save call metadata so recordings and logs appear in UI
+      try {
+        await addDoc(collection(db, "users", user.uid, "calls"), {
+          caller: devAssistantName || "DevAgent",
+          phone: devPhoneNumber,
+          voiceId: devVoiceId,
+          businessInfo: {
+            businessName: devBusinessName || workspace.businessName,
+            industry: devIndustry || workspace.industry,
+            customIndustry: devCustomIndustry || workspace.customIndustry,
+            services: devServices || workspace.services,
+          },
+          status: result.status || "initiated",
+          callId: result.callId || result.id || null,
+          recordingUrl: result.recordingUrl || result.audioUrl || null,
+          createdAt: serverTimestamp(),
+        });
+      } catch (err) {
+        console.error("Failed to save call metadata:", err);
+      }
+
+      setDevStatusLog(`Call launched — ID: ${result.callId || result.id || "n/a"}`);
+    } catch (err) {
+      console.error("Dev call error:", err);
+      setDevStatusLog(`Call failed: ${err.message}`);
+    } finally {
+      setDevDialing(false);
+    }
+  };
+
+  // Dev: create quick appointment under appointments collection
+  const createDevAppointment = async ({ name, phone, scheduledTime, notes }) => {
+    if (!user) return;
+    try {
+      await addDoc(collection(db, "users", user.uid, "appointments"), {
+        name,
+        phone,
+        notes: notes || "",
+        scheduledTime: scheduledTime ? new Date(scheduledTime).toISOString() : new Date().toISOString(),
+        createdAt: serverTimestamp(),
+        source: "dev_ops",
+      });
+      setDevStatusLog("Appointment created");
+    } catch (err) {
+      console.error("Create appointment failed:", err);
+      setDevStatusLog("Appointment create failed: " + err.message);
     }
   };
 
@@ -269,8 +486,9 @@ export function BusinessOSShell({ locked = false, authReady = false }) {
             <button
               onClick={() => setShowPricingModal(false)}
               className="text-zinc-400 hover:text-white text-2xl"
+              aria-label="Close pricing modal"
             >
-              ✕
+              <Icon name="close" className="h-5 w-5" />
             </button>
           </div>
 
@@ -286,7 +504,7 @@ export function BusinessOSShell({ locked = false, authReady = false }) {
                 <div className="text-3xl font-black mb-4">{plan.price}</div>
                 <ul className="space-y-2 mb-6">
                   {plan.features.map((f) => (
-                    <li key={f} className="text-sm text-zinc-300">✓ {f}</li>
+                    <li key={f} className="text-sm text-zinc-300"><span className="inline-block mr-2"><Icon name="check" className="h-4 w-4" /></span>{f}</li>
                   ))}
                 </ul>
                 <a href={plan.link} target="_blank" rel="noopener noreferrer" className="w-full block text-center bg-white text-black font-bold py-2 rounded-lg hover:bg-zinc-200">
@@ -333,8 +551,9 @@ export function BusinessOSShell({ locked = false, authReady = false }) {
               <button
                 onClick={() => setDarkMode(!darkMode)}
                 className={`p-2 rounded-lg transition ${darkMode ? "hover:bg-white/10" : "hover:bg-black/10"}`}
+                aria-label="Toggle theme"
               >
-                {darkMode ? "☀️" : "🌙"}
+                <Icon name={darkMode ? "sun" : "moon"} className="h-5 w-5" />
               </button>
               <button
                 onClick={() => setShowPricingModal(true)}
@@ -365,13 +584,13 @@ export function BusinessOSShell({ locked = false, authReady = false }) {
           <nav className="space-y-2">
             <p className="text-xs font-bold uppercase tracking-widest text-zinc-500 mb-4">Navigation</p>
             {[
-              { id: "overview", label: "Overview", icon: "📊" },
-              { id: "calls", label: "Call Intelligence", icon: "📞" },
-              { id: "leads", label: "Leads Manager", icon: "👥" },
-              { id: "operations", label: "Operations", icon: "⚙️" },
-              { id: "advisor", label: "AI Advisor", icon: "🤖" },
-              { id: "knowledge", label: "Knowledge Base", icon: "📚" },
-              { id: "settings", label: "Settings", icon: "⚙️" },
+              { id: "overview", label: "Overview" },
+              { id: "calls", label: "Call Intelligence" },
+              { id: "leads", label: "Leads Manager" },
+              { id: "operations", label: "Operations" },
+              { id: "advisor", label: "AI Advisor" },
+              { id: "knowledge", label: "Knowledge Base" },
+              { id: "settings", label: "Settings" },
             ].map((item) => (
               <button
                 key={item.id}
@@ -386,7 +605,7 @@ export function BusinessOSShell({ locked = false, authReady = false }) {
                     : "text-zinc-600 hover:text-black hover:bg-black/5"
                 }`}
               >
-                <span className="mr-3">{item.icon}</span> {item.label}
+                <span className="mr-3"><Icon name={item.id} className="h-5 w-5" /></span> {item.label}
               </button>
             ))}
           </nav>
@@ -402,7 +621,7 @@ export function BusinessOSShell({ locked = false, authReady = false }) {
                     : "border-red-500/20 text-red-400/60 hover:text-red-400 hover:bg-red-500/5"
                 }`}
               >
-                🔴 Dev Ops
+                <span className="mr-2"><Icon name="dev" className="h-4 w-4" /></span> Dev Ops
               </button>
             </div>
           )}
@@ -428,10 +647,10 @@ export function BusinessOSShell({ locked = false, authReady = false }) {
                       const callDate = new Date(c.timestamp?.seconds * 1000);
                       const today = new Date();
                       return callDate.toDateString() === today.toDateString();
-                    }).length, icon: "📞", color: "from-blue-500" },
-                    { label: "This Week", value: calls.length, icon: "📈", color: "from-emerald-500" },
-                    { label: "Booked", value: calls.filter(c => c.outcome === "Booked").length, icon: "✓", color: "from-emerald-400" },
-                    { label: "Current Plan", value: workspace.planTier || "Starter", icon: "⭐", color: "from-yellow-500" },
+                    }).length, icon: "calls", color: "from-blue-500" },
+                    { label: "This Week", value: calls.length, icon: "chart", color: "from-emerald-500" },
+                    { label: "Booked", value: calls.filter(c => c.outcome === "Booked").length, icon: "check", color: "from-emerald-400" },
+                    { label: "Current Plan", value: workspace.planTier || "Starter", icon: "star", color: "from-yellow-500" },
                   ].map((metric, idx) => (
                     <div key={idx} className={`bg-gradient-to-br ${metric.color} to-transparent opacity-10 rounded-xl p-6 border ${darkMode ? "border-zinc-800" : "border-zinc-300"} group hover:opacity-20 transition`}>
                       <div className="flex items-center justify-between">
@@ -439,7 +658,7 @@ export function BusinessOSShell({ locked = false, authReady = false }) {
                           <p className={`text-xs font-bold uppercase tracking-wider ${darkMode ? "text-zinc-400" : "text-zinc-600"}`}>{metric.label}</p>
                           <p className="text-3xl font-black mt-2">{metric.value}</p>
                         </div>
-                        <span className="text-4xl opacity-30 group-hover:opacity-50 transition">{metric.icon}</span>
+                        <span className="text-4xl opacity-30 group-hover:opacity-50 transition"><Icon name={metric.icon} className="h-9 w-9" /></span>
                       </div>
                     </div>
                   ))}
@@ -516,7 +735,7 @@ export function BusinessOSShell({ locked = false, authReady = false }) {
                                   <div className="text-xs text-zinc-400">⏱️ {call.duration || "N/A"}</div>
                                 </div>
                               )}
-                              <div className="text-xs text-zinc-500">🎙️ Voice: {call.voiceId || "Default"}</div>
+                              <div className="text-xs text-zinc-500"><Icon name="mic" className="inline-block h-4 w-4 mr-1" /> Voice: {call.voiceId || "Default"}</div>
                             </div>
                           </div>
                         </div>
@@ -525,7 +744,9 @@ export function BusinessOSShell({ locked = false, authReady = false }) {
                   </div>
                 ) : (
                   <div className={`border-2 border-dashed ${darkMode ? "border-zinc-800" : "border-zinc-300"} rounded-xl p-12 text-center`}>
-                    <span className="text-5xl mb-3 block">📞</span>
+                    <div className="mb-3">
+                      <Icon name="calls" className="h-12 w-12 mx-auto text-zinc-400" />
+                    </div>
                     <p className={darkMode ? "text-zinc-400" : "text-zinc-600"}>No calls yet. Your AI is ready to take incoming calls.</p>
                   </div>
                 )}
@@ -537,7 +758,9 @@ export function BusinessOSShell({ locked = false, authReady = false }) {
               <div className="space-y-6">
                 <h2 className="text-3xl font-black">Leads Manager</h2>
                 <div className={`border-2 border-dashed ${darkMode ? "border-zinc-800" : "border-zinc-300"} rounded-xl p-12 text-center`}>
-                  <span className="text-5xl mb-3 block">👥</span>
+                  <div className="mb-3">
+                    <Icon name="leads" className="h-12 w-12 mx-auto text-zinc-400" />
+                  </div>
                   <p className={darkMode ? "text-zinc-400" : "text-zinc-600"}>Leads captured from calls will appear here</p>
                   <p className={`text-sm mt-2 ${darkMode ? "text-zinc-500" : "text-zinc-600"}`}>Enable AI lead capture in settings</p>
                 </div>
@@ -594,7 +817,9 @@ export function BusinessOSShell({ locked = false, authReady = false }) {
               <div className="space-y-6">
                 <h2 className="text-3xl font-black">Knowledge Base</h2>
                 <div className={`border-2 border-dashed ${darkMode ? "border-zinc-800" : "border-zinc-300"} rounded-xl p-12 text-center cursor-pointer hover:opacity-80 transition`}>
-                  <span className="text-5xl mb-3 block">📚</span>
+                  <div className="mb-3">
+                    <Icon name="book" className="h-12 w-12 mx-auto text-zinc-400" />
+                  </div>
                   <p className={`font-semibold ${darkMode ? "text-zinc-300" : "text-zinc-700"}`}>Upload Documents</p>
                   <p className={`text-sm mt-2 ${darkMode ? "text-zinc-500" : "text-zinc-600"}`}>Drag and drop your files to train your AI assistant</p>
                 </div>
@@ -694,57 +919,165 @@ export function BusinessOSShell({ locked = false, authReady = false }) {
             {/* Dev Ops Tab */}
             {activeTab === "dev_ops" && isAdmin && (
               <div className="space-y-6">
-                <div className="flex items-center gap-3 mb-8">
+                <div className="flex items-center gap-3 mb-6">
                   <span className="px-3 py-1 bg-red-500/20 text-red-400 text-xs font-black rounded-full border border-red-500/30">ADMIN</span>
                   <h2 className="text-3xl font-black">Developer Operations</h2>
                 </div>
 
-                <div className="bg-gradient-to-r from-red-950/30 to-transparent border border-red-500/20 rounded-2xl p-8">
-                  <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
-                    <span>🔴</span> Test Outbound Calling
-                  </h3>
-
-                  <form onSubmit={async (e) => {
-                    e.preventDefault();
-                    const form = e.currentTarget;
-                    const formData = new FormData(form);
-                    const phoneNumber = String(formData.get('phone') || "").trim();
-                    if (!phoneNumber) {
-                      alert('Please enter a phone number');
-                      return;
-                    }
-
-                    try {
-                      const res = await fetch('/api/dev/outbound-call', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                          phoneNumber,
-                          businessName: workspace.businessName,
-                          customPrompt: `You are a professional AI receptionist for ${workspace.businessName}, a ${workspace.industry} business.`
-                        })
-                      });
-                      const data = await res.json();
-                      alert(`✅ Call initiated: ${data.callId || 'ok'}`);
-                    } catch (err) {
-                      console.error('Dev call failed', err);
-                      alert('❌ Error initiating call');
-                    }
-                  }} className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-bold mb-2">Target Phone Number</label>
-                      <input
-                        type="tel"
-                        name="phone"
-                        placeholder="+1 (555) 123-4567"
-                        className={`w-full p-3 rounded-lg border ${darkMode ? "bg-black/50 border-zinc-700" : "bg-white/50 border-zinc-300"} focus:outline-none focus:border-red-500`}
-                        required
-                      />
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Business Info & Assistant Tuning */}
+                  <div className="lg:col-span-2 rounded-2xl border border-white/6 p-6 bg-zinc-900/30">
+                    <h3 className="text-lg font-bold mb-4">1. Business Info & Assistant</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-semibold mb-2">Business Name</label>
+                        <input value={devBusinessName} onChange={(e) => setDevBusinessName(e.target.value)} className="w-full p-3 rounded-lg border bg-black/40" placeholder="Company name (leave blank to use workspace)" />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold mb-2">Industry</label>
+                        <select value={devIndustry} onChange={(e) => setDevIndustry(e.target.value)} className="w-full p-3 rounded-lg border bg-black/40">
+                          <option value="">Select industry (or leave blank)</option>
+                          {BUSINESS_TYPES.map((t) => (<option key={t} value={t}>{t}</option>))}
+                        </select>
+                      </div>
                     </div>
-                    <button type="submit" className="w-full bg-red-600 text-white font-bold py-3 rounded-lg hover:bg-red-700 transition">
-                      🔴 Trigger Test Call
-                    </button>
-                  </form>
+
+                    {devIndustry === "Other" && (
+                      <div className="mt-4">
+                        <label className="block text-sm font-semibold mb-2">Custom Industry</label>
+                        <input value={devCustomIndustry} onChange={(e) => setDevCustomIndustry(e.target.value)} className="w-full p-3 rounded-lg border bg-black/40" placeholder="e.g., Influencer, SaaS" />
+                      </div>
+                    )}
+
+                    <div className="mt-4">
+                      <label className="block text-sm font-semibold mb-2">Services / About</label>
+                      <textarea value={devServices} onChange={(e) => setDevServices(e.target.value)} rows={4} className="w-full p-3 rounded-lg border bg-black/40" placeholder="Short blurb about the business for RAG prompts" />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 mt-4">
+                      <div>
+                        <label className="block text-sm font-semibold mb-2">Assistant Persona</label>
+                        <select value={devAssistantName} onChange={(e) => setDevAssistantName(e.target.value)} className="w-full p-3 rounded-lg border bg-black/40">
+                          <option>Receptionist</option>
+                          <option>Concierge</option>
+                          <option>Sales Closer</option>
+                          <option>Scripted Closer</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold mb-2">Voice Profile</label>
+                        <select value={devVoiceId} onChange={(e) => setDevVoiceId(e.target.value)} className="w-full p-3 rounded-lg border bg-black/40">
+                          <option value="sara">Sara</option>
+                          <option value="rachel">Rachel</option>
+                          <option value="jack">Jack</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="mt-4">
+                      <label className="block text-sm font-semibold mb-2">Custom System Prompt</label>
+                      <textarea value={devCustomPrompt} onChange={(e) => setDevCustomPrompt(e.target.value)} rows={5} className="w-full p-3 rounded-lg border bg-black/40 font-mono" />
+                    </div>
+
+                    <div className="flex gap-3 mt-4">
+                      <button type="button" onClick={() => {
+                        setDevBusinessName(workspace.businessName || "");
+                        setDevIndustry(workspace.industry || "");
+                        setDevCustomIndustry(workspace.customIndustry || "");
+                        setDevServices(workspace.services || "");
+                        setDevCustomPrompt(`You are a professional AI receptionist for ${workspace.businessName || "this business"}. Use the services and industry to book appointments and capture lead info.`);
+                        setDevStatusLog("Loaded workspace info into Dev panel.");
+                      }} className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10">Load from Workspace</button>
+
+                      <button type="button" onClick={async () => {
+                        if (!user) return;
+                        try {
+                          await setDoc(doc(db, "users", user.uid), {
+                            businessName: devBusinessName || workspace.businessName,
+                            industry: devIndustry || workspace.industry,
+                            customIndustry: devCustomIndustry || workspace.customIndustry,
+                            services: devServices || workspace.services,
+                          }, { merge: true });
+                          setDevStatusLog("Applied Dev info to workspace.");
+                        } catch (err) {
+                          console.error("Apply workspace failed:", err);
+                          setDevStatusLog("Apply failed: " + err.message);
+                        }
+                      }} className="px-4 py-2 rounded-lg bg-emerald-600 text-white hover:opacity-95">Apply to Workspace</button>
+                    </div>
+                  </div>
+
+                  {/* Dialer + Recordings */}
+                  <div className="rounded-2xl border border-white/6 p-6 bg-zinc-900/20">
+                    <h3 className="text-lg font-bold mb-4">2. Outbound Dialer</h3>
+                    <form onSubmit={handleDevOutboundCall} className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-semibold mb-2">Target Mobile Number</label>
+                        <input type="tel" value={devPhoneNumber} onChange={(e) => setDevPhoneNumber(e.target.value)} placeholder="+15551234567 or 5551234567" className="w-full p-3 rounded-lg border bg-black/40" />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-semibold mb-2">Voice / Model</label>
+                        <select value={devVoiceId} onChange={(e) => setDevVoiceId(e.target.value)} className="w-full p-3 rounded-lg border bg-black/40">
+                          <option value="sara">Sara</option>
+                          <option value="rachel">Rachel</option>
+                          <option value="jack">Jack</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-semibold mb-2">Prompt Preview</label>
+                        <textarea value={devCustomPrompt} onChange={(e) => setDevCustomPrompt(e.target.value)} rows={4} className="w-full p-3 rounded-lg border bg-black/40 font-mono" />
+                      </div>
+
+                      <button type="submit" disabled={devDialing} className={`w-full py-3 rounded-lg font-bold ${devDialing ? "bg-zinc-800 text-zinc-500" : "bg-red-600 text-white"}`}>
+                        {devDialing ? "Firing..." : "Trigger Test Call"}
+                      </button>
+                    </form>
+
+                    <div className="mt-4 rounded-lg p-3 bg-black/40 font-mono text-xs">
+                      {devStatusLog || "Ready to deploy sandbox outbound streams."}
+                    </div>
+
+                    <div className="mt-6">
+                      <h4 className="font-bold mb-2">Recent Recordings</h4>
+                      {calls.filter(c => c.recordingUrl).length ? (
+                        <div className="space-y-3 max-h-48 overflow-y-auto">
+                          {calls.filter(c => c.recordingUrl).map((call) => (
+                            <div key={call.id} className="rounded-lg p-3 bg-black/30 border border-white/6">
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="text-sm font-semibold">{call.caller || call.phone}</div>
+                                <div className="text-xs text-zinc-400">ID: {call.callId || call.id}</div>
+                              </div>
+                              <audio controls className="w-full">
+                                <source src={call.recordingUrl} type="audio/mpeg" />
+                              </audio>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-zinc-500">No recordings yet. Live calls will appear here with playable audio.</p>
+                      )}
+                    </div>
+
+                    <div className="mt-6">
+                      <h4 className="font-bold mb-2">Quick Appointment (Dev)</h4>
+                      <form onSubmit={async (e) => {
+                        e.preventDefault();
+                        await createDevAppointment({ name: apptName, phone: apptPhone, scheduledTime: apptTime, notes: apptNotes });
+                        setApptName(""); setApptPhone(""); setApptTime(""); setApptNotes("");
+                      }} className="space-y-3">
+                        <input value={apptName} onChange={(e) => setApptName(e.target.value)} placeholder="Client name" className="w-full p-2 rounded-lg bg-black/30" />
+                        <input value={apptPhone} onChange={(e) => setApptPhone(e.target.value)} placeholder="Phone" className="w-full p-2 rounded-lg bg-black/30" />
+                        <input value={apptTime} onChange={(e) => setApptTime(e.target.value)} type="datetime-local" className="w-full p-2 rounded-lg bg-black/30" />
+                        <textarea value={apptNotes} onChange={(e) => setApptNotes(e.target.value)} placeholder="Notes" className="w-full p-2 rounded-lg bg-black/30" rows={2} />
+                        <div className="flex gap-2">
+                          <button type="submit" className="px-4 py-2 rounded-lg bg-emerald-600 text-white">Create Appointment</button>
+                          <button type="button" onClick={() => { setApptName(""); setApptPhone(""); setApptTime(""); setApptNotes(""); }} className="px-4 py-2 rounded-lg bg-white/5">Clear</button>
+                        </div>
+                      </form>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
