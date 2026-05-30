@@ -1,15 +1,102 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { doc, onSnapshot, setDoc, collection, query, orderBy, addDoc, serverTimestamp } from "firebase/firestore";
+import {
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  limit,
+  onSnapshot,
+  orderBy,
+  query,
+  serverTimestamp,
+  setDoc,
+  updateDoc,
+} from "firebase/firestore";
 import { auth, db } from "../lib/firebase";
 
+const ADMIN_EMAILS = [
+  "fugthmanagement@gmail.com",
+  "mepenginestudio@gmail.com",
+  "fugthchat@gmail.com",
+];
+
+const DEFAULT_SCRIPT = `You are the AI receptionist for this business.
+Greet the caller professionally.
+Find out their name, phone number, service needed, city, urgency, and best appointment time.
+If they are ready, book the appointment.
+If they are not ready, save them as a lead and ask permission for a follow-up.
+Keep the call short, helpful, and confident.`;
+
+const DEFAULT_WORKSPACE = {
+  businessName: "Fugth Management OS",
+  ownerName: "",
+  businessType: "Service Business",
+  phone: "",
+  website: "",
+  serviceArea: "",
+  hours: "Mon-Fri 9 AM - 5 PM",
+  bookingLink: "",
+  plan: "Starter",
+  status: "active",
+  vapiNumber: "",
+  vapiAssistantId: "",
+  vapiLinked: false,
+  needsVapiLink: true,
+  aiScript: DEFAULT_SCRIPT,
+  primaryGoal: "Book more jobs from missed calls and cold leads.",
+};
+
+const NAV_ITEMS = [
+  { id: "overview", label: "Command Center", icon: "overview" },
+  { id: "calls", label: "Calls", icon: "calls" },
+  { id: "leads", label: "Leads CRM", icon: "leads" },
+  { id: "campaigns", label: "Cold Calling", icon: "bolt" },
+  { id: "appointments", label: "Appointments", icon: "calendar" },
+  { id: "advisor", label: "AI Advisor", icon: "advisor" },
+  { id: "knowledge", label: "Trainer", icon: "book" },
+  { id: "settings", label: "Settings", icon: "settings" },
+  { id: "dev_ops", label: "Dev Ops", icon: "shield" },
+];
+
+const LEAD_STAGES = [
+  "new",
+  "called",
+  "follow_up",
+  "hot",
+  "booked",
+  "won",
+  "lost",
+];
+
+const PLAN_LIMITS = {
+  Starter: { calls: 100, sms: 50, agents: 1 },
+  Growth: { calls: 500, sms: 250, agents: 3 },
+  Elite: { calls: 2000, sms: 1000, agents: 10 },
+};
+
+const inputClass =
+  "w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-emerald-400/60 focus:bg-white/[0.07]";
+
+const labelClass = "mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400";
+
 function Icon({ name, className = "h-5 w-5" }) {
+  const common = {
+    className,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: "1.5",
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+  };
+
   if (name === "overview") {
     return (
-      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <svg {...common}>
         <rect x="3" y="3" width="7" height="7" rx="1" />
         <rect x="14" y="3" width="7" height="4" rx="1" />
         <rect x="14" y="10" width="7" height="11" rx="1" />
@@ -17,1493 +104,1834 @@ function Icon({ name, className = "h-5 w-5" }) {
       </svg>
     );
   }
+
   if (name === "calls") {
     return (
-      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor">
-        <path d="M22 16.92V21a1 1 0 0 1-1.11 1 19.86 19.86 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.86 19.86 0 0 1 2 3.11 1 1 0 0 1 3 2h4.09a1 1 0 0 1 1 .75c.12.86.37 1.7.72 2.5a1 1 0 0 1-.24 1L8.7 8.7a16 16 0 0 0 6 6l1.44-1.44a1 1 0 0 1 1-.24c.8.35 1.64.6 2.5.72a1 1 0 0 1 .75 1z" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <svg {...common}>
+        <path d="M22 16.92V21a1 1 0 0 1-1.11 1 19.86 19.86 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.86 19.86 0 0 1 2 3.11 1 1 0 0 1 3 2h4.09a1 1 0 0 1 1 .75c.12.86.37 1.7.72 2.5a1 1 0 0 1-.24 1L8.7 8.7a16 16 0 0 0 6 6l1.44-1.44a1 1 0 0 1 1-.24c.8.35 1.64.6 2.5.72a1 1 0 0 1 .75 1z" />
       </svg>
     );
   }
+
   if (name === "leads") {
     return (
-      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor">
-        <path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5zM4 20a8 8 0 0 1 16 0" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <svg {...common}>
+        <path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5z" />
+        <path d="M4 20a8 8 0 0 1 16 0" />
       </svg>
     );
   }
-  if (name === "chart") {
+
+  if (name === "bolt") {
     return (
-      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor">
-        <path d="M3 3v18h18" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M7 13v6M12 9v10M17 5v14" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <svg {...common}>
+        <path d="M13 2 3 14h8l-1 8 11-14h-8V2z" />
       </svg>
     );
   }
-  if (name === "book" || name === "knowledge") {
+
+  if (name === "calendar") {
     return (
-      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor">
-        <path d="M3 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v11a1 1 0 0 1-1 1H6a2 2 0 0 1-2-2V7z" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M7 7v11" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+      <svg {...common}>
+        <rect x="3" y="4" width="18" height="17" rx="2" />
+        <path d="M8 2v4M16 2v4M3 10h18" />
+        <path d="M8 14h3M14 14h2M8 18h2" />
       </svg>
     );
   }
-  if (name === "check") {
+
+  if (name === "advisor") {
     return (
-      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor">
-        <path d="M20 6L9 17l-5-5" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <svg {...common}>
+        <path d="M3 3v18h18" />
+        <path d="m7 15 4-4 3 3 5-7" />
       </svg>
     );
   }
-  if (name === "star") {
-    return (
-      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor">
-        <path d="M12 .587l3.668 7.431L24 9.748l-6 5.847L19.335 24 12 20.201 4.665 24 6 15.595 0 9.748l8.332-1.73z" strokeWidth="0.6" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    );
-  }
-  if (name === "dev") {
-    return (
-      <svg className={className} viewBox="0 0 24 24" fill="none">
-        <circle cx="12" cy="12" r="10" fill="#ef4444" opacity="0.18" />
-        <circle cx="12" cy="12" r="4" fill="#ef4444" />
-      </svg>
-    );
-  }
-  if (name === "mic") {
-    return (
-      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor">
-        <path d="M12 1v11" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M19 11a7 7 0 01-14 0" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M12 21v-2" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    );
-  }
-  if (name === "sun") {
-    return (
-      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor">
-        <circle cx="12" cy="12" r="4" strokeWidth="1.2" />
-        <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    );
-  }
-  if (name === "moon") {
-    return (
-      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor">
-        <path d="M21 12.79A9 9 0 0111.21 3 7 7 0 0021 12.79z" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    );
-  }
+
   if (name === "settings") {
     return (
-      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor">
-        <path d="M12 15.5A3.5 3.5 0 1 0 12 8.5a3.5 3.5 0 0 0 0 7z" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 1-1 0 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 1 0-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.02a1.65 1.65 0 0 1 1 0h.02a1.65 1.65 0 0 0 1.82-.33l.06-.06A2 2 0 0 1 22 6.17l-.06.06a1.65 1.65 0 0 0-.33 1.82v.02a1.65 1.65 0 0 1 0 1z" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+      <svg {...common}>
+        <path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5z" />
+        <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1-.6 1.7 1.7 0 0 0-1.88.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1H3a2 2 0 1 1 0-4h.09a1.7 1.7 0 0 0 .6-1 1.7 1.7 0 0 0-.34-1.88l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 .6 1.7 1.7 0 0 0 1.88-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9c.2.36.4.7.6 1H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-.6 1z" />
       </svg>
     );
   }
-  if (name === "close") {
+
+  if (name === "shield") {
     return (
-      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor">
-        <path d="M18 6L6 18M6 6l12 12" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+      <svg {...common}>
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+        <path d="m9 12 2 2 4-5" />
       </svg>
     );
   }
-  // default simple dot
-  return <svg className={className} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="currentColor" /></svg>;
+
+  if (name === "book") {
+    return (
+      <svg {...common}>
+        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+        <path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5z" />
+      </svg>
+    );
+  }
+
+  if (name === "logout") {
+    return (
+      <svg {...common}>
+        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+        <path d="m16 17 5-5-5-5" />
+        <path d="M21 12H9" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg {...common}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 8v4l3 3" />
+    </svg>
+  );
 }
 
-// Business types with "Other" option
-const BUSINESS_TYPES = [
-  "Dental",
-  "Roofing",
-  "HVAC/Plumbing",
-  "Auto Repair",
-  "Law Firm",
-  "Medical Spa",
-  "Barber/Salon",
-  "Landscaper",
-  "Pet Groomer",
-  "Influencer",
-  "Other"
-];
+function cx(...classes) {
+  return classes.filter(Boolean).join(" ");
+}
 
-const stripeLinks = {
-  starter: "https://buy.stripe.com/dRmeVdaGld685fo4984ko00",
-  growth: "https://buy.stripe.com/3cI14n5m1d68cHQ6hg4ko01",
-  elite: "https://buy.stripe.com/5kQ7sL4hXaY037gbBA4ko02",
-};
+function isPlainObject(value) {
+  return Object.prototype.toString.call(value) === "[object Object]";
+}
 
-export function BusinessOSShell({ locked = false, authReady = false }) {
+function sanitizeForFirestore(value) {
+  if (value === undefined) return null;
+  if (value === null) return null;
+  if (Array.isArray(value)) return value.map(sanitizeForFirestore);
+  if (value instanceof Date) return value;
+
+  if (isPlainObject(value)) {
+    const cleaned = {};
+    Object.entries(value).forEach(([key, val]) => {
+      if (val !== undefined) cleaned[key] = sanitizeForFirestore(val);
+    });
+    return cleaned;
+  }
+
+  return value;
+}
+
+function toDate(value) {
+  if (!value) return null;
+  if (value instanceof Date) return value;
+  if (typeof value.toDate === "function") return value.toDate();
+  if (value.seconds) return new Date(value.seconds * 1000);
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function formatDateTime(value) {
+  const date = toDate(value);
+  if (!date) return "Not set";
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function formatDate(value) {
+  const date = toDate(value);
+  if (!date) return "Not set";
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(date);
+}
+
+function money(value) {
+  const number = Number(value || 0);
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(number);
+}
+
+function initials(name = "FC") {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
+}
+
+function normalize(value = "") {
+  return String(value).toLowerCase().trim();
+}
+
+function statusClass(status = "") {
+  const s = normalize(status);
+
+  if (["won", "booked", "completed", "answered", "active", "hot"].includes(s)) {
+    return "border-emerald-400/30 bg-emerald-400/10 text-emerald-200";
+  }
+
+  if (["follow_up", "called", "pending", "warm", "scheduled"].includes(s)) {
+    return "border-amber-400/30 bg-amber-400/10 text-amber-200";
+  }
+
+  if (["lost", "missed", "cancelled", "inactive"].includes(s)) {
+    return "border-rose-400/30 bg-rose-400/10 text-rose-200";
+  }
+
+  return "border-slate-500/30 bg-slate-500/10 text-slate-200";
+}
+
+function Pill({ children, tone }) {
+  return (
+    <span className={cx("inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold", tone)}>
+      {children}
+    </span>
+  );
+}
+
+function Panel({ title, subtitle, action, children, className = "" }) {
+  return (
+    <section className={cx("rounded-[2rem] border border-white/10 bg-white/[0.045] p-5 shadow-2xl shadow-black/20 backdrop-blur-xl", className)}>
+      {(title || subtitle || action) && (
+        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            {title && <h2 className="text-lg font-bold text-white">{title}</h2>}
+            {subtitle && <p className="mt-1 text-sm text-slate-400">{subtitle}</p>}
+          </div>
+          {action}
+        </div>
+      )}
+      {children}
+    </section>
+  );
+}
+
+function StatCard({ label, value, note, icon, tone = "emerald" }) {
+  const toneClass =
+    tone === "rose"
+      ? "from-rose-400/20 to-orange-500/10 text-rose-200"
+      : tone === "amber"
+        ? "from-amber-400/20 to-yellow-500/10 text-amber-200"
+        : "from-emerald-400/20 to-cyan-500/10 text-emerald-200";
+
+  return (
+    <div className="rounded-[1.7rem] border border-white/10 bg-slate-950/60 p-5">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{label}</p>
+          <p className="mt-3 text-3xl font-black text-white">{value}</p>
+          {note && <p className="mt-2 text-sm text-slate-400">{note}</p>}
+        </div>
+        <div className={cx("rounded-2xl bg-gradient-to-br p-3", toneClass)}>
+          <Icon name={icon || "overview"} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function GhostButton({ children, onClick, type = "button", disabled = false, className = "" }) {
+  return (
+    <button
+      type={type}
+      onClick={onClick}
+      disabled={disabled}
+      className={cx(
+        "rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-bold text-slate-200 transition hover:border-emerald-400/40 hover:bg-emerald-400/10 disabled:cursor-not-allowed disabled:opacity-50",
+        className
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+function PrimaryButton({ children, onClick, type = "button", disabled = false, className = "" }) {
+  return (
+    <button
+      type={type}
+      onClick={onClick}
+      disabled={disabled}
+      className={cx(
+        "rounded-2xl bg-gradient-to-r from-emerald-400 to-cyan-400 px-5 py-3 text-sm font-black text-slate-950 shadow-lg shadow-emerald-500/20 transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-50",
+        className
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+export default function DashboardPage() {
+  const [authLoading, setAuthLoading] = useState(true);
   const [user, setUser] = useState(null);
+
   const [activeTab, setActiveTab] = useState("overview");
-  const [darkMode, setDarkMode] = useState(true);
-  const [workspace, setWorkspace] = useState({
-    businessName: "",
-    industry: "",
-    customIndustry: "",
-    services: "",
-    serviceArea: "",
-    averageJobValue: "200",
-    tone: "Professional",
-    aiCharacter: "",
-    ragSections: [],
-    tools: [],
-    planTier: "starter",
-    planStatus: "trial",
-  });
+  const [notice, setNotice] = useState("");
+  const [busy, setBusy] = useState("");
+
+  const [workspace, setWorkspace] = useState(DEFAULT_WORKSPACE);
+  const [settingsForm, setSettingsForm] = useState(DEFAULT_WORKSPACE);
+
   const [calls, setCalls] = useState([]);
-  const [appointments, setAppointments] = useState([]);
-  const [isSaving, setIsSaving] = useState(false);
-  const [showPricingModal, setShowPricingModal] = useState(false);
-  const [showOnboarding, setShowOnboarding] = useState(false);
-  const [initBusinessName, setInitBusinessName] = useState("");
-  const [initIndustry, setInitIndustry] = useState("");
-  const [initCustomIndustry, setInitCustomIndustry] = useState("");
-  const [isInitializing, setIsInitializing] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
   const [leads, setLeads] = useState([]);
+  const [appointments, setAppointments] = useState([]);
+  const [campaigns, setCampaigns] = useState([]);
+  const [knowledge, setKnowledge] = useState([]);
 
-  // Dev panel state (admin-only)
-  const [devPhoneNumber, setDevPhoneNumber] = useState("");
-  const [devBusinessName, setDevBusinessName] = useState("");
-  const [devIndustry, setDevIndustry] = useState("");
-  const [devCustomIndustry, setDevCustomIndustry] = useState("");
-  const [devServices, setDevServices] = useState("");
-  const [devAssistantName, setDevAssistantName] = useState("Receptionist");
-  const [devVoiceId, setDevVoiceId] = useState("sara");
-  const [devCustomPrompt, setDevCustomPrompt] = useState("You are a professional AI receptionist. Greet the caller, capture name, address, service required, and ask to book an estimate.");
-  const [devDialing, setDevDialing] = useState(false);
-  const [devStatusLog, setDevStatusLog] = useState("");
-  const [apptName, setApptName] = useState("");
-  const [apptPhone, setApptPhone] = useState("");
-  const [apptTime, setApptTime] = useState("");
-  const [apptNotes, setApptNotes] = useState("");
+  const [leadSearch, setLeadSearch] = useState("");
+  const [leadForm, setLeadForm] = useState({
+    businessName: "",
+    contactName: "",
+    phone: "",
+    email: "",
+    service: "",
+    source: "Google Maps",
+    status: "new",
+    priority: "warm",
+    value: "",
+    notes: "",
+  });
 
-  // Dev account management
-  const [devNewEmail, setDevNewEmail] = useState("");
-  const [devNewPassword, setDevNewPassword] = useState("");
-  const [devNewPlan, setDevNewPlan] = useState("starter");
-  const [devNewFugthNumber, setDevNewFugthNumber] = useState("");
-  const [devAccounts, setDevAccounts] = useState([]);
-  const [devCreatingAccount, setDevCreatingAccount] = useState(false);
-  const [devAccountsLoading, setDevAccountsLoading] = useState(false);
-  const [lookupEmail, setLookupEmail] = useState("");
-  const [lookupResult, setLookupResult] = useState(null);
+  const [appointmentForm, setAppointmentForm] = useState({
+    customerName: "",
+    phone: "",
+    service: "",
+    date: "",
+    time: "",
+    status: "scheduled",
+    notes: "",
+  });
 
-  // Vapi linking UI state
-  const [showLinkVapiModal, setShowLinkVapiModal] = useState(false);
-  const [vapiInput, setVapiInput] = useState("");
-  const [isLinkingVapi, setIsLinkingVapi] = useState(false);
-  const [editingVapi, setEditingVapi] = useState(false);
-  
-  // Advisor chat state
-  const [advisorMessages, setAdvisorMessages] = useState([]);
+  const [campaignForm, setCampaignForm] = useState({
+    name: "",
+    market: "",
+    offer: "",
+    goal: "Book appointments",
+    status: "draft",
+    script: DEFAULT_SCRIPT,
+  });
+
+  const [knowledgeForm, setKnowledgeForm] = useState({
+    title: "",
+    type: "FAQ",
+    content: "",
+  });
+
   const [advisorInput, setAdvisorInput] = useState("");
-  const [advisorLoading, setAdvisorLoading] = useState(false);
+  const [advisorMessages, setAdvisorMessages] = useState([
+    {
+      role: "assistant",
+      content:
+        "I am your Fugth Business Brain. Ask me what to fix next, which leads to call, or how to improve your AI receptionist.",
+    },
+  ]);
 
-  // Helper to sanitize objects before writing to Firestore (remove undefined values)
-  const sanitizeForFirestore = (obj) => {
-    if (obj === null || obj === undefined) return obj;
-    if (Array.isArray(obj)) return obj.map((v) => sanitizeForFirestore(v));
-    if (obj instanceof Date) return obj;
-    if (typeof obj === "object") {
-      const out = {};
-      Object.entries(obj).forEach(([k, v]) => {
-        if (v === undefined) return; // skip undefined
-        // preserve Firestore serverTimestamp sentinel and other special objects
-        if (v && typeof v === 'object' && ('_delegate' in v || 'seconds' in v || 'nanoseconds' in v)) {
-          out[k] = v;
-          return;
-        }
-        out[k] = sanitizeForFirestore(v);
-      });
-      return out;
-    }
-    return obj;
-  };
+  const [devForm, setDevForm] = useState({
+    email: "",
+    businessName: "",
+    phone: "",
+    plan: "Starter",
+    role: "client",
+    uid: "",
+    status: "active",
+  });
 
-  // Admin detection
-  const isAdmin = user && (
-    user.email?.toLowerCase() === "fugthmanagement@gmail.com" ||
-    user.email?.toLowerCase() === "mepenginestudio@gmail.com"
+  const isAdmin = ADMIN_EMAILS.includes(normalize(user?.email));
+  const visibleNav = useMemo(
+    () => NAV_ITEMS.filter((item) => isAdmin || item.id !== "dev_ops"),
+    [isAdmin]
   );
 
-  // Mobile navigation items (include Dev Ops for admin users)
-  const mobileNavItems = isAdmin
-    ? [{ id: 'overview', icon: 'overview' }, { id: 'calls', icon: 'calls' }, { id: 'leads', icon: 'leads' }, { id: 'dev_ops', icon: 'dev' }, { id: 'advisor', icon: 'chart' }, { id: 'settings', icon: 'settings' }]
-    : [{ id: 'overview', icon: 'overview' }, { id: 'calls', icon: 'calls' }, { id: 'leads', icon: 'leads' }, { id: 'advisor', icon: 'chart' }, { id: 'settings', icon: 'settings' }];
-
-  // Auth listener
   useEffect(() => {
-    if (!auth) return;
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
+    const unsub = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser || null);
+      setAuthLoading(false);
     });
-    return () => unsubscribe();
+
+    return () => unsub();
   }, []);
 
-  // Load workspace
   useEffect(() => {
-    if (!user || !db) return;
+    if (!isAdmin && activeTab === "dev_ops") setActiveTab("overview");
+  }, [isAdmin, activeTab]);
 
-    const workspaceRef = doc(db, "users", user.uid);
-    const unsubscribe = onSnapshot(workspaceRef, (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        setWorkspace(data);
-        if (data.businessName && data.industry) {
-          setShowOnboarding(false);
+  useEffect(() => {
+    if (!user?.uid) return;
+
+    const userRef = doc(db, "users", user.uid);
+
+    const unsubWorkspace = onSnapshot(
+      userRef,
+      async (snap) => {
+        if (!snap.exists()) {
+          const starterWorkspace = {
+            ...DEFAULT_WORKSPACE,
+            email: user.email || "",
+            ownerName: user.displayName || "",
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          };
+
+          setWorkspace({
+            ...DEFAULT_WORKSPACE,
+            email: user.email || "",
+            ownerName: user.displayName || "",
+          });
+
+          setSettingsForm({
+            ...DEFAULT_WORKSPACE,
+            email: user.email || "",
+            ownerName: user.displayName || "",
+          });
+
+          await setDoc(userRef, sanitizeForFirestore(starterWorkspace), { merge: true });
+          return;
         }
-      } else {
-        setShowOnboarding(true);
-      }
-    });
-    return () => unsubscribe();
-  }, [user]);
 
-  // Load leads
-  useEffect(() => {
-    if (!user || !db) return;
+        const data = { ...DEFAULT_WORKSPACE, ...snap.data(), id: snap.id };
+        setWorkspace(data);
+        setSettingsForm(data);
+      },
+      (error) => setNotice(error.message)
+    );
 
-    const leadsRef = collection(db, "users", user.uid, "leads");
-    const q = query(leadsRef, orderBy("timestamp", "desc"));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
-      setLeads(list);
-    });
+    const listen = (collectionName, setter) => {
+      const ref = collection(db, "users", user.uid, collectionName);
+      const q = query(ref, orderBy("createdAt", "desc"), limit(100));
 
-    return () => unsubscribe();
-  }, [user]);
+      return onSnapshot(
+        q,
+        (snapshot) => {
+          setter(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })));
+        },
+        (error) => setNotice(error.message)
+      );
+    };
 
-  // Load calls
-  useEffect(() => {
-    if (!user || !db) return;
+    const unsubCalls = listen("calls", setCalls);
+    const unsubLeads = listen("leads", setLeads);
+    const unsubAppointments = listen("appointments", setAppointments);
+    const unsubCampaigns = listen("campaigns", setCampaigns);
+    const unsubKnowledge = listen("knowledge", setKnowledge);
 
-    const callsRef = collection(db, "users", user.uid, "calls");
-    const q = query(callsRef, orderBy("timestamp", "desc"));
-    
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const callsList = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setCalls(callsList);
-    });
-    return () => unsubscribe();
-  }, [user]);
+    return () => {
+      unsubWorkspace();
+      unsubCalls();
+      unsubLeads();
+      unsubAppointments();
+      unsubCampaigns();
+      unsubKnowledge();
+    };
+  }, [user?.uid, user?.email, user?.displayName]);
 
-  // Load appointments
-  useEffect(() => {
-    if (!user || !db) return;
+  const metrics = useMemo(() => {
+    const totalLeads = leads.length;
+    const hotLeads = leads.filter((lead) => ["hot", "follow_up"].includes(normalize(lead.status))).length;
+    const bookedLeads = leads.filter((lead) => ["booked", "won"].includes(normalize(lead.status))).length;
+    const pipelineValue = leads.reduce((sum, lead) => sum + Number(lead.value || lead.estimatedValue || 0), 0);
 
-    const appointmentsRef = collection(db, "users", user.uid, "appointments");
-    const q = query(appointmentsRef, orderBy("scheduledTime", "desc"));
-    
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const appointmentsList = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setAppointments(appointmentsList);
-    });
-    return () => unsubscribe();
-  }, [user]);
+    const totalCalls = calls.length;
+    const missedCalls = calls.filter((call) =>
+      ["missed", "no_answer", "failed"].includes(normalize(call.status || call.outcome))
+    ).length;
 
-  // Load dev-created accounts for admin view
-  useEffect(() => {
-    if (!user || !db || !isAdmin) return;
-    setDevAccountsLoading(true);
-    const ref = collection(db, "devAccounts");
-    const q = query(ref, orderBy("createdAt", "desc"));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
-      setDevAccounts(list);
-      setDevAccountsLoading(false);
-    }, (err) => {
-      console.error('Dev accounts snapshot error', err);
-      setDevAccountsLoading(false);
-    });
-    return () => unsubscribe();
-  }, [user, isAdmin]);
+    const bookedAppointments = appointments.filter(
+      (appt) => !["cancelled", "lost"].includes(normalize(appt.status))
+    ).length;
 
-  const handleInitialSetup = async (e) => {
-    e.preventDefault();
-    if (!user) return;
+    const today = new Date();
+    const appointmentsToday = appointments.filter((appt) => {
+      const date = toDate(appt.startTime || appt.date || appt.createdAt);
+      return (
+        date &&
+        date.getFullYear() === today.getFullYear() &&
+        date.getMonth() === today.getMonth() &&
+        date.getDate() === today.getDate()
+      );
+    }).length;
 
-    setIsInitializing(true);
-    try {
-      const payload = sanitizeForFirestore({
-        businessName: initBusinessName,
-        industry: initIndustry === "Other" ? "Other" : initIndustry,
-        customIndustry: initIndustry === "Other" ? initCustomIndustry : "",
-        createdAt: new Date().toISOString(),
-        planTier: "starter",
-        planStatus: "trial",
+    const conversionRate = totalLeads ? Math.round((bookedLeads / totalLeads) * 100) : 0;
+    const callAnswerRate = totalCalls ? Math.round(((totalCalls - missedCalls) / totalCalls) * 100) : 0;
+
+    return {
+      totalLeads,
+      hotLeads,
+      bookedLeads,
+      pipelineValue,
+      totalCalls,
+      missedCalls,
+      bookedAppointments,
+      appointmentsToday,
+      conversionRate,
+      callAnswerRate,
+      knowledgeCount: knowledge.length,
+    };
+  }, [calls, leads, appointments, knowledge]);
+
+  const advisorCards = useMemo(() => {
+    const cards = [];
+
+    if (!workspace.vapiLinked && !workspace.vapiNumber) {
+      cards.push({
+        title: "Connect the Fugth voice number",
+        body: "Your assistant can look finished in the UI, but the client will not trust it until the phone number is linked and visible.",
+        tone: "amber",
       });
-      await setDoc(doc(db, "users", user.uid), payload, { merge: true });
-
-      setShowOnboarding(false);
-    } catch (err) {
-      console.error("Setup failed:", err);
-      alert("Could not complete setup: " + err.message);
-    } finally {
-      setIsInitializing(false);
     }
-  };
 
-  const handleSaveWorkspace = async () => {
-    if (!user) return;
-    setIsSaving(true);
+    if (metrics.missedCalls > 0) {
+      cards.push({
+        title: "Missed calls need a callback flow",
+        body: `${metrics.missedCalls} calls look missed or failed. Build a follow-up list and call them before they go cold.`,
+        tone: "rose",
+      });
+    }
+
+    if (metrics.hotLeads > 0) {
+      cards.push({
+        title: "Hot leads are waiting",
+        body: `${metrics.hotLeads} leads are marked hot or follow-up. These should be the next outbound calls.`,
+        tone: "emerald",
+      });
+    }
+
+    if (metrics.knowledgeCount < 3) {
+      cards.push({
+        title: "Train the receptionist more",
+        body: "Add FAQs, prices, service areas, and objections in the Trainer tab so the AI sounds like the real business.",
+        tone: "amber",
+      });
+    }
+
+    if (!cards.length) {
+      cards.push({
+        title: "System is clean",
+        body: "The workspace has calls, leads, appointments, and training data. Next move is selling and onboarding more businesses.",
+        tone: "emerald",
+      });
+    }
+
+    return cards;
+  }, [workspace, metrics]);
+
+  const filteredLeads = useMemo(() => {
+    const term = normalize(leadSearch);
+
+    if (!term) return leads;
+
+    return leads.filter((lead) => {
+      const haystack = [
+        lead.businessName,
+        lead.contactName,
+        lead.phone,
+        lead.email,
+        lead.service,
+        lead.status,
+        lead.source,
+        lead.notes,
+      ]
+        .join(" ")
+        .toLowerCase();
+
+      return haystack.includes(term);
+    });
+  }, [leads, leadSearch]);
+
+  async function saveWorkspace(event) {
+    event.preventDefault();
+    if (!user?.uid) return;
+
+    setBusy("settings");
+    setNotice("");
 
     try {
-      const payload = sanitizeForFirestore(workspace);
-      await setDoc(doc(db, "users", user.uid), payload, { merge: true });
-      alert("Workspace saved successfully!");
-    } catch (err) {
-      console.error("Save failed:", err);
-      alert("Could not save: " + err.message);
+      await setDoc(
+        doc(db, "users", user.uid),
+        sanitizeForFirestore({
+          ...settingsForm,
+          updatedAt: serverTimestamp(),
+        }),
+        { merge: true }
+      );
+
+      setNotice("Workspace saved.");
+    } catch (error) {
+      setNotice(error.message);
     } finally {
-      setIsSaving(false);
+      setBusy("");
     }
-  };
+  }
 
-  // Dev: Trigger outbound call via server route and save call metadata to Firestore
-  const handleDevOutboundCall = async (e) => {
-    e.preventDefault();
-    if (!devPhoneNumber || !user) {
-      setDevStatusLog("Please enter target number and ensure you're logged in.");
-      return;
-    }
+  async function linkVapiNumber() {
+    if (!user?.uid) return;
 
-    setDevDialing(true);
-    setDevStatusLog("Dispatching outbound call...");
+    setBusy("vapi");
+    setNotice("");
 
     try {
-      const payload = {
-        phoneNumber: devPhoneNumber,
-        customPrompt: devCustomPrompt,
-        businessName: devBusinessName || workspace.businessName || "",
-        voiceId: devVoiceId,
-        assistantName: devAssistantName,
-      };
+      await setDoc(
+        doc(db, "users", user.uid),
+        sanitizeForFirestore({
+          vapiNumber: settingsForm.vapiNumber || workspace.vapiNumber || "",
+          vapiAssistantId: settingsForm.vapiAssistantId || workspace.vapiAssistantId || "",
+          vapiLinked: Boolean(settingsForm.vapiNumber || workspace.vapiNumber),
+          needsVapiLink: false,
+          vapiLinkedAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        }),
+        { merge: true }
+      );
 
-      const res = await fetch("/api/dev/outbound-call", {
+      setNotice("Vapi number linked to this workspace.");
+    } catch (error) {
+      setNotice(error.message);
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function addLead(event) {
+    event.preventDefault();
+    if (!user?.uid) return;
+
+    setBusy("lead");
+    setNotice("");
+
+    try {
+      await addDoc(
+        collection(db, "users", user.uid, "leads"),
+        sanitizeForFirestore({
+          ...leadForm,
+          value: Number(leadForm.value || 0),
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        })
+      );
+
+      setLeadForm({
+        businessName: "",
+        contactName: "",
+        phone: "",
+        email: "",
+        service: "",
+        source: "Google Maps",
+        status: "new",
+        priority: "warm",
+        value: "",
+        notes: "",
+      });
+
+      setNotice("Lead saved.");
+    } catch (error) {
+      setNotice(error.message);
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function updateLead(leadId, updates) {
+    if (!user?.uid || !leadId) return;
+
+    try {
+      await updateDoc(
+        doc(db, "users", user.uid, "leads", leadId),
+        sanitizeForFirestore({
+          ...updates,
+          updatedAt: serverTimestamp(),
+        })
+      );
+    } catch (error) {
+      setNotice(error.message);
+    }
+  }
+
+  async function removeLead(leadId) {
+    if (!user?.uid || !leadId) return;
+
+    try {
+      await deleteDoc(doc(db, "users", user.uid, "leads", leadId));
+      setNotice("Lead deleted.");
+    } catch (error) {
+      setNotice(error.message);
+    }
+  }
+
+  async function createAppointment(event) {
+    event.preventDefault();
+    if (!user?.uid) return;
+
+    setBusy("appointment");
+    setNotice("");
+
+    const startTime =
+      appointmentForm.date && appointmentForm.time
+        ? new Date(`${appointmentForm.date}T${appointmentForm.time}`)
+        : null;
+
+    try {
+      await addDoc(
+        collection(db, "users", user.uid, "appointments"),
+        sanitizeForFirestore({
+          ...appointmentForm,
+          startTime,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        })
+      );
+
+      setAppointmentForm({
+        customerName: "",
+        phone: "",
+        service: "",
+        date: "",
+        time: "",
+        status: "scheduled",
+        notes: "",
+      });
+
+      setNotice("Appointment created.");
+    } catch (error) {
+      setNotice(error.message);
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function createCampaign(event) {
+    event.preventDefault();
+    if (!user?.uid) return;
+
+    setBusy("campaign");
+    setNotice("");
+
+    try {
+      await addDoc(
+        collection(db, "users", user.uid, "campaigns"),
+        sanitizeForFirestore({
+          ...campaignForm,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        })
+      );
+
+      setCampaignForm({
+        name: "",
+        market: "",
+        offer: "",
+        goal: "Book appointments",
+        status: "draft",
+        script: DEFAULT_SCRIPT,
+      });
+
+      setNotice("Campaign saved.");
+    } catch (error) {
+      setNotice(error.message);
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function addKnowledge(event) {
+    event.preventDefault();
+    if (!user?.uid) return;
+
+    setBusy("knowledge");
+    setNotice("");
+
+    try {
+      await addDoc(
+        collection(db, "users", user.uid, "knowledge"),
+        sanitizeForFirestore({
+          ...knowledgeForm,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        })
+      );
+
+      setKnowledgeForm({
+        title: "",
+        type: "FAQ",
+        content: "",
+      });
+
+      setNotice("Training item added.");
+    } catch (error) {
+      setNotice(error.message);
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function createTestCall() {
+    if (!user?.uid) return;
+
+    setBusy("testCall");
+    setNotice("");
+
+    try {
+      await addDoc(
+        collection(db, "users", user.uid, "calls"),
+        sanitizeForFirestore({
+          callerName: "Demo Caller",
+          phone: "+1 555 0100",
+          status: "answered",
+          outcome: "booked",
+          summary: "Demo call created from the dashboard to test the call feed.",
+          duration: 142,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        })
+      );
+
+      setNotice("Demo call added.");
+    } catch (error) {
+      setNotice(error.message);
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function askAdvisor(event) {
+    event.preventDefault();
+
+    const question = advisorInput.trim();
+    if (!question) return;
+
+    const userMessage = { role: "user", content: question };
+    setAdvisorMessages((prev) => [...prev, userMessage]);
+    setAdvisorInput("");
+    setBusy("advisor");
+
+    try {
+      const response = await fetch("/api/advisor", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          question,
+          workspace,
+          metrics,
+          recentLeads: leads.slice(0, 8),
+          recentCalls: calls.slice(0, 8),
+        }),
       });
 
-      const result = await res.json();
-      if (!res.ok) {
-        throw new Error(result.error || "Outbound API error");
-      }
+      if (!response.ok) throw new Error("Advisor API not ready yet.");
 
-      // Save call metadata so recordings and logs appear in UI
-      try {
-        await addDoc(collection(db, "users", user.uid, "calls"), {
-          caller: devAssistantName || "DevAgent",
-          phone: devPhoneNumber,
-          voiceId: devVoiceId,
-          businessInfo: {
-            businessName: devBusinessName || workspace.businessName,
-            industry: devIndustry || workspace.industry,
-            customIndustry: devCustomIndustry || workspace.customIndustry,
-            services: devServices || workspace.services,
-          },
-          status: result.status || "initiated",
-          callId: result.callId || result.id || null,
-          recordingUrl: result.recordingUrl || result.audioUrl || null,
-          createdAt: serverTimestamp(),
-        });
-      } catch (err) {
-        console.error("Failed to save call metadata:", err);
-      }
+      const data = await response.json();
 
-      setDevStatusLog(`Call launched — ID: ${result.callId || result.id || "n/a"}`);
-    } catch (err) {
-      console.error("Dev call error:", err);
-      setDevStatusLog(`Call failed: ${err.message}`);
+      setAdvisorMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: data.answer || data.message || "I checked the workspace, but the advisor did not return a full answer.",
+        },
+      ]);
+    } catch {
+      const fallback = `Based on your current dashboard: you have ${metrics.totalLeads} leads, ${metrics.hotLeads} hot/follow-up leads, ${metrics.totalCalls} calls, and ${metrics.bookedAppointments} appointments. Best next move: call the hot/follow-up leads first, then add more business training in the Trainer tab so the receptionist can answer pricing, hours, service area, and booking questions.`;
+
+      setAdvisorMessages((prev) => [...prev, { role: "assistant", content: fallback }]);
     } finally {
-      setDevDialing(false);
+      setBusy("");
     }
-  };
-
-  // Create a new account via server-side admin API
-  const createDevAccount = async () => {
-    if (!user) return setDevStatusLog('Must be logged in as admin.');
-    setDevCreatingAccount(true);
-    try {
-      const token = await auth.currentUser.getIdToken(true);
-      const res = await fetch('/api/dev/create-account', {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ email: devNewEmail, password: devNewPassword, displayName: devBusinessName || '', planTier: devNewPlan, planStatus: 'active', fugthNumber: devNewFugthNumber })
-      });
-      const data = await res.json();
-      if (!res.ok || !data.success) throw new Error(data.error || 'Create failed');
-      setDevStatusLog(`Created account ${data.email}`);
-      setDevNewEmail(''); setDevNewPassword(''); setDevNewFugthNumber('');
-    } catch (err) {
-      console.error('Create account failed', err);
-      setDevStatusLog('Create failed: ' + (err.message || err));
-    } finally {
-      setDevCreatingAccount(false);
-    }
-  };
-
-  const updateDevAccount = async ({ uid, planTier, planStatus, fugthNumber, email, password }) => {
-    if (!user) return setDevStatusLog('Must be logged in as admin.');
-    try {
-      const token = await auth.currentUser.getIdToken(true);
-      const res = await fetch('/api/dev/update-account', {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ uid, planTier, planStatus, fugthNumber, stripeCustomerId: null, email, password })
-      });
-      const data = await res.json();
-      if (!res.ok || data.error) throw new Error(data.error || 'Update failed');
-      setDevStatusLog('Account updated');
-      return true;
-    } catch (err) {
-      console.error('Update account failed', err);
-      setDevStatusLog('Update failed: ' + (err.message || err));
-      return false;
-    }
-  };
-
-  // Dev: create quick appointment under appointments collection
-  const createDevAppointment = async ({ name, phone, scheduledTime, notes }) => {
-    if (!user) return;
-    try {
-      await addDoc(collection(db, "users", user.uid, "appointments"), {
-        name,
-        phone,
-        notes: notes || "",
-        scheduledTime: scheduledTime ? new Date(scheduledTime).toISOString() : new Date().toISOString(),
-        createdAt: serverTimestamp(),
-        source: "dev_ops",
-      });
-      setDevStatusLog("Appointment created");
-    } catch (err) {
-      console.error("Create appointment failed:", err);
-      setDevStatusLog("Appointment create failed: " + err.message);
-    }
-  };
-
-  // Link or change Vapi number for the workspace
-  const handleLinkVapiNumber = async (number) => {
-    if (!user) return;
-    setIsLinkingVapi(true);
-    try {
-      const payload = sanitizeForFirestore({
-        vapiNumber: number || vapiInput,
-        vapiLinked: true,
-        vapiLinkedAt: serverTimestamp(),
-        needsVapiLink: false,
-      });
-      await setDoc(doc(db, "users", user.uid), payload, { merge: true });
-      setVapiInput("");
-      setShowLinkVapiModal(false);
-      setEditingVapi(false);
-    } catch (err) {
-      console.error("Fugth link failed:", err);
-      alert("Failed to link number: " + (err.message || err));
-    } finally {
-      setIsLinkingVapi(false);
-    }
-  };
-
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-    } catch (err) {
-      console.error("Logout failed:", err);
-    }
-  };
-
-  // Build a context-rich prompt for the advisor using workspace and recent activity
-  const buildAdvisorPrompt = (question) => {
-    let ctx = "";
-    if (workspace.businessName) ctx += `Business: ${workspace.businessName}. `;
-    if (workspace.industry) ctx += `Industry: ${workspace.industry}. `;
-    if (workspace.services) ctx += `Services: ${workspace.services}. `;
-    if (workspace.aiCharacter) ctx += `Persona: ${workspace.aiCharacter}. `;
-    if (workspace.ragSections && workspace.ragSections.length) ctx += `Knowledge: ${workspace.ragSections.map(s => s.title).join(', ')}. `;
-    if (calls && calls.length) ctx += `Recent calls: ${calls.slice(0,3).map(c => c.summary || c.outcome || c.caller).join('; ')}. `;
-    return `${ctx}\nUser question: ${question}`;
-  };
-
-  const sendAdvisorMessage = async () => {
-    if (!advisorInput || !advisorInput.trim()) return;
-    const text = advisorInput.trim();
-    setAdvisorMessages((p) => [...p, { role: 'user', text }]);
-    setAdvisorInput("");
-    setAdvisorLoading(true);
-    try {
-      const prompt = buildAdvisorPrompt(text);
-      const res = await fetch('/api/chat', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt })
-      });
-      const data = await res.json();
-      const reply = data?.reply || 'I could not generate a response.';
-      setAdvisorMessages((p) => [...p, { role: 'assistant', text: reply }]);
-    } catch (err) {
-      console.error('Advisor error:', err);
-      setAdvisorMessages((p) => [...p, { role: 'assistant', text: 'Error: ' + (err.message || err) }]);
-    } finally {
-      setAdvisorLoading(false);
-    }
-  };
-
-  // Helpers for safe timestamps and simple sparkline
-  const safeCallDate = (call) => {
-    const ts = call?.timestamp;
-    if (!ts) return null;
-    if (ts.seconds) return new Date(ts.seconds * 1000);
-    if (typeof ts === 'string') {
-      const d = new Date(ts);
-      return isNaN(d) ? null : d;
-    }
-    if (typeof ts.toDate === 'function') return ts.toDate();
-    return null;
-  };
-
-  const countCallsToday = (callsList) => {
-    const today = new Date().toDateString();
-    return (callsList || []).reduce((acc, c) => {
-      const d = safeCallDate(c);
-      if (!d) return acc;
-      return acc + (d.toDateString() === today ? 1 : 0);
-    }, 0);
-  };
-
-  const weeklyCounts = (callsList, days = 7) => {
-    const counts = Array(days).fill(0);
-    const now = new Date();
-    for (const c of callsList || []) {
-      const d = safeCallDate(c);
-      if (!d) continue;
-      const diffDays = Math.floor((now.setHours(0,0,0,0) - new Date(d).setHours(0,0,0,0)) / (1000*60*60*24));
-      if (diffDays >= 0 && diffDays < days) {
-        counts[days - 1 - diffDays]++;
-      }
-    }
-    return counts;
-  };
-
-  function Sparkline({ counts = [] }) {
-    const w = 120; const h = 28; const pad = 2;
-    if (!counts || counts.length === 0) return <svg width={w} height={h} />;
-    const max = Math.max(...counts, 1);
-    const step = (w - pad*2) / (counts.length - 1 || 1);
-    const points = counts.map((v, i) => `${pad + i*step},${h - pad - (v / max) * (h - pad*2)}`).join(' ');
-    return (
-      <svg width={w} height={h} className="inline-block">
-        <polyline fill="none" stroke="#10B981" strokeWidth="2" points={points} strokeLinecap="round" strokeLinejoin="round" opacity="0.9" />
-      </svg>
-    );
   }
 
-  if (!authReady) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-black via-zinc-950 to-black text-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-white/10 border-t-white rounded-full animate-spin mx-auto mb-6"></div>
-          <p className="text-zinc-400 text-lg">Initializing Fugth OS...</p>
-        </div>
-      </div>
-    );
+  async function devCreateAccount(event) {
+    event.preventDefault();
+
+    if (!isAdmin) return;
+
+    setBusy("devCreate");
+    setNotice("");
+
+    try {
+      const response = await fetch("/api/dev/create-account", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(devForm),
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Create account API failed.");
+
+      setNotice("Developer account action completed.");
+    } catch (error) {
+      setNotice(error.message);
+    } finally {
+      setBusy("");
+    }
   }
 
-  // Onboarding
-  if (showOnboarding && user) {
+  async function devUpdateAccount() {
+    if (!isAdmin) return;
+
+    setBusy("devUpdate");
+    setNotice("");
+
+    try {
+      const response = await fetch("/api/dev/update-account", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(devForm),
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Update account API failed.");
+
+      setNotice("Account updated.");
+    } catch (error) {
+      setNotice(error.message);
+    } finally {
+      setBusy("");
+    }
+  }
+
+  function exportLeads() {
+    const rows = [
+      ["Business", "Contact", "Phone", "Email", "Service", "Status", "Priority", "Value", "Source", "Notes"],
+      ...leads.map((lead) => [
+        lead.businessName || "",
+        lead.contactName || "",
+        lead.phone || "",
+        lead.email || "",
+        lead.service || "",
+        lead.status || "",
+        lead.priority || "",
+        lead.value || "",
+        lead.source || "",
+        String(lead.notes || "").replace(/\n/g, " "),
+      ]),
+    ];
+
+    const csv = rows
+      .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = "fugth-leads.csv";
+    link.click();
+
+    URL.revokeObjectURL(url);
+  }
+
+  if (authLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-black via-zinc-950 to-black text-white flex items-center justify-center p-4">
-        <div className="w-full max-w-md">
-          <div className="bg-gradient-to-br from-zinc-900 to-black border border-zinc-800/50 rounded-2xl p-8 shadow-2xl">
-            <div className="mb-8">
-              <h1 className="text-4xl font-black tracking-tight mb-2">Setup Your OS</h1>
-              <p className="text-zinc-400 text-sm">Configure your business AI infrastructure</p>
-            </div>
-
-            <form onSubmit={handleInitialSetup} className="space-y-5">
-              <div>
-                <label className="block text-xs font-bold text-zinc-300 uppercase tracking-wider mb-2">Business Name</label>
-                <input
-                  type="text"
-                  value={initBusinessName}
-                  onChange={(e) => setInitBusinessName(e.target.value)}
-                  placeholder="Your business name"
-                  className="w-full bg-black/50 border border-zinc-700 rounded-lg px-4 py-3 text-white placeholder:text-zinc-600 focus:border-white focus:outline-none transition"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-zinc-300 uppercase tracking-wider mb-2">Industry</label>
-                <select
-                  value={initIndustry}
-                  onChange={(e) => setInitIndustry(e.target.value)}
-                  className="w-full bg-black/50 border border-zinc-700 rounded-lg px-4 py-3 text-white focus:border-white focus:outline-none transition"
-                  required
-                >
-                  <option value="">Select your industry...</option>
-                  {BUSINESS_TYPES.map((type) => (
-                    <option key={type} value={type}>{type}</option>
-                  ))}
-                </select>
-              </div>
-
-              {initIndustry === "Other" && (
-                <div>
-                  <label className="block text-xs font-bold text-zinc-300 uppercase tracking-wider mb-2">Business Type</label>
-                  <input
-                    type="text"
-                    value={initCustomIndustry}
-                    onChange={(e) => setInitCustomIndustry(e.target.value)}
-                    placeholder="e.g., Software Development"
-                    className="w-full bg-black/50 border border-zinc-700 rounded-lg px-4 py-3 text-white placeholder:text-zinc-600 focus:border-white focus:outline-none transition"
-                    required
-                  />
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={isInitializing || !initBusinessName || !initIndustry || (initIndustry === "Other" && !initCustomIndustry)}
-                className="w-full bg-gradient-to-r from-white to-zinc-200 text-black font-bold py-3 rounded-lg hover:from-zinc-100 hover:to-white disabled:opacity-50 disabled:cursor-not-allowed transition shadow-lg"
-              >
-                {isInitializing ? "Setting up..." : "Continue to Dashboard"}
-              </button>
-            </form>
-          </div>
+      <main className="flex min-h-screen items-center justify-center bg-slate-950 text-white">
+        <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-8 text-center">
+          <div className="mx-auto mb-4 h-12 w-12 animate-pulse rounded-2xl bg-emerald-400/20" />
+          <p className="font-bold">Loading Fugth Command Center...</p>
+          <p className="mt-2 text-sm text-slate-400">Checking your secure workspace.</p>
         </div>
-      </div>
+      </main>
     );
   }
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-zinc-400 mb-4">Please log in to access your dashboard.</p>
-          <Link href="/login" className="bg-white text-black px-6 py-2 rounded-lg font-bold hover:bg-zinc-200">
-            Go to Login
+      <main className="flex min-h-screen items-center justify-center bg-slate-950 px-4 text-white">
+        <div className="max-w-md rounded-[2rem] border border-white/10 bg-white/[0.04] p-8 text-center shadow-2xl">
+          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-to-br from-emerald-400 to-cyan-400 text-2xl font-black text-slate-950">
+            F
+          </div>
+          <h1 className="text-2xl font-black">Fugth Management OS</h1>
+          <p className="mt-3 text-sm text-slate-400">
+            Sign in to manage calls, leads, appointments, campaigns, AI training, and developer operations.
+          </p>
+          <Link
+            href="/login"
+            className="mt-6 inline-flex rounded-2xl bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950"
+          >
+            Go to login
           </Link>
         </div>
-      </div>
+      </main>
     );
   }
 
-  // Pricing Modal
-  if (showPricingModal) {
-    return (
-      <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-        <div className="bg-gradient-to-br from-zinc-900 to-black border border-zinc-800 rounded-2xl p-8 max-w-3xl w-full max-h-96 overflow-y-auto">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold">Choose Your Plan</h2>
-            <button
-              onClick={() => setShowPricingModal(false)}
-              className="text-zinc-400 hover:text-white text-2xl"
-              aria-label="Close pricing modal"
-            >
-              <Icon name="close" className="h-5 w-5" />
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {[
-              { name: "Starter", price: "$49", features: ["1 Fugth number included", "Basic AI", "Email support", "Lead capture: Standard", "Credits per number: 100/mo"], link: stripeLinks.starter },
-              { name: "Growth", price: "$149", features: ["3 Fugth numbers included", "Advanced AI", "Priority support", "Enhanced lead capture", "Credits per number: 500/mo"], link: stripeLinks.growth, popular: true },
-              { name: "Elite", price: "$499", features: ["Unlimited Fugth numbers", "Custom AI", "Dedicated support", "Priority lead capture", "Credits per number: 5,000/mo"], link: stripeLinks.elite }
-            ].map((plan) => (
-              <div key={plan.name} className={`border rounded-xl p-6 transition ${plan.popular ? "bg-white/10 border-white/30 scale-105" : "bg-white/5 border-zinc-700"}`}>
-                {plan.popular && <div className="text-xs font-bold text-emerald-400 mb-2">MOST POPULAR</div>}
-                <h3 className="text-xl font-bold mb-2">{plan.name}</h3>
-                <div className="text-3xl font-black mb-4">{plan.price}</div>
-                <ul className="space-y-2 mb-6">
-                  {plan.features.map((f) => (
-                    <li key={f} className="text-sm text-zinc-300"><span className="inline-block mr-2"><Icon name="check" className="h-4 w-4" /></span>{f}</li>
-                  ))}
-                </ul>
-                <a href={plan.link} target="_blank" rel="noopener noreferrer" className="w-full block text-center bg-white text-black font-bold py-2 rounded-lg hover:bg-zinc-200">
-                  Get Started
-                </a>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Main Dashboard
   return (
-    <div className={`min-h-screen transition-colors ${darkMode ? "bg-gradient-to-br from-black via-zinc-950 to-black text-white" : "bg-gradient-to-br from-white via-zinc-50 to-white text-black"}`}>
-      {/* Header */}
-      <header className={`sticky top-0 z-40 border-b ${darkMode ? "bg-black/40 border-zinc-900 backdrop-blur-xl" : "bg-white/40 border-zinc-200 backdrop-blur-xl"}`}>
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between gap-6">
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-gradient-to-r from-white to-zinc-400 rounded-full animate-pulse"></div>
-                <h1 className="text-2xl font-black tracking-tighter">FUGTH</h1>
-              </div>
-              <p className={`text-xs font-bold uppercase tracking-widest ${darkMode ? "text-zinc-500" : "text-zinc-600"}`}>Business OS</p>
-            </div>
+    <main className="min-h-screen overflow-hidden bg-slate-950 text-slate-100">
+      <div className="pointer-events-none fixed inset-0">
+        <div className="absolute left-[-10%] top-[-10%] h-80 w-80 rounded-full bg-emerald-500/20 blur-3xl" />
+        <div className="absolute right-[-10%] top-[20%] h-96 w-96 rounded-full bg-cyan-500/10 blur-3xl" />
+        <div className="absolute bottom-[-20%] left-[30%] h-96 w-96 rounded-full bg-purple-500/10 blur-3xl" />
+      </div>
 
-            {/* Search */}
-            <div className="hidden md:flex flex-1 max-w-xs items-center gap-2">
-              <svg className="w-4 h-4 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-              <input
-                type="text"
-                placeholder="Search calls, leads..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className={`flex-1 bg-transparent text-sm outline-none placeholder:${darkMode ? "text-zinc-600" : "text-zinc-400"}`}
-              />
+      <div className="relative flex min-h-screen">
+        <aside className="hidden w-72 shrink-0 border-r border-white/10 bg-slate-950/70 p-5 backdrop-blur-xl lg:flex lg:flex-col">
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400 to-cyan-400 font-black text-slate-950">
+              FG
             </div>
-
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setDarkMode(!darkMode)}
-                className={`p-2 rounded-lg transition ${darkMode ? "hover:bg-white/10" : "hover:bg-black/10"}`}
-                aria-label="Toggle theme"
-              >
-                <Icon name={darkMode ? "sun" : "moon"} className="h-5 w-5" />
-              </button>
-              <button
-                onClick={() => setShowPricingModal(true)}
-                className="hidden md:block px-4 py-2 text-sm font-bold bg-white/10 rounded-lg hover:bg-white/20 transition"
-              >
-                Upgrade
-              </button>
-              <div className={`flex items-center gap-3 pl-3 border-l ${darkMode ? "border-zinc-800" : "border-zinc-200"}`}>
-                <div className={`w-8 h-8 rounded-full bg-gradient-to-br from-white/30 to-white/10 flex items-center justify-center text-xs font-bold`}>
-                  {user.email?.charAt(0).toUpperCase()}
-                </div>
-                <button
-                  onClick={handleLogout}
-                  className={`text-xs font-semibold ${darkMode ? "hover:text-zinc-300" : "hover:text-zinc-700"}`}
-                >
-                  Logout
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
-
-          {/* Mobile bottom nav (small screens) */}
-          <div className="lg:hidden fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50">
-            <div className={`flex items-center gap-2 px-3 py-2 rounded-full ${darkMode ? "bg-black/70 border border-zinc-800" : "bg-white/80 border border-zinc-200"}`}>
-              {mobileNavItems.map((it) => (
-                <button key={it.id} onClick={() => setActiveTab(it.id)} className={`p-2 rounded-full ${activeTab === it.id ? (darkMode ? 'bg-white/10 text-white' : 'bg-black/10 text-black') : 'text-zinc-400 hover:text-white'}`} aria-label={it.id}>
-                  <Icon name={it.icon} className="h-5 w-5" />
-                </button>
-              ))}
+            <div>
+              <p className="text-sm font-black text-white">Fugth Management</p>
+              <p className="text-xs text-slate-500">Voice Ops Platform</p>
             </div>
           </div>
 
-      <div className="flex">
-        {/* Sidebar */}
-        <aside className={`w-64 border-r ${darkMode ? "bg-black/50 border-zinc-900" : "bg-white/50 border-zinc-200"} p-6 space-y-8 hidden lg:flex flex-col`}>
-          {/* Navigation */}
-          <nav className="space-y-2">
-            <p className="text-xs font-bold uppercase tracking-widest text-zinc-500 mb-4">Navigation</p>
-            {[
-              { id: "overview", label: "Overview" },
-              { id: "calls", label: "Call Intelligence" },
-              { id: "leads", label: "Leads Manager" },
-              { id: "operations", label: "Operations" },
-              { id: "advisor", label: "AI Advisor" },
-              { id: "knowledge", label: "Knowledge Base" },
-              { id: "settings", label: "Settings" },
-            ].map((item) => (
+          <nav className="mt-8 space-y-2">
+            {visibleNav.map((item) => (
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-                className={`w-full text-left px-4 py-3 rounded-lg font-semibold transition-all text-sm ${
+                className={cx(
+                  "flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-bold transition",
                   activeTab === item.id
-                    ? darkMode
-                      ? "bg-white/10 text-white"
-                      : "bg-black/10 text-black"
-                    : darkMode
-                    ? "text-zinc-400 hover:text-white hover:bg-white/5"
-                    : "text-zinc-600 hover:text-black hover:bg-black/5"
-                }`}
+                    ? "bg-emerald-400 text-slate-950 shadow-lg shadow-emerald-500/20"
+                    : "text-slate-400 hover:bg-white/[0.06] hover:text-white"
+                )}
               >
-                <span className="mr-3"><Icon name={item.id} className="h-5 w-5" /></span> {item.label}
+                <Icon name={item.icon} />
+                {item.label}
               </button>
             ))}
           </nav>
 
-          {isAdmin && (
-            <div className="border-t border-zinc-800 pt-4">
-              <p className="text-xs font-bold uppercase tracking-widest text-red-500 mb-3">Admin</p>
-              <button
-                onClick={() => setActiveTab("dev_ops")}
-                className={`w-full text-left px-4 py-3 rounded-lg font-semibold transition-all text-sm border-2 ${
-                  activeTab === "dev_ops"
-                    ? "bg-red-500/10 border-red-500/50 text-red-400"
-                    : "border-red-500/20 text-red-400/60 hover:text-red-400 hover:bg-red-500/5"
-                }`}
-              >
-                <span className="mr-2"><Icon name="dev" className="h-4 w-4" /></span> Dev Ops
-              </button>
+          <div className="mt-auto rounded-[1.5rem] border border-white/10 bg-white/[0.04] p-4">
+            <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Workspace</p>
+            <p className="mt-2 font-black text-white">{workspace.businessName}</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Pill tone={statusClass(workspace.status)}>{workspace.status || "active"}</Pill>
+              <Pill tone="border-cyan-400/30 bg-cyan-400/10 text-cyan-200">{workspace.plan || "Starter"}</Pill>
             </div>
-          )}
+            <button
+              onClick={() => signOut(auth)}
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 px-4 py-2 text-sm font-bold text-slate-300 hover:bg-white/[0.06]"
+            >
+              <Icon name="logout" className="h-4 w-4" />
+              Sign out
+            </button>
+          </div>
         </aside>
 
-        {/* Main Content */}
-        <main className="flex-1 overflow-y-auto">
-          <div className="max-w-7xl mx-auto p-6 lg:p-8 space-y-8">
-            {/* Fugth number status and quick link action */}
-            <div className={`rounded-lg p-3 border ${darkMode ? "border-zinc-800 bg-black/30" : "border-zinc-200 bg-white/5"}`}>
-              <div className="flex items-center justify-between">
+        <section className="flex min-w-0 flex-1 flex-col">
+          <header className="sticky top-0 z-20 border-b border-white/10 bg-slate-950/75 px-4 py-4 backdrop-blur-xl sm:px-6 lg:px-8">
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+              <div>
                 <div className="flex items-center gap-3">
-                  <span className={`h-3 w-3 rounded-full ${workspace.vapiLinked ? "bg-emerald-400" : "bg-red-500"}`} />
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/[0.06] font-black text-emerald-200">
+                    {initials(workspace.businessName || user.email)}
+                  </div>
                   <div>
-                    <div className="text-sm font-semibold">{workspace.vapiNumber || "No Fugth number assigned"}</div>
-                    <div className="text-xs text-zinc-400">{workspace.vapiLinked ? "Fugth number linked" : (workspace.needsVapiLink ? "Please link your Fugth number to finish setup" : "Not linked")}</div>
+                    <h1 className="text-xl font-black text-white sm:text-2xl">
+                      {workspace.businessName || "Fugth Command Center"}
+                    </h1>
+                    <p className="text-sm text-slate-400">
+                      {user.email} {isAdmin ? "· Developer Admin" : "· Client Workspace"}
+                    </p>
                   </div>
                 </div>
+              </div>
 
-                <div className="flex items-center gap-2">
-                  {workspace.vapiLinked ? (
-                    <button onClick={() => { setEditingVapi(true); setVapiInput(workspace.vapiNumber || ""); setShowLinkVapiModal(true); }} className="px-3 py-1 rounded bg-white/5">Change Fugth Number</button>
-                  ) : (
-                    <button onClick={() => setShowLinkVapiModal(true)} className="px-3 py-1 rounded bg-emerald-600 text-white">Link Fugth Number</button>
-                  )}
-                </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Pill tone={workspace.vapiLinked || workspace.vapiNumber ? statusClass("active") : statusClass("pending")}>
+                  {workspace.vapiLinked || workspace.vapiNumber ? "Voice number linked" : "Needs Vapi link"}
+                </Pill>
+                <GhostButton onClick={createTestCall} disabled={busy === "testCall"}>
+                  Add demo call
+                </GhostButton>
+                <PrimaryButton onClick={() => setActiveTab("leads")}>Add lead</PrimaryButton>
               </div>
             </div>
 
-            {showLinkVapiModal && (
-              <div className={`rounded-lg p-4 border mt-3 ${darkMode ? "border-zinc-800 bg-black/40" : "border-zinc-200 bg-white/5"}`}>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-center">
-                    <div className="md:col-span-2">
-                      <label className="text-sm font-semibold block mb-1">Enter Fugth number</label>
-                      <input value={vapiInput} onChange={(e) => setVapiInput(e.target.value)} placeholder="+15551234567" className="w-full p-3 rounded-lg border bg-transparent" />
-                      <p className="text-xs text-zinc-400 mt-2">Paste your Fugth number. Example: +15551234567</p>
-                    </div>
-                    <div className="flex gap-2 md:flex-col">
-                      <button onClick={() => handleLinkVapiNumber(vapiInput)} disabled={isLinkingVapi} className={`py-3 px-4 rounded-lg ${isLinkingVapi ? "bg-zinc-700 text-zinc-400" : "bg-emerald-600 text-white"}`}>
-                        {isLinkingVapi ? "Linking..." : "Link Fugth Number"}
-                      </button>
-                      <button onClick={() => { setShowLinkVapiModal(false); setEditingVapi(false); setVapiInput(""); }} className="py-3 px-4 rounded-lg bg-white/5">Cancel</button>
-                    </div>
-                  </div>
-                  <div className="text-xs text-zinc-500 mt-3">Quick guide: After purchase, paste your Fugth number into the field and click Link Fugth Number. This will associate the number with your account so calls, recordings and bookings appear in the dashboard.</div>
+            <div className="mt-4 flex gap-2 overflow-x-auto pb-1 lg:hidden">
+              {visibleNav.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveTab(item.id)}
+                  className={cx(
+                    "flex shrink-0 items-center gap-2 rounded-2xl px-4 py-2 text-xs font-bold",
+                    activeTab === item.id
+                      ? "bg-emerald-400 text-slate-950"
+                      : "border border-white/10 bg-white/[0.04] text-slate-300"
+                  )}
+                >
+                  <Icon name={item.icon} className="h-4 w-4" />
+                  {item.label}
+                </button>
+              ))}
+            </div>
+
+            {notice && (
+              <div className="mt-4 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">
+                {notice}
               </div>
             )}
-            {/* Overview Tab */}
+          </header>
+
+          <div className="mx-auto w-full max-w-7xl flex-1 space-y-6 px-4 py-6 sm:px-6 lg:px-8">
             {activeTab === "overview" && (
-              <div className="space-y-8">
-                <div>
-                  <h1 className="text-4xl font-black mb-2">Good morning, {workspace.businessName || "there"}</h1>
-                  <p className={`text-sm ${darkMode ? "text-zinc-400" : "text-zinc-600"}`}>
-                    {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
-                  </p>
-                </div>
+              <>
+                <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  <StatCard label="Total Leads" value={metrics.totalLeads} note={`${metrics.hotLeads} hot/follow-up`} icon="leads" />
+                  <StatCard label="Calls" value={metrics.totalCalls} note={`${metrics.callAnswerRate}% answer rate`} icon="calls" tone={metrics.missedCalls ? "amber" : "emerald"} />
+                  <StatCard label="Appointments" value={metrics.bookedAppointments} note={`${metrics.appointmentsToday} today`} icon="calendar" />
+                  <StatCard label="Pipeline" value={money(metrics.pipelineValue)} note={`${metrics.conversionRate}% lead conversion`} icon="advisor" />
+                </section>
 
-                {/* Key Metrics Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {(() => {
-                    const callsToday = countCallsToday(calls);
-                    const weekly = weeklyCounts(calls, 7);
-                    const bookedCount = (calls || []).filter(c => c.outcome === 'Booked').length;
-                    const metrics = [
-                      { label: 'Calls Today', value: callsToday, icon: 'calls', color: 'from-blue-500', usesCalls: true },
-                      { label: 'This Week', value: weekly.reduce((a,b)=>a+b,0), icon: 'chart', color: 'from-emerald-500', usesCalls: true, sparkline: weekly },
-                      { label: 'Booked', value: bookedCount, icon: 'check', color: 'from-emerald-400', usesCalls: true },
-                      { label: 'Current Plan', value: workspace.planTier || 'Starter', icon: 'star', color: 'from-yellow-500' },
-                    ];
+                <section className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+                  <Panel
+                    title="Voice Ops Command Center"
+                    subtitle="Live business health, Vapi readiness, CRM pipeline, and next actions."
+                    action={<PrimaryButton onClick={() => setActiveTab("campaigns")}>Start calling</PrimaryButton>}
+                  >
+                    <div className="grid gap-4 md:grid-cols-3">
+                      <div className="rounded-[1.5rem] border border-white/10 bg-slate-950/60 p-4">
+                        <p className="text-xs uppercase tracking-[0.2em] text-slate-500">AI Number</p>
+                        <p className="mt-2 text-lg font-black text-white">{workspace.vapiNumber || "Not linked"}</p>
+                        <p className="mt-2 text-sm text-slate-400">
+                          {workspace.vapiLinked ? "Ready for inbound calls." : "Add your Vapi number in Settings."}
+                        </p>
+                      </div>
 
-                    return metrics.map((metric, idx) => (
-                      <div key={idx} className={`bg-gradient-to-br ${metric.color} to-transparent opacity-10 rounded-xl p-6 border ${darkMode ? 'border-zinc-800' : 'border-zinc-300'} group hover:opacity-20 transition`}>
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className={`text-xs font-bold uppercase tracking-wider ${darkMode ? 'text-zinc-400' : 'text-zinc-600'}`}>{metric.label}</p>
-                            <div className="flex items-center gap-3 mt-2">
-                              <p className="text-3xl font-black">{metric.usesCalls && !workspace.vapiLinked ? '—' : metric.value}</p>
-                              {metric.sparkline && workspace.vapiLinked && <Sparkline counts={metric.sparkline} />}
+                      <div className="rounded-[1.5rem] border border-white/10 bg-slate-950/60 p-4">
+                        <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Plan Usage</p>
+                        <p className="mt-2 text-lg font-black text-white">{workspace.plan || "Starter"}</p>
+                        <p className="mt-2 text-sm text-slate-400">
+                          {metrics.totalCalls}/{PLAN_LIMITS[workspace.plan]?.calls || 100} calls tracked.
+                        </p>
+                      </div>
+
+                      <div className="rounded-[1.5rem] border border-white/10 bg-slate-950/60 p-4">
+                        <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Trainer Data</p>
+                        <p className="mt-2 text-lg font-black text-white">{metrics.knowledgeCount} items</p>
+                        <p className="mt-2 text-sm text-slate-400">FAQs, service rules, objections, and offers.</p>
+                      </div>
+                    </div>
+
+                    <div className="mt-5 rounded-[1.5rem] border border-white/10 bg-gradient-to-br from-emerald-400/10 to-cyan-400/5 p-5">
+                      <p className="text-sm font-black text-emerald-100">Current AI Receptionist Script</p>
+                      <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-300">
+                        {workspace.aiScript || DEFAULT_SCRIPT}
+                      </p>
+                    </div>
+                  </Panel>
+
+                  <Panel title="Business Brain" subtitle="What the platform thinks you should do next.">
+                    <div className="space-y-3">
+                      {advisorCards.map((card) => (
+                        <div key={card.title} className="rounded-[1.5rem] border border-white/10 bg-slate-950/60 p-4">
+                          <div className="flex items-start gap-3">
+                            <div
+                              className={cx(
+                                "mt-1 h-3 w-3 rounded-full",
+                                card.tone === "rose"
+                                  ? "bg-rose-400"
+                                  : card.tone === "amber"
+                                    ? "bg-amber-400"
+                                    : "bg-emerald-400"
+                              )}
+                            />
+                            <div>
+                              <p className="font-black text-white">{card.title}</p>
+                              <p className="mt-1 text-sm text-slate-400">{card.body}</p>
                             </div>
                           </div>
-                          <span className="text-4xl opacity-30 group-hover:opacity-50 transition"><Icon name={metric.icon} className="h-9 w-9" /></span>
-                        </div>
-                      </div>
-                    ));
-                  })()}
-                </div>
-
-                {/* Recent Activity */}
-                <div className={`border ${darkMode ? "bg-black/30 border-zinc-800" : "bg-white/30 border-zinc-300"} rounded-xl p-6`}>
-                  <h3 className="text-lg font-bold mb-4">Recent Activity</h3>
-                  {calls.slice(0, 5).length > 0 ? (
-                    <div className="space-y-3">
-                      {calls.slice(0, 5).map((call) => (
-                        <div key={call.id} className={`flex items-center justify-between p-3 rounded-lg ${darkMode ? "bg-white/5" : "bg-black/5"}`}>
-                          <div>
-                            <p className="font-semibold text-sm">{call.caller || "Unknown"}</p>
-                            <p className={`text-xs ${darkMode ? "text-zinc-500" : "text-zinc-600"}`}>
-                              {safeCallDate(call)?.toLocaleTimeString() || ''}
-                            </p>
-                          </div>
-                          <span className={`text-xs font-bold px-2 py-1 rounded ${call.outcome === "Booked" ? "bg-green-500/20 text-green-400" : "bg-blue-500/20 text-blue-400"}`}>
-                            {call.outcome || "Pending"}
-                          </span>
                         </div>
                       ))}
                     </div>
-                  ) : (
-                    <p className={`text-sm ${darkMode ? "text-zinc-500" : "text-zinc-600"}`}>No recent activity</p>
-                  )}
-                </div>
-              </div>
+                  </Panel>
+                </section>
+
+                <section className="grid gap-6 xl:grid-cols-2">
+                  <RecentCalls calls={calls} />
+                  <RecentAppointments appointments={appointments} />
+                </section>
+              </>
             )}
 
-            {/* Calls Tab */}
             {activeTab === "calls" && (
-              <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-3xl font-black">Call Intelligence</h2>
-                  <div className={`px-4 py-2 rounded-lg text-sm font-bold ${darkMode ? "bg-white/10" : "bg-black/10"}`}>
-                    {calls.length} Calls
-                  </div>
+              <Panel
+                title="Call Intelligence"
+                subtitle="Inbound, outbound, missed calls, recordings, summaries, and call outcomes."
+                action={<GhostButton onClick={createTestCall}>Create demo call</GhostButton>}
+              >
+                <div className="grid gap-4 md:grid-cols-3">
+                  <StatCard label="Total Calls" value={metrics.totalCalls} icon="calls" />
+                  <StatCard label="Missed" value={metrics.missedCalls} icon="calls" tone={metrics.missedCalls ? "rose" : "emerald"} />
+                  <StatCard label="Answer Rate" value={`${metrics.callAnswerRate}%`} icon="advisor" />
                 </div>
-                {!workspace.vapiLinked && (
-                  <div className={`border-2 border-dashed ${darkMode ? "border-zinc-800" : "border-zinc-300"} rounded-xl p-12 text-center`}>
-                    <div className="mb-3">
-                      <Icon name="calls" className="h-12 w-12 mx-auto text-zinc-400" />
+
+                <div className="mt-6 space-y-4">
+                  {calls.length === 0 ? (
+                    <EmptyState title="No calls yet" body="When Vapi starts sending call logs, they will show up here." />
+                  ) : (
+                    calls.map((call) => (
+                      <div key={call.id} className="rounded-[1.5rem] border border-white/10 bg-slate-950/60 p-5">
+                        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                          <div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h3 className="font-black text-white">
+                                {call.callerName || call.name || call.phone || "Unknown Caller"}
+                              </h3>
+                              <Pill tone={statusClass(call.status || call.outcome)}>
+                                {call.status || call.outcome || "new"}
+                              </Pill>
+                            </div>
+                            <p className="mt-1 text-sm text-slate-400">
+                              {call.phone || "No phone"} · {formatDateTime(call.createdAt || call.startedAt)}
+                            </p>
+                          </div>
+                          <p className="text-sm text-slate-500">
+                            {call.duration ? `${call.duration}s` : "Duration not tracked"}
+                          </p>
+                        </div>
+
+                        {(call.summary || call.transcript) && (
+                          <p className="mt-4 whitespace-pre-wrap rounded-2xl bg-white/[0.04] p-4 text-sm leading-6 text-slate-300">
+                            {call.summary || call.transcript}
+                          </p>
+                        )}
+
+                        {(call.recordingUrl || call.recording_url || call.recording) && (
+                          <div className="mt-4">
+                            <audio
+                              controls
+                              className="w-full"
+                              src={call.recordingUrl || call.recording_url || call.recording}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </Panel>
+            )}
+
+            {activeTab === "leads" && (
+              <section className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+                <Panel title="Add Lead" subtitle="Save cold leads, inbound leads, Google Maps leads, and follow-up notes.">
+                  <form onSubmit={addLead} className="space-y-4">
+                    <Field label="Business Name">
+                      <input className={inputClass} value={leadForm.businessName} onChange={(e) => setLeadForm({ ...leadForm, businessName: e.target.value })} placeholder="Example: Pierre Roofing LLC" />
+                    </Field>
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Field label="Contact">
+                        <input className={inputClass} value={leadForm.contactName} onChange={(e) => setLeadForm({ ...leadForm, contactName: e.target.value })} placeholder="Owner or manager" />
+                      </Field>
+                      <Field label="Phone">
+                        <input className={inputClass} value={leadForm.phone} onChange={(e) => setLeadForm({ ...leadForm, phone: e.target.value })} placeholder="+1..." />
+                      </Field>
                     </div>
-                    <p className={darkMode ? "text-zinc-400" : "text-zinc-600"}>No Fugth number linked. Link your Fugth number to receive calls and view recordings here.</p>
-                    <div className="mt-4"><button onClick={() => setShowLinkVapiModal(true)} className="px-4 py-2 rounded bg-emerald-600 text-white">Link Fugth Number</button></div>
-                  </div>
-                )}
 
-                {workspace.vapiLinked && calls.length > 0 && (
-                  <div className="grid grid-cols-1 gap-4">
-                    {calls.map((call) => (
-                      <div key={call.id} className={`border ${darkMode ? "bg-black/30 border-zinc-800 hover:border-zinc-700" : "bg-white/30 border-zinc-300 hover:border-zinc-400"} rounded-xl p-6 transition`}>
-                        <div className="flex gap-4">
-                          <div className="w-1 rounded-full bg-gradient-to-b from-blue-500 to-indigo-600" />
-                          <div className="flex-1">
-                            <div className="flex items-start justify-between mb-4">
-                              <div className="flex items-center gap-3 mb-1">
-                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-white/10 to-white/5 flex items-center justify-center text-sm font-bold">
-                                  {call.caller ? String(call.caller).charAt(0).toUpperCase() : "?"}
-                                </div>
-                                <div>
-                                  <h3 className="text-lg font-bold">{call.caller || "Unknown Caller"}</h3>
-                                  <p className={`text-sm ${darkMode ? "text-zinc-400" : "text-zinc-600"}`}>{safeCallDate(call)?.toLocaleString() || ''}</p>
-                                </div>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Field label="Email">
+                        <input className={inputClass} value={leadForm.email} onChange={(e) => setLeadForm({ ...leadForm, email: e.target.value })} placeholder="owner@email.com" />
+                      </Field>
+                      <Field label="Service">
+                        <input className={inputClass} value={leadForm.service} onChange={(e) => setLeadForm({ ...leadForm, service: e.target.value })} placeholder="AI receptionist, website, booking" />
+                      </Field>
+                    </div>
+
+                    <div className="grid gap-4 sm:grid-cols-3">
+                      <Field label="Source">
+                        <select className={inputClass} value={leadForm.source} onChange={(e) => setLeadForm({ ...leadForm, source: e.target.value })}>
+                          <option>Google Maps</option>
+                          <option>Inbound Call</option>
+                          <option>Referral</option>
+                          <option>Facebook</option>
+                          <option>Website</option>
+                          <option>Manual</option>
+                        </select>
+                      </Field>
+
+                      <Field label="Status">
+                        <select className={inputClass} value={leadForm.status} onChange={(e) => setLeadForm({ ...leadForm, status: e.target.value })}>
+                          {LEAD_STAGES.map((stage) => (
+                            <option key={stage} value={stage}>{stage}</option>
+                          ))}
+                        </select>
+                      </Field>
+
+                      <Field label="Value">
+                        <input className={inputClass} type="number" value={leadForm.value} onChange={(e) => setLeadForm({ ...leadForm, value: e.target.value })} placeholder="500" />
+                      </Field>
+                    </div>
+
+                    <Field label="Notes">
+                      <textarea className={cx(inputClass, "min-h-28")} value={leadForm.notes} onChange={(e) => setLeadForm({ ...leadForm, notes: e.target.value })} placeholder="Pain points, price, objections, next call..." />
+                    </Field>
+
+                    <PrimaryButton type="submit" disabled={busy === "lead"} className="w-full">
+                      Save Lead
+                    </PrimaryButton>
+                  </form>
+                </Panel>
+
+                <Panel
+                  title="Lead Pipeline"
+                  subtitle="Resume work anywhere. Every lead stays saved inside the client workspace."
+                  action={<GhostButton onClick={exportLeads}>Export CSV</GhostButton>}
+                >
+                  <input
+                    className={inputClass}
+                    value={leadSearch}
+                    onChange={(e) => setLeadSearch(e.target.value)}
+                    placeholder="Search business, phone, status, notes..."
+                  />
+
+                  <div className="mt-5 space-y-4">
+                    {filteredLeads.length === 0 ? (
+                      <EmptyState title="No leads found" body="Add your first lead or clear the search." />
+                    ) : (
+                      filteredLeads.map((lead) => (
+                        <div key={lead.id} className="rounded-[1.5rem] border border-white/10 bg-slate-950/60 p-5">
+                          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                            <div>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h3 className="font-black text-white">
+                                  {lead.businessName || lead.contactName || "Unnamed Lead"}
+                                </h3>
+                                <Pill tone={statusClass(lead.status)}>{lead.status || "new"}</Pill>
                               </div>
-                              <span className={`text-xs font-bold px-3 py-1 rounded-full ${
-                                call.outcome === "Booked" ? "bg-green-500/20 text-green-400" : 
-                                call.outcome === "Interested" ? "bg-blue-500/20 text-blue-400" :
-                                "bg-gray-500/20 text-gray-400"
-                              }`}>{call.outcome || "Pending"}</span>
+                              <p className="mt-1 text-sm text-slate-400">
+                                {lead.contactName || "No contact"} · {lead.phone || "No phone"} · {lead.source || "Manual"}
+                              </p>
+                              <p className="mt-2 text-sm text-slate-300">
+                                {lead.service || "No service listed"} {lead.value ? `· ${money(lead.value)}` : ""}
+                              </p>
                             </div>
 
-                            {call.summary && (<p className={`text-sm mb-4 leading-relaxed ${darkMode ? "text-zinc-300" : "text-zinc-700"}`}>{call.summary}</p>)}
-
-                            <div className="flex items-center gap-4">
-                              {call.recordingUrl && (
-                                <div className={`p-3 rounded-lg ${darkMode ? "bg-white/5" : "bg-black/5"} flex items-center gap-3 w-full`}>
-                                  <audio controls className="w-full h-8 rounded">
-                                    <source src={call.recordingUrl} type="audio/mpeg" />
-                                  </audio>
-                                  <div className="text-xs text-zinc-400">⏱️ {call.duration || "N/A"}</div>
-                                </div>
-                              )}
-                              <div className="text-xs text-zinc-500"><Icon name="mic" className="inline-block h-4 w-4 mr-1" /> Voice: {call.voiceId || "Default"}</div>
+                            <div className="flex flex-wrap gap-2">
+                              <select
+                                className="rounded-2xl border border-white/10 bg-slate-900 px-3 py-2 text-sm"
+                                value={lead.status || "new"}
+                                onChange={(e) => updateLead(lead.id, { status: e.target.value })}
+                              >
+                                {LEAD_STAGES.map((stage) => (
+                                  <option key={stage} value={stage}>{stage}</option>
+                                ))}
+                              </select>
+                              <GhostButton onClick={() => updateLead(lead.id, { status: "called", lastCalledAt: serverTimestamp() })}>
+                                Mark called
+                              </GhostButton>
+                              <GhostButton onClick={() => removeLead(lead.id)} className="text-rose-200 hover:border-rose-400/40 hover:bg-rose-400/10">
+                                Delete
+                              </GhostButton>
                             </div>
+                          </div>
+
+                          {lead.notes && (
+                            <p className="mt-4 whitespace-pre-wrap rounded-2xl bg-white/[0.04] p-4 text-sm leading-6 text-slate-300">
+                              {lead.notes}
+                            </p>
+                          )}
+
+                          <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-500">
+                            <span>Created: {formatDate(lead.createdAt)}</span>
+                            {lead.lastCalledAt && <span>· Last called: {formatDateTime(lead.lastCalledAt)}</span>}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </Panel>
+              </section>
+            )}
+
+            {activeTab === "campaigns" && (
+              <section className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+                <Panel title="Create Cold Calling Campaign" subtitle="For Google Maps leads, contractors, local services, and outbound sales.">
+                  <form onSubmit={createCampaign} className="space-y-4">
+                    <Field label="Campaign Name">
+                      <input className={inputClass} value={campaignForm.name} onChange={(e) => setCampaignForm({ ...campaignForm, name: e.target.value })} placeholder="Roofers in Fall River" />
+                    </Field>
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Field label="Market">
+                        <input className={inputClass} value={campaignForm.market} onChange={(e) => setCampaignForm({ ...campaignForm, market: e.target.value })} placeholder="Plumbers, roofers, barbers..." />
+                      </Field>
+                      <Field label="Offer">
+                        <input className={inputClass} value={campaignForm.offer} onChange={(e) => setCampaignForm({ ...campaignForm, offer: e.target.value })} placeholder="AI receptionist + booking setup" />
+                      </Field>
+                    </div>
+
+                    <Field label="Goal">
+                      <select className={inputClass} value={campaignForm.goal} onChange={(e) => setCampaignForm({ ...campaignForm, goal: e.target.value })}>
+                        <option>Book appointments</option>
+                        <option>Sell starter plan</option>
+                        <option>Offer free demo</option>
+                        <option>Collect interested leads</option>
+                      </select>
+                    </Field>
+
+                    <Field label="Call Script">
+                      <textarea className={cx(inputClass, "min-h-56")} value={campaignForm.script} onChange={(e) => setCampaignForm({ ...campaignForm, script: e.target.value })} />
+                    </Field>
+
+                    <PrimaryButton type="submit" disabled={busy === "campaign"} className="w-full">
+                      Save Campaign
+                    </PrimaryButton>
+                  </form>
+                </Panel>
+
+                <Panel title="Outbound Desktop" subtitle="Your saved lead queue for calling, notes, and follow-up.">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {LEAD_STAGES.map((stage) => {
+                      const count = leads.filter((lead) => normalize(lead.status) === stage).length;
+                      return (
+                        <div key={stage} className="rounded-[1.3rem] border border-white/10 bg-slate-950/60 p-4">
+                          <p className="text-xs uppercase tracking-[0.2em] text-slate-500">{stage}</p>
+                          <p className="mt-2 text-2xl font-black text-white">{count}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="mt-6 space-y-4">
+                    {leads.filter((lead) => ["new", "follow_up", "hot"].includes(normalize(lead.status))).slice(0, 8).map((lead) => (
+                      <div key={lead.id} className="rounded-[1.5rem] border border-white/10 bg-white/[0.04] p-4">
+                        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                          <div>
+                            <p className="font-black text-white">{lead.businessName || lead.contactName || "Lead"}</p>
+                            <p className="text-sm text-slate-400">{lead.phone || "No phone"} · {lead.service || "No service"}</p>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <GhostButton onClick={() => updateLead(lead.id, { status: "called", lastCalledAt: serverTimestamp() })}>
+                              Called
+                            </GhostButton>
+                            <GhostButton onClick={() => updateLead(lead.id, { status: "booked" })}>
+                              Booked
+                            </GhostButton>
+                            <GhostButton onClick={() => updateLead(lead.id, { status: "lost" })}>
+                              Lost
+                            </GhostButton>
                           </div>
                         </div>
                       </div>
                     ))}
-                  </div>
-                )}
 
-                {workspace.vapiLinked && calls.length === 0 && (
-                  <div className={`border-2 border-dashed ${darkMode ? "border-zinc-800" : "border-zinc-300"} rounded-xl p-12 text-center`}>
-                    <div className="mb-3">
-                      <Icon name="calls" className="h-12 w-12 mx-auto text-zinc-400" />
+                    {leads.filter((lead) => ["new", "follow_up", "hot"].includes(normalize(lead.status))).length === 0 && (
+                      <EmptyState title="No active calling queue" body="Add leads or move existing leads to new, hot, or follow_up." />
+                    )}
+                  </div>
+
+                  <div className="mt-6">
+                    <h3 className="mb-3 font-black text-white">Saved Campaigns</h3>
+                    <div className="space-y-3">
+                      {campaigns.length === 0 ? (
+                        <EmptyState title="No campaigns yet" body="Create your first outbound campaign." />
+                      ) : (
+                        campaigns.map((campaign) => (
+                          <div key={campaign.id} className="rounded-[1.5rem] border border-white/10 bg-slate-950/60 p-4">
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                              <div>
+                                <p className="font-black text-white">{campaign.name || "Untitled Campaign"}</p>
+                                <p className="text-sm text-slate-400">{campaign.market || "No market"} · {campaign.goal || "No goal"}</p>
+                              </div>
+                              <Pill tone={statusClass(campaign.status)}>{campaign.status || "draft"}</Pill>
+                            </div>
+                          </div>
+                        ))
+                      )}
                     </div>
-                    <p className={darkMode ? "text-zinc-400" : "text-zinc-600"}>No calls yet. Your AI is ready to take incoming calls.</p>
                   </div>
-                )}
-              </div>
+                </Panel>
+              </section>
             )}
 
-            {/* Leads Tab */}
-            {activeTab === "leads" && (
-              <div className="space-y-6">
-                <h2 className="text-3xl font-black">Leads Manager</h2>
-                <div className={`border-2 border-dashed ${darkMode ? "border-zinc-800" : "border-zinc-300"} rounded-xl p-12 text-center`}>
-                  <div className="mb-3">
-                    <Icon name="leads" className="h-12 w-12 mx-auto text-zinc-400" />
-                  </div>
-                  <p className={darkMode ? "text-zinc-400" : "text-zinc-600"}>Leads captured from calls will appear here</p>
-                  <p className={`text-sm mt-2 ${darkMode ? "text-zinc-500" : "text-zinc-600"}`}>Enable AI lead capture in settings</p>
-                </div>
-              </div>
+            {activeTab === "appointments" && (
+              <section className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+                <Panel title="Quick Appointment" subtitle="Manual booking form for calls, demos, and client jobs.">
+                  <form onSubmit={createAppointment} className="space-y-4">
+                    <Field label="Customer Name">
+                      <input className={inputClass} value={appointmentForm.customerName} onChange={(e) => setAppointmentForm({ ...appointmentForm, customerName: e.target.value })} placeholder="Customer name" />
+                    </Field>
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Field label="Phone">
+                        <input className={inputClass} value={appointmentForm.phone} onChange={(e) => setAppointmentForm({ ...appointmentForm, phone: e.target.value })} placeholder="+1..." />
+                      </Field>
+                      <Field label="Service">
+                        <input className={inputClass} value={appointmentForm.service} onChange={(e) => setAppointmentForm({ ...appointmentForm, service: e.target.value })} placeholder="Service or demo" />
+                      </Field>
+                    </div>
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Field label="Date">
+                        <input className={inputClass} type="date" value={appointmentForm.date} onChange={(e) => setAppointmentForm({ ...appointmentForm, date: e.target.value })} />
+                      </Field>
+                      <Field label="Time">
+                        <input className={inputClass} type="time" value={appointmentForm.time} onChange={(e) => setAppointmentForm({ ...appointmentForm, time: e.target.value })} />
+                      </Field>
+                    </div>
+
+                    <Field label="Notes">
+                      <textarea className={cx(inputClass, "min-h-28")} value={appointmentForm.notes} onChange={(e) => setAppointmentForm({ ...appointmentForm, notes: e.target.value })} placeholder="Address, job details, quote notes..." />
+                    </Field>
+
+                    <PrimaryButton type="submit" disabled={busy === "appointment"} className="w-full">
+                      Create Appointment
+                    </PrimaryButton>
+                  </form>
+                </Panel>
+
+                <RecentAppointments appointments={appointments} large />
+              </section>
             )}
 
-            {/* Operations Tab */}
-            {activeTab === "operations" && (
-              <div className="space-y-6">
-                <h2 className="text-3xl font-black">Operations Dashboard</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {(() => {
-                    const stats = [
-                      { label: 'Total Calls', value: workspace.vapiLinked ? calls.length : '—', change: '+12%' },
-                      { label: 'Booked Appointments', value: workspace.vapiLinked ? (calls || []).filter(c => c.outcome === 'Booked').length : '—', change: '+8%' },
-                      { label: 'Response Rate', value: workspace.vapiLinked ? '94%' : '—', change: '+3%' },
-                      { label: 'Avg Duration', value: workspace.vapiLinked ? '2m 34s' : '—', change: '-5%' },
-                    ];
-                    return stats.map((stat, idx) => (
-                      <div key={idx} className={`border ${darkMode ? 'bg-black/30 border-zinc-800' : 'bg-white/30 border-zinc-300'} rounded-xl p-6`}>
-                        <p className={`text-xs font-bold uppercase tracking-wider ${darkMode ? 'text-zinc-400' : 'text-zinc-600'}`}>{stat.label}</p>
-                        <div className="flex items-baseline gap-2 mt-3">
-                          <p className="text-3xl font-black">{stat.value}</p>
-                          <p className="text-xs text-emerald-400">{stat.change}</p>
-                        </div>
-                      </div>
-                    ));
-                  })()}
-                </div>
-              </div>
-            )}
-
-            {/* AI Advisor Tab */}
             {activeTab === "advisor" && (
-              <div className="space-y-6 max-w-3xl">
-                <h2 className="text-3xl font-black">AI Advisor</h2>
-                <div className={`border ${darkMode ? "bg-black/30 border-zinc-800" : "bg-white/30 border-zinc-300"} rounded-xl p-6`}>
-                  <div className={`mb-6 p-4 rounded-lg ${darkMode ? "bg-white/5" : "bg-black/5"}`}>
-                    <p className={`text-sm leading-relaxed ${darkMode ? "text-zinc-300" : "text-zinc-700"}`}>
-                      Hello! I'm your AI Advisor. I can analyze recent calls, summarize trends, and suggest improvements. Ask about calls, leads, bookings, or strategy.
-                    </p>
+              <Panel title="Executive AI Advisor" subtitle="Ask for business fixes, sales strategy, CRM cleanup, or next moves.">
+                <div className="grid gap-6 xl:grid-cols-[1fr_0.7fr]">
+                  <div className="rounded-[1.5rem] border border-white/10 bg-slate-950/60 p-4">
+                    <div className="max-h-[520px] space-y-4 overflow-y-auto pr-1">
+                      {advisorMessages.map((message, index) => (
+                        <div
+                          key={`${message.role}-${index}`}
+                          className={cx(
+                            "rounded-[1.4rem] p-4 text-sm leading-6",
+                            message.role === "user"
+                              ? "ml-auto max-w-[85%] bg-emerald-400 text-slate-950"
+                              : "mr-auto max-w-[90%] bg-white/[0.06] text-slate-200"
+                          )}
+                        >
+                          {message.content}
+                        </div>
+                      ))}
+                    </div>
+
+                    <form onSubmit={askAdvisor} className="mt-4 flex flex-col gap-3 sm:flex-row">
+                      <input
+                        className={inputClass}
+                        value={advisorInput}
+                        onChange={(e) => setAdvisorInput(e.target.value)}
+                        placeholder="Ask: what should I fix next?"
+                      />
+                      <PrimaryButton type="submit" disabled={busy === "advisor"}>
+                        Ask
+                      </PrimaryButton>
+                    </form>
                   </div>
 
                   <div className="space-y-4">
-                    <div className={`max-h-64 overflow-y-auto p-3 rounded ${darkMode ? 'bg-black/50' : 'bg-white/50'}`}>
-                      {advisorMessages.length === 0 && (
-                        <div className={`text-sm text-zinc-400`}>No messages yet — ask a question to get started.</div>
-                      )}
-                      {advisorMessages.map((m, i) => (
-                        <div key={i} className={`mb-3 ${m.role === 'user' ? 'text-right' : ''}`}>
-                          <div className={`inline-block max-w-full break-words px-3 py-2 rounded-lg ${m.role === 'user' ? (darkMode ? 'bg-white/10' : 'bg-black/10') : (darkMode ? 'bg-white/5' : 'bg-black/5')}`}>{m.text}</div>
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={advisorInput}
-                        onChange={(e) => setAdvisorInput(e.target.value)}
-                        onKeyDown={async (e) => { if (e.key === 'Enter') { e.preventDefault(); await sendAdvisorMessage(); } }}
-                        placeholder="Ask me anything about your business..."
-                        className={`flex-1 p-3 rounded-lg border ${darkMode ? "bg-black/50 border-zinc-700" : "bg-white/50 border-zinc-300"} focus:outline-none focus:border-white`}
-                      />
-                      <button onClick={sendAdvisorMessage} disabled={advisorLoading} className="px-4 py-3 bg-white text-black font-bold rounded-lg hover:bg-zinc-200">
-                        {advisorLoading ? 'Thinking...' : 'Send'}
-                      </button>
-                    </div>
+                    {advisorCards.map((card) => (
+                      <div key={card.title} className="rounded-[1.5rem] border border-white/10 bg-white/[0.04] p-5">
+                        <p className="font-black text-white">{card.title}</p>
+                        <p className="mt-2 text-sm leading-6 text-slate-400">{card.body}</p>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              </div>
+              </Panel>
             )}
 
-            {/* Knowledge Tab */}
             {activeTab === "knowledge" && (
-              <div className="space-y-6">
-                <h2 className="text-3xl font-black">Knowledge Base</h2>
-                <div className={`border-2 border-dashed ${darkMode ? "border-zinc-800" : "border-zinc-300"} rounded-xl p-12 text-center cursor-pointer hover:opacity-80 transition`}>
-                  <div className="mb-3">
-                    <Icon name="book" className="h-12 w-12 mx-auto text-zinc-400" />
-                  </div>
-                  <p className={`font-semibold ${darkMode ? "text-zinc-300" : "text-zinc-700"}`}>Upload Documents</p>
-                  <p className={`text-sm mt-2 ${darkMode ? "text-zinc-500" : "text-zinc-600"}`}>Drag and drop your files to train your AI assistant</p>
-                </div>
-              </div>
-            )}
+              <section className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+                <Panel title="AI Receptionist Trainer" subtitle="Add business rules so the agent does not hallucinate.">
+                  <form onSubmit={addKnowledge} className="space-y-4">
+                    <Field label="Title">
+                      <input className={inputClass} value={knowledgeForm.title} onChange={(e) => setKnowledgeForm({ ...knowledgeForm, title: e.target.value })} placeholder="Pricing, Hours, Emergency Policy..." />
+                    </Field>
 
-            {/* Settings Tab */}
-            {activeTab === "settings" && (
-              <div className="space-y-8 max-w-2xl">
-                <div>
-                  <h2 className="text-3xl font-black mb-2">Settings & Profile</h2>
-                  <p className={`text-sm ${darkMode ? "text-zinc-400" : "text-zinc-600"}`}>Manage your business configuration and preferences</p>
-                </div>
-
-                <div className={`border ${darkMode ? "bg-black/30 border-zinc-800" : "bg-white/30 border-zinc-300"} rounded-xl p-6 space-y-6`}>
-                  <div>
-                    <label className="block text-sm font-bold mb-2">Business Name</label>
-                    <input
-                      type="text"
-                      value={workspace.businessName || ""}
-                      onChange={(e) => setWorkspace({ ...workspace, businessName: e.target.value })}
-                      className={`w-full p-3 rounded-lg border ${darkMode ? "bg-black/50 border-zinc-700" : "bg-white/50 border-zinc-300"} focus:outline-none focus:border-white`}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-bold mb-2">Industry</label>
-                    <select
-                      value={workspace.industry || ""}
-                      onChange={(e) => setWorkspace({ ...workspace, industry: e.target.value })}
-                      className={`w-full p-3 rounded-lg border ${darkMode ? "bg-black/50 border-zinc-700" : "bg-white/50 border-zinc-300"} focus:outline-none focus:border-white`}
-                    >
-                      <option value="">Select industry...</option>
-                      {BUSINESS_TYPES.map((type) => (
-                        <option key={type} value={type}>{type}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {workspace.industry === "Other" && (
-                    <div>
-                      <label className="block text-sm font-bold mb-2">Custom Business Type</label>
-                      <input
-                        type="text"
-                        value={workspace.customIndustry || ""}
-                        onChange={(e) => setWorkspace({ ...workspace, customIndustry: e.target.value })}
-                        className={`w-full p-3 rounded-lg border ${darkMode ? "bg-black/50 border-zinc-700" : "bg-white/50 border-zinc-300"} focus:outline-none focus:border-white`}
-                      />
-                    </div>
-                  )}
-
-                  <div>
-                    <label className="block text-sm font-bold mb-2">Services</label>
-                    <textarea
-                      value={workspace.services || ""}
-                      onChange={(e) => setWorkspace({ ...workspace, services: e.target.value })}
-                      className={`w-full p-3 rounded-lg border ${darkMode ? "bg-black/50 border-zinc-700" : "bg-white/50 border-zinc-300"} focus:outline-none focus:border-white`}
-                      rows={4}
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-bold mb-2">Average Job Value</label>
-                      <input
-                        type="text"
-                        value={workspace.averageJobValue || ""}
-                        onChange={(e) => setWorkspace({ ...workspace, averageJobValue: e.target.value })}
-                        className={`w-full p-3 rounded-lg border ${darkMode ? "bg-black/50 border-zinc-700" : "bg-white/50 border-zinc-300"} focus:outline-none focus:border-white`}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-bold mb-2">AI Tone</label>
-                      <select
-                        value={workspace.tone || "Professional"}
-                        onChange={(e) => setWorkspace({ ...workspace, tone: e.target.value })}
-                        className={`w-full p-3 rounded-lg border ${darkMode ? "bg-black/50 border-zinc-700" : "bg-white/50 border-zinc-300"} focus:outline-none focus:border-white`}
-                      >
-                        <option>Professional</option>
-                        <option>Friendly</option>
-                        <option>Aggressive Sales</option>
+                    <Field label="Type">
+                      <select className={inputClass} value={knowledgeForm.type} onChange={(e) => setKnowledgeForm({ ...knowledgeForm, type: e.target.value })}>
+                        <option>FAQ</option>
+                        <option>Service</option>
+                        <option>Pricing</option>
+                        <option>Objection</option>
+                        <option>Policy</option>
+                        <option>Script</option>
                       </select>
-                    </div>
-                  </div>
+                    </Field>
 
-                  {/* AI Brain / RAG Sections */}
-                  <div className="mt-4 border-t pt-4">
-                    <h4 className="text-sm font-bold mb-2">AI Brain — RAG Sections & Toolbox</h4>
-                    <div className="mb-3">
-                      <label className="block text-sm font-semibold">AI Character / Persona</label>
-                      <input value={workspace.aiCharacter || ""} onChange={(e) => setWorkspace({ ...workspace, aiCharacter: e.target.value })} className="w-full p-3 rounded-lg border bg-transparent" placeholder="e.g., Energetic receptionist" />
-                    </div>
+                    <Field label="Training Content">
+                      <textarea className={cx(inputClass, "min-h-56")} value={knowledgeForm.content} onChange={(e) => setKnowledgeForm({ ...knowledgeForm, content: e.target.value })} placeholder="Example: We service Fall River, New Bedford, Brockton, and nearby areas. Emergency calls are same day if available." />
+                    </Field>
 
-                    <div className="mb-3">
-                      <label className="block text-sm font-semibold mb-2">Feature Toolbox</label>
-                      <div className="flex flex-wrap gap-2">
-                        {[
-                          { key: 'leadCapture', label: 'Lead Capture' },
-                          { key: 'booking', label: 'Booking' },
-                          { key: 'payments', label: 'Payments' },
-                          { key: 'sms', label: 'SMS Follow-up' },
-                          { key: 'recordSummaries', label: 'Call Summaries' },
-                        ].map((tool) => {
-                          const enabled = (workspace.tools || []).includes(tool.key);
-                          return (
-                            <label key={tool.key} className="inline-flex items-center gap-2 px-3 py-1 rounded-lg border bg-transparent">
-                              <input type="checkbox" checked={enabled} onChange={(e) => {
-                                const tools = new Set(workspace.tools || []);
-                                if (e.target.checked) tools.add(tool.key); else tools.delete(tool.key);
-                                setWorkspace({ ...workspace, tools: Array.from(tools) });
-                              }} />
-                              <span className="text-sm">{tool.label}</span>
-                            </label>
-                          );
-                        })}
-                      </div>
-                    </div>
+                    <PrimaryButton type="submit" disabled={busy === "knowledge"} className="w-full">
+                      Add Training
+                    </PrimaryButton>
+                  </form>
+                </Panel>
 
-                    <div>
-                      <label className="block text-sm font-semibold mb-2">RAG Sections</label>
-                      {(workspace.ragSections || []).map((section, idx) => (
-                        <div key={idx} className="mb-3 p-3 rounded-lg border bg-transparent">
-                          <input value={section.title || ''} onChange={(e) => {
-                            const arr = workspace.ragSections ? [...workspace.ragSections] : [];
-                            arr[idx] = { ...arr[idx], title: e.target.value };
-                            setWorkspace({ ...workspace, ragSections: arr });
-                          }} placeholder="Section title (e.g., Services)" className="w-full p-2 mb-2 rounded border" />
-                          <textarea value={section.content || ''} onChange={(e) => {
-                            const arr = workspace.ragSections ? [...workspace.ragSections] : [];
-                            arr[idx] = { ...arr[idx], content: e.target.value };
-                            setWorkspace({ ...workspace, ragSections: arr });
-                          }} rows={4} className="w-full p-2 rounded border" placeholder="Paste documents or short guidance for this section" />
-                          <div className="flex items-center justify-between mt-2">
-                            <div className="text-xs text-zinc-400">Select tools for this section</div>
-                            <div className="flex gap-2">
-                              <button onClick={() => {
-                                const arr = workspace.ragSections ? [...workspace.ragSections] : [];
-                                arr.splice(idx, 1);
-                                setWorkspace({ ...workspace, ragSections: arr });
-                              }} className="px-2 py-1 rounded bg-white/5 text-sm">Remove</button>
+                <Panel title="Knowledge Base" subtitle="Saved training data for this workspace.">
+                  <div className="space-y-4">
+                    {knowledge.length === 0 ? (
+                      <EmptyState title="No training yet" body="Add FAQs, prices, service areas, and call rules." />
+                    ) : (
+                      knowledge.map((item) => (
+                        <div key={item.id} className="rounded-[1.5rem] border border-white/10 bg-slate-950/60 p-5">
+                          <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                              <p className="font-black text-white">{item.title || "Untitled"}</p>
+                              <p className="text-sm text-slate-500">{item.type || "Training"} · {formatDate(item.createdAt)}</p>
                             </div>
+                            <Pill tone="border-cyan-400/30 bg-cyan-400/10 text-cyan-200">{item.type || "FAQ"}</Pill>
                           </div>
+                          <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-slate-300">{item.content}</p>
                         </div>
-                      ))}
-                      <div>
-                        <button onClick={() => {
-                          const arr = workspace.ragSections ? [...workspace.ragSections] : [];
-                          arr.push({ title: 'New Section', content: '', tools: [] });
-                          setWorkspace({ ...workspace, ragSections: arr });
-                        }} className="px-3 py-2 rounded bg-white/5">Add Section</button>
-                      </div>
-                    </div>
+                      ))
+                    )}
                   </div>
-
-                  <button
-                    onClick={handleSaveWorkspace}
-                    disabled={isSaving}
-                    className="w-full bg-gradient-to-r from-white to-zinc-200 text-black font-bold py-3 rounded-lg hover:from-zinc-100 hover:to-white disabled:opacity-50 transition"
-                  >
-                    {isSaving ? "Saving..." : "Save Changes"}
-                  </button>
-                </div>
-              </div>
+                </Panel>
+              </section>
             )}
 
-            {/* Dev Ops Tab */}
+            {activeTab === "settings" && (
+              <Panel title="Workspace Settings" subtitle="Client setup, Vapi number, business info, AI script, and plan controls.">
+                <form onSubmit={saveWorkspace} className="space-y-5">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <Field label="Business Name">
+                      <input className={inputClass} value={settingsForm.businessName || ""} onChange={(e) => setSettingsForm({ ...settingsForm, businessName: e.target.value })} />
+                    </Field>
+                    <Field label="Owner Name">
+                      <input className={inputClass} value={settingsForm.ownerName || ""} onChange={(e) => setSettingsForm({ ...settingsForm, ownerName: e.target.value })} />
+                    </Field>
+                    <Field label="Business Type">
+                      <input className={inputClass} value={settingsForm.businessType || ""} onChange={(e) => setSettingsForm({ ...settingsForm, businessType: e.target.value })} />
+                    </Field>
+                    <Field label="Phone">
+                      <input className={inputClass} value={settingsForm.phone || ""} onChange={(e) => setSettingsForm({ ...settingsForm, phone: e.target.value })} />
+                    </Field>
+                    <Field label="Website">
+                      <input className={inputClass} value={settingsForm.website || ""} onChange={(e) => setSettingsForm({ ...settingsForm, website: e.target.value })} />
+                    </Field>
+                    <Field label="Service Area">
+                      <input className={inputClass} value={settingsForm.serviceArea || ""} onChange={(e) => setSettingsForm({ ...settingsForm, serviceArea: e.target.value })} />
+                    </Field>
+                    <Field label="Hours">
+                      <input className={inputClass} value={settingsForm.hours || ""} onChange={(e) => setSettingsForm({ ...settingsForm, hours: e.target.value })} />
+                    </Field>
+                    <Field label="Booking Link">
+                      <input className={inputClass} value={settingsForm.bookingLink || ""} onChange={(e) => setSettingsForm({ ...settingsForm, bookingLink: e.target.value })} />
+                    </Field>
+                    <Field label="Vapi Number">
+                      <input className={inputClass} value={settingsForm.vapiNumber || ""} onChange={(e) => setSettingsForm({ ...settingsForm, vapiNumber: e.target.value })} placeholder="+1..." />
+                    </Field>
+                    <Field label="Vapi Assistant ID">
+                      <input className={inputClass} value={settingsForm.vapiAssistantId || ""} onChange={(e) => setSettingsForm({ ...settingsForm, vapiAssistantId: e.target.value })} placeholder="assistant id" />
+                    </Field>
+                    <Field label="Plan">
+                      <select className={inputClass} value={settingsForm.plan || "Starter"} onChange={(e) => setSettingsForm({ ...settingsForm, plan: e.target.value })}>
+                        <option>Starter</option>
+                        <option>Growth</option>
+                        <option>Elite</option>
+                      </select>
+                    </Field>
+                    <Field label="Status">
+                      <select className={inputClass} value={settingsForm.status || "active"} onChange={(e) => setSettingsForm({ ...settingsForm, status: e.target.value })}>
+                        <option>active</option>
+                        <option>trial</option>
+                        <option>past_due</option>
+                        <option>inactive</option>
+                      </select>
+                    </Field>
+                  </div>
+
+                  <Field label="Primary Goal">
+                    <input className={inputClass} value={settingsForm.primaryGoal || ""} onChange={(e) => setSettingsForm({ ...settingsForm, primaryGoal: e.target.value })} />
+                  </Field>
+
+                  <Field label="AI Receptionist Script">
+                    <textarea className={cx(inputClass, "min-h-64")} value={settingsForm.aiScript || ""} onChange={(e) => setSettingsForm({ ...settingsForm, aiScript: e.target.value })} />
+                  </Field>
+
+                  <div className="flex flex-col gap-3 sm:flex-row">
+                    <PrimaryButton type="submit" disabled={busy === "settings"}>
+                      Save Workspace
+                    </PrimaryButton>
+                    <GhostButton onClick={linkVapiNumber} disabled={busy === "vapi"}>
+                      Link Vapi Number
+                    </GhostButton>
+                    <Link href="/pricing" className="rounded-2xl border border-white/10 px-5 py-3 text-center text-sm font-bold text-slate-200 hover:bg-white/[0.06]">
+                      View Pricing
+                    </Link>
+                  </div>
+                </form>
+              </Panel>
+            )}
+
             {activeTab === "dev_ops" && isAdmin && (
-              <div className="space-y-6">
-                <div className="flex items-center gap-3 mb-6">
-                  <span className="px-3 py-1 bg-red-500/20 text-red-400 text-xs font-black rounded-full border border-red-500/30">ADMIN</span>
-                  <h2 className="text-3xl font-black">Developer Operations</h2>
-                </div>
+              <section className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+                <Panel title="Developer Operations" subtitle="Admin-only tools for client creation, account updates, demos, and support.">
+                  <form onSubmit={devCreateAccount} className="space-y-4">
+                    <Field label="Client Email">
+                      <input className={inputClass} value={devForm.email} onChange={(e) => setDevForm({ ...devForm, email: e.target.value })} placeholder="client@email.com" />
+                    </Field>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  {/* Business Info & Assistant Tuning */}
-                  <div className="lg:col-span-2 rounded-2xl border border-white/6 p-6 bg-zinc-900/30">
-                    <h3 className="text-lg font-bold mb-4">1. Business Info & Assistant</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-semibold mb-2">Business Name</label>
-                        <input value={devBusinessName} onChange={(e) => setDevBusinessName(e.target.value)} className="w-full p-3 rounded-lg border bg-black/40" placeholder="Company name (leave blank to use workspace)" />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-semibold mb-2">Industry</label>
-                        <select value={devIndustry} onChange={(e) => setDevIndustry(e.target.value)} className="w-full p-3 rounded-lg border bg-black/40">
-                          <option value="">Select industry (or leave blank)</option>
-                          {BUSINESS_TYPES.map((t) => (<option key={t} value={t}>{t}</option>))}
+                    <Field label="Business Name">
+                      <input className={inputClass} value={devForm.businessName} onChange={(e) => setDevForm({ ...devForm, businessName: e.target.value })} placeholder="Client Business LLC" />
+                    </Field>
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Field label="Phone">
+                        <input className={inputClass} value={devForm.phone} onChange={(e) => setDevForm({ ...devForm, phone: e.target.value })} />
+                      </Field>
+                      <Field label="UID For Update">
+                        <input className={inputClass} value={devForm.uid} onChange={(e) => setDevForm({ ...devForm, uid: e.target.value })} placeholder="Firebase uid" />
+                      </Field>
+                    </div>
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Field label="Plan">
+                        <select className={inputClass} value={devForm.plan} onChange={(e) => setDevForm({ ...devForm, plan: e.target.value })}>
+                          <option>Starter</option>
+                          <option>Growth</option>
+                          <option>Elite</option>
                         </select>
-                      </div>
-                    </div>
-
-                    {devIndustry === "Other" && (
-                      <div className="mt-4">
-                        <label className="block text-sm font-semibold mb-2">Custom Industry</label>
-                        <input value={devCustomIndustry} onChange={(e) => setDevCustomIndustry(e.target.value)} className="w-full p-3 rounded-lg border bg-black/40" placeholder="e.g., Influencer, SaaS" />
-                      </div>
-                    )}
-
-                    <div className="mt-4">
-                      <label className="block text-sm font-semibold mb-2">Services / About</label>
-                      <textarea value={devServices} onChange={(e) => setDevServices(e.target.value)} rows={4} className="w-full p-3 rounded-lg border bg-black/40" placeholder="Short blurb about the business for RAG prompts" />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4 mt-4">
-                      <div>
-                        <label className="block text-sm font-semibold mb-2">Assistant Persona</label>
-                        <select value={devAssistantName} onChange={(e) => setDevAssistantName(e.target.value)} className="w-full p-3 rounded-lg border bg-black/40">
-                          <option>Receptionist</option>
-                          <option>Concierge</option>
-                          <option>Sales Closer</option>
-                          <option>Scripted Closer</option>
+                      </Field>
+                      <Field label="Status">
+                        <select className={inputClass} value={devForm.status} onChange={(e) => setDevForm({ ...devForm, status: e.target.value })}>
+                          <option>active</option>
+                          <option>trial</option>
+                          <option>past_due</option>
+                          <option>inactive</option>
                         </select>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-semibold mb-2">Voice Profile</label>
-                        <select value={devVoiceId} onChange={(e) => setDevVoiceId(e.target.value)} className="w-full p-3 rounded-lg border bg-black/40">
-                          <option value="sara">Sara</option>
-                          <option value="rachel">Rachel</option>
-                          <option value="jack">Jack</option>
-                        </select>
-                      </div>
+                      </Field>
                     </div>
 
-                    <div className="mt-4">
-                      <label className="block text-sm font-semibold mb-2">Custom System Prompt</label>
-                      <textarea value={devCustomPrompt} onChange={(e) => setDevCustomPrompt(e.target.value)} rows={5} className="w-full p-3 rounded-lg border bg-black/40 font-mono" />
+                    <div className="flex flex-col gap-3 sm:flex-row">
+                      <PrimaryButton type="submit" disabled={busy === "devCreate"}>
+                        Create Account
+                      </PrimaryButton>
+                      <GhostButton onClick={devUpdateAccount} disabled={busy === "devUpdate"}>
+                        Update Account
+                      </GhostButton>
                     </div>
+                  </form>
+                </Panel>
 
-                    <div className="flex gap-3 mt-4">
-                      <button type="button" onClick={() => {
-                        setDevBusinessName(workspace.businessName || "");
-                        setDevIndustry(workspace.industry || "");
-                        setDevCustomIndustry(workspace.customIndustry || "");
-                        setDevServices(workspace.services || "");
-                        setDevCustomPrompt(`You are a professional AI receptionist for ${workspace.businessName || "this business"}. Use the services and industry to book appointments and capture lead info.`);
-                        setDevStatusLog("Loaded workspace info into Dev panel.");
-                      }} className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10">Load from Workspace</button>
+                <Panel title="Admin Snapshot" subtitle="Fast control center for founder testing.">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <StatCard label="Workspace Leads" value={metrics.totalLeads} icon="leads" />
+                    <StatCard label="Workspace Calls" value={metrics.totalCalls} icon="calls" />
+                    <StatCard label="Training Items" value={metrics.knowledgeCount} icon="book" />
+                    <StatCard label="Pipeline Value" value={money(metrics.pipelineValue)} icon="advisor" />
+                  </div>
 
-                      <button type="button" onClick={async () => {
-                        if (!user) return;
-                        try {
-                          const payload = sanitizeForFirestore({
-                            businessName: devBusinessName || workspace.businessName,
-                            industry: devIndustry || workspace.industry,
-                            customIndustry: devCustomIndustry || workspace.customIndustry,
-                            services: devServices || workspace.services,
-                          });
-                          await setDoc(doc(db, "users", user.uid), payload, { merge: true });
-                          setDevStatusLog("Applied Dev info to workspace.");
-                        } catch (err) {
-                          console.error("Apply workspace failed:", err);
-                          setDevStatusLog("Apply failed: " + err.message);
-                        }
-                      }} className="px-4 py-2 rounded-lg bg-emerald-600 text-white hover:opacity-95">Apply to Workspace</button>
+                  <div className="mt-6 rounded-[1.5rem] border border-white/10 bg-slate-950/60 p-5">
+                    <p className="font-black text-white">Founder Checklist</p>
+                    <div className="mt-4 space-y-3 text-sm text-slate-300">
+                      <ChecklistItem done={Boolean(workspace.vapiNumber)}>Vapi number linked</ChecklistItem>
+                      <ChecklistItem done={metrics.knowledgeCount >= 3}>Trainer has at least 3 knowledge items</ChecklistItem>
+                      <ChecklistItem done={metrics.totalLeads > 0}>CRM has saved leads</ChecklistItem>
+                      <ChecklistItem done={metrics.bookedAppointments > 0}>Appointments are being tracked</ChecklistItem>
+                      <ChecklistItem done={Boolean(workspace.aiScript)}>AI script saved</ChecklistItem>
                     </div>
                   </div>
 
-                  {/* Dialer + Recordings */}
-                  <div className="rounded-2xl border border-white/6 p-6 bg-zinc-900/20">
-                    <h3 className="text-lg font-bold mb-4">2. Outbound Dialer</h3>
-                    <form onSubmit={handleDevOutboundCall} className="space-y-4">
-                      <div>
-                        <label className="block text-sm font-semibold mb-2">Target Mobile Number</label>
-                        <input type="tel" value={devPhoneNumber} onChange={(e) => setDevPhoneNumber(e.target.value)} placeholder="+15551234567 or 5551234567" className="w-full p-3 rounded-lg border bg-black/40" />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-semibold mb-2">Voice / Model</label>
-                        <select value={devVoiceId} onChange={(e) => setDevVoiceId(e.target.value)} className="w-full p-3 rounded-lg border bg-black/40">
-                          <option value="sara">Sara</option>
-                          <option value="rachel">Rachel</option>
-                          <option value="jack">Jack</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-semibold mb-2">Prompt Preview</label>
-                        <textarea value={devCustomPrompt} onChange={(e) => setDevCustomPrompt(e.target.value)} rows={4} className="w-full p-3 rounded-lg border bg-black/40 font-mono" />
-                      </div>
-
-                      <button type="submit" disabled={devDialing} className={`w-full py-3 rounded-lg font-bold ${devDialing ? "bg-zinc-800 text-zinc-500" : "bg-red-600 text-white"}`}>
-                        {devDialing ? "Firing..." : "Trigger Test Call"}
-                      </button>
-                    </form>
-
-                    <div className="mt-4 rounded-lg p-3 bg-black/40 font-mono text-xs">
-                      {devStatusLog || "Ready to deploy sandbox outbound streams."}
-                    </div>
-
-                    <div className="mt-6">
-                      <h4 className="font-bold mb-2">Recent Recordings</h4>
-                      {calls.filter(c => c.recordingUrl).length ? (
-                        <div className="space-y-3 max-h-48 overflow-y-auto">
-                          {calls.filter(c => c.recordingUrl).map((call) => (
-                            <div key={call.id} className="rounded-lg p-3 bg-black/30 border border-white/6">
-                              <div className="flex items-center justify-between mb-2">
-                                <div className="text-sm font-semibold">{call.caller || call.phone}</div>
-                                <div className="text-xs text-zinc-400">ID: {call.callId || call.id}</div>
-                              </div>
-                              <audio controls className="w-full">
-                                <source src={call.recordingUrl} type="audio/mpeg" />
-                              </audio>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-sm text-zinc-500">No recordings yet. Live calls will appear here with playable audio.</p>
-                      )}
-                    </div>
-
-                    <div className="mt-6">
-                      <h4 className="font-bold mb-2">Quick Appointment (Dev)</h4>
-                      <form onSubmit={async (e) => {
-                        e.preventDefault();
-                        await createDevAppointment({ name: apptName, phone: apptPhone, scheduledTime: apptTime, notes: apptNotes });
-                        setApptName(""); setApptPhone(""); setApptTime(""); setApptNotes("");
-                      }} className="space-y-3">
-                        <input value={apptName} onChange={(e) => setApptName(e.target.value)} placeholder="Client name" className="w-full p-2 rounded-lg bg-black/30" />
-                        <input value={apptPhone} onChange={(e) => setApptPhone(e.target.value)} placeholder="Phone" className="w-full p-2 rounded-lg bg-black/30" />
-                        <input value={apptTime} onChange={(e) => setApptTime(e.target.value)} type="datetime-local" className="w-full p-2 rounded-lg bg-black/30" />
-                        <textarea value={apptNotes} onChange={(e) => setApptNotes(e.target.value)} placeholder="Notes" className="w-full p-2 rounded-lg bg-black/30" rows={2} />
-                        <div className="flex gap-2">
-                          <button type="submit" className="px-4 py-2 rounded-lg bg-emerald-600 text-white">Create Appointment</button>
-                          <button type="button" onClick={() => { setApptName(""); setApptPhone(""); setApptTime(""); setApptNotes(""); }} className="px-4 py-2 rounded-lg bg-white/5">Clear</button>
-                        </div>
-                      </form>
-                    </div>
-                    <div className="mt-6 border-t pt-4">
-                      <h4 className="font-bold mb-2">Create Test Account (Admin)</h4>
-                      <div className="space-y-3">
-                        <input value={devNewEmail} onChange={(e) => setDevNewEmail(e.target.value)} placeholder="Email" className="w-full p-2 rounded-lg bg-black/30" />
-                        <input value={devNewPassword} onChange={(e) => setDevNewPassword(e.target.value)} placeholder="Temp password (min 6)" className="w-full p-2 rounded-lg bg-black/30" />
-                        <div className="grid grid-cols-2 gap-2">
-                          <select value={devNewPlan} onChange={(e) => setDevNewPlan(e.target.value)} className="p-2 rounded-lg bg-black/30">
-                            <option value="starter">Starter — 1 Fugth number</option>
-                            <option value="growth">Growth — 3 Fugth numbers</option>
-                            <option value="elite">Elite — Unlimited Fugth numbers</option>
-                          </select>
-                          <input value={devNewFugthNumber} onChange={(e) => setDevNewFugthNumber(e.target.value)} placeholder="Fugth number (optional)" className="p-2 rounded-lg bg-black/30" />
-                        </div>
-                        <div className="flex gap-2">
-                          <button onClick={createDevAccount} disabled={devCreatingAccount} className={`px-4 py-2 rounded-lg ${devCreatingAccount ? 'bg-zinc-700 text-zinc-400' : 'bg-emerald-600 text-white'}`}>{devCreatingAccount ? 'Creating...' : 'Create Account'}</button>
-                          <button onClick={() => { setDevNewEmail(''); setDevNewPassword(''); setDevNewFugthNumber(''); }} className="px-4 py-2 rounded-lg bg-white/5">Clear</button>
-                        </div>
-                        <div className="text-xs text-zinc-500">Creates a Firebase Auth account and a Firestore user document. Users should reset their password on first login.</div>
-                      </div>
-
-                      <div className="mt-4">
-                        <h4 className="font-bold mb-2">Dev Accounts</h4>
-                        {devAccountsLoading ? <div className="text-sm text-zinc-400">Loading...</div> : (
-                          devAccounts.length ? (
-                            <div className="space-y-2 max-h-48 overflow-y-auto">
-                              {devAccounts.map((a) => (
-                                <div key={a.id} className="p-2 rounded border bg-black/20 flex items-center justify-between">
-                                  <div>
-                                    <div className="font-semibold text-sm">{a.email}</div>
-                                    <div className="text-xs text-zinc-400">{a.planTier} • {a.planStatus} • {a.fugthNumber || 'no Fugth number'}</div>
-                                  </div>
-                                  <div className="flex gap-2">
-                                    <button onClick={() => { setLookupEmail(a.email); setLookupResult(a); }} className="px-2 py-1 bg-white/5 rounded">Select</button>
-                                    <button onClick={async () => { await updateDevAccount({ uid: a.uid, planTier: 'starter' }); }} className="px-2 py-1 bg-white/5 rounded">Make Starter</button>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <div className="text-sm text-zinc-500">No dev accounts yet.</div>
-                          )
-                        )}
-                      </div>
-                    </div>
+                  <div className="mt-6 rounded-[1.5rem] border border-emerald-400/20 bg-emerald-400/10 p-5">
+                    <p className="font-black text-emerald-100">Dev API Paths Expected</p>
+                    <p className="mt-2 text-sm leading-6 text-emerald-50/80">
+                      This dashboard will reuse your existing Vercel backend if these routes exist:
+                      <br />
+                      <span className="font-mono">/api/dev/create-account</span>
+                      <br />
+                      <span className="font-mono">/api/dev/update-account</span>
+                      <br />
+                      <span className="font-mono">/api/advisor</span>
+                      <br />
+                      <span className="font-mono">/api/vapi/book-appointment</span>
+                    </p>
                   </div>
-                </div>
-              </div>
+                </Panel>
+              </section>
             )}
           </div>
-        </main>
+        </section>
       </div>
+    </main>
+  );
+}
+
+function Field({ label, children }) {
+  return (
+    <label className="block">
+      <span className={labelClass}>{label}</span>
+      {children}
+    </label>
+  );
+}
+
+function EmptyState({ title, body }) {
+  return (
+    <div className="rounded-[1.5rem] border border-dashed border-white/10 bg-white/[0.025] p-8 text-center">
+      <p className="font-black text-white">{title}</p>
+      <p className="mt-2 text-sm text-slate-400">{body}</p>
     </div>
+  );
+}
+
+function ChecklistItem({ done, children }) {
+  return (
+    <div className="flex items-center gap-3">
+      <span
+        className={cx(
+          "flex h-6 w-6 items-center justify-center rounded-full border text-xs font-black",
+          done
+            ? "border-emerald-400 bg-emerald-400 text-slate-950"
+            : "border-white/10 bg-white/[0.04] text-slate-500"
+        )}
+      >
+        {done ? "✓" : "·"}
+      </span>
+      <span className={done ? "text-slate-200" : "text-slate-500"}>{children}</span>
+    </div>
+  );
+}
+
+function RecentCalls({ calls }) {
+  return (
+    <Panel title="Recent Calls" subtitle="Latest Vapi or manual call activity.">
+      <div className="space-y-3">
+        {calls.length === 0 ? (
+          <EmptyState title="No recent calls" body="Call records will appear here." />
+        ) : (
+          calls.slice(0, 6).map((call) => (
+            <div key={call.id} className="rounded-[1.3rem] border border-white/10 bg-slate-950/60 p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="font-black text-white">{call.callerName || call.name || call.phone || "Unknown Caller"}</p>
+                  <p className="text-sm text-slate-400">{call.phone || "No phone"} · {formatDateTime(call.createdAt || call.startedAt)}</p>
+                </div>
+                <Pill tone={statusClass(call.status || call.outcome)}>{call.status || call.outcome || "new"}</Pill>
+              </div>
+              {call.summary && <p className="mt-3 text-sm leading-6 text-slate-400">{call.summary}</p>}
+            </div>
+          ))
+        )}
+      </div>
+    </Panel>
+  );
+}
+
+function RecentAppointments({ appointments, large = false }) {
+  return (
+    <Panel title="Appointments" subtitle="Booked jobs, demos, and follow-ups.">
+      <div className="space-y-3">
+        {appointments.length === 0 ? (
+          <EmptyState title="No appointments yet" body="Booked appointments will appear here." />
+        ) : (
+          appointments.slice(0, large ? 20 : 6).map((appt) => (
+            <div key={appt.id} className="rounded-[1.3rem] border border-white/10 bg-slate-950/60 p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="font-black text-white">{appt.customerName || appt.name || "Appointment"}</p>
+                  <p className="text-sm text-slate-400">
+                    {appt.service || "No service"} · {formatDateTime(appt.startTime || appt.date || appt.createdAt)}
+                  </p>
+                  {appt.phone && <p className="mt-1 text-sm text-slate-500">{appt.phone}</p>}
+                </div>
+                <Pill tone={statusClass(appt.status)}>{appt.status || "scheduled"}</Pill>
+              </div>
+              {appt.notes && <p className="mt-3 text-sm leading-6 text-slate-400">{appt.notes}</p>}
+            </div>
+          ))
+        )}
+      </div>
+    </Panel>
   );
 }
