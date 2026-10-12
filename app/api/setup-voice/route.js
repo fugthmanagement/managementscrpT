@@ -1,3 +1,4 @@
+import { authenticatedUser, errorResponse } from "../../../lib/server/auth";
 import { createSign } from "crypto";
 import { NextResponse } from "next/server";
 
@@ -166,7 +167,12 @@ export async function GET() {
 
 export async function POST(req) {
   try {
+    const user = await authenticatedUser(req);
+    if (!user) return errorResponse(401, "Sign in required.");
     const { userId, businessName, industry, assistantPersona } = await req.json();
+    if (user.uid !== userId) return errorResponse(403, "Workspace mismatch.");
+    const account = await (await import("firebase-admin")).default.firestore().doc(`users/${user.uid}`).get();
+    if (!account.data()?.billingActive) return errorResponse(402, "An active subscription is required.");
     const privateKey = process.env.VOICE_PRIVATE_KEY || process.env.VAPI_PRIVATE_KEY;
 
     if (!privateKey) {
