@@ -7,7 +7,7 @@ function Contact({site,dark=false}) {
   const mail=site.visibility==="published"&&site.contactEmail;
   const tel=site.visibility==="published"&&site.phone;
   return <div className="flex flex-wrap gap-3">
-    {mail?<a href={`mailto:${site.contactEmail}?subject=Business%20inquiry`} className={`rounded-xl px-6 py-4 text-sm font-black ${dark?"bg-white text-zinc-950":"bg-zinc-950 text-white"}`}>{site.ctaLabel||"Contact our team"} ↗</a>:<span className={`rounded-xl border px-6 py-4 text-sm font-semibold ${dark?"border-white/30 text-white/75":"border-zinc-300 text-zinc-500"}`}>Contact details available when published</span>}
+    {mail?<a href={`mailto:${site.contactEmail}?subject=Business%20inquiry`} className={`rounded-xl px-6 py-4 text-sm font-black ${dark?"bg-white text-zinc-950":"bg-zinc-950 text-white"}`}>{site.ctaLabel||"Contact our team"} ↗</a>:<span className={`rounded-xl border px-6 py-4 text-sm font-semibold ${dark?"border-white/30 text-white/75":"border-zinc-300 text-zinc-500"}`}>{site.contactEmail?`${site.ctaLabel||"Contact our team"} · Preview`:"Add public contact information to activate this button"}</span>}
     {tel&&<a href={`tel:${site.phone.replace(/[^+0-9]/g,"")}`} className={`rounded-xl border px-6 py-4 text-sm font-bold ${dark?"border-white/30 text-white":"border-zinc-300 text-zinc-900"}`}>Call {site.phone}</a>}
   </div>;
 }
