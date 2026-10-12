@@ -46,7 +46,7 @@ Do not upload credentials, passwords, or private customer details into a public 
 7. Merge and deploy only after validation. 
 
 ## FUGTH image library and media tagging
-- `lib/site-images.js` contains 20 curated photo records covering 11 industries. Photos are served from the Pexels CDN (no uploaded image assets or third-party API credentials needed).
+- `lib/site-images.js` contains 22 curated photo records covering 12 industries. Photos are served from the Pexels CDN (no uploaded image assets or third-party API credentials needed).
 - Each image has a stable `fg-<industry>-<photo>` image ID, original photo ID, descriptive alt text, searchable tags, photo credit, and source URL.
 - `publicSites/{uid}` records only safe allowlisted references: `heroImageId`, `galleryImageIds` and `showGallery`. It never stores a free-form third-party HTML or script URL.
 - Photos are **illustrative stock samples**, not representations of the customer's own premises, staff or completed projects. Published and draft site images carry a small illustrative label.
@@ -65,7 +65,7 @@ Every real Firebase customer account receives a server-issued `537000`–`537999
 - Generated *prospect* websites without a customer account do **not** consume account numbers.
 
 ### Test checklist
-1. Verify images and alternative text for roofing, dental, salon, legal, automotive, restaurant, etc. across all four design layouts and preview widths.
+1. Verify images and alternative text for roofing, medical clinic, dental, salon, legal, automotive, restaurant, etc. across all four design layouts and preview widths.
 2. Confirm changing an industry's photos cannot access external or off-industry image URLs.
 3. Confirm signup allocates `537xxx`, and repeated calls or two concurrent calls for the same user do not change that value.
 4. Confirm parallel customer creation never allocates the same number to distinct users. Verify reservations in `fugthAccountNumbers`.
