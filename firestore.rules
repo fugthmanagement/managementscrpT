@@ -55,7 +55,7 @@ service cloud.firestore {
         request.resource.data.heroImageId.matches("^fg-[a-z]+-[a-z]+$") &&
         request.resource.data.galleryImageIds is list && request.resource.data.galleryImageIds.size() <= 2 &&
         request.resource.data.theme in ['editorial','bold','warm','professional'] &&
-        request.resource.data.industry in ['general','roofing','dental','salon','legal','hvac','automotive','realestate','restaurant','landscaping','contractor'];
+        request.resource.data.industry in ['general','roofing','dental','clinic','salon','legal','hvac','automotive','realestate','restaurant','landscaping','contractor'];
       }
       allow get: if isOwner(uid) ||
         resource.data.visibility in ['preview','published'];
