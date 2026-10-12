@@ -1389,8 +1389,12 @@ export default function DashboardPage() {
             )}
 
             {activeTab === "appointments" && (
-              <section className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
-                <Panel title="Quick Appointment" subtitle="Manual booking form for calls, demos, and client jobs.">
+              <section className="space-y-5">
+                <RecentAppointments appointments={appointments} large />
+                <details className="group rounded-2xl border border-zinc-200 bg-white p-5">
+                  <summary className="cursor-pointer text-sm font-black text-zinc-950">+ Add an appointment manually <span className="ml-2 text-xs font-normal text-zinc-500">For appointments arranged outside your connected calendar</span></summary>
+                  <div className="mt-5">
+                <Panel title="New appointment" subtitle="Record a confirmed appointment or a request that still needs confirmation.">
                   <form onSubmit={createAppointment} className="space-y-4">
                     <Field label="Customer Name">
                       <input className={inputClass} value={appointmentForm.customerName} onChange={(e) => setAppointmentForm({ ...appointmentForm, customerName: e.target.value })} placeholder="Customer name" />
@@ -1423,8 +1427,8 @@ export default function DashboardPage() {
                     </PrimaryButton>
                   </form>
                 </Panel>
-
-                <RecentAppointments appointments={appointments} large />
+                  </div>
+                </details>
               </section>
             )}
 
