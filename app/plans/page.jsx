@@ -7,9 +7,9 @@ import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "../../lib/firebase";
 
 const PLANS = [
-  {key:"starter",name:"Starter",price:"$49",description:"For independent owners who need a reliable first hello.",features:["AI receptionist workspace","Call history and lead inbox","Editable business instructions"]},
-  {key:"growth",name:"Growth",price:"$149",description:"For busy service businesses handling more inquiries.",features:["Everything in Starter","Expanded voice capacity","Appointments and campaign planning"],popular:true},
-  {key:"elite",name:"Elite",price:"$499",description:"For teams needing larger capacity and implementation support.",features:["Everything in Growth","Higher agent capacity","Priority implementation support"]},
+  {key:"starter",name:"Starter",price:"$49",description:"Your FUGTH front desk for missed calls, questions and new inquiries.",features:["FUGTH voice receptionist","Calls, summaries and lead management","Editable business instructions"]},
+  {key:"growth",name:"Growth",price:"$149",description:"A connected FUGTH workspace for customer conversations, follow-ups and scheduling.",features:["Everything in Starter","Expanded voice capacity","Appointments and campaign planning"],popular:true},
+  {key:"elite",name:"Elite",price:"$499",description:"Advanced FUGTH setup for operations with more staff, calls and workflows.",features:["Everything in Growth","Higher agent capacity","Priority implementation support"]},
 ];
 export default function Plans() {
   const [currentUser,setCurrentUser] = useState(null);
