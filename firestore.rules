@@ -35,7 +35,8 @@ service cloud.firestore {
           'ownerId','version','visibility','name','industry','theme','eyebrow',
           'headline','description','services','phone','contactEmail','createdAt','updatedAt',
           'serviceArea','businessHours','ctaLabel','showServices',
-          'heroImageId','galleryImageIds','showGallery'
+          'heroImageId','galleryImageIds','showGallery',
+          'showHero','showAbout','showContact','showChatbot','chatbotGreeting'
         ]) &&
         request.resource.data.ownerId == uid &&
         request.resource.data.version == 1 &&
@@ -50,6 +51,11 @@ service cloud.firestore {
         request.resource.data.businessHours is string && request.resource.data.businessHours.size() <= 100 &&
         request.resource.data.ctaLabel is string && request.resource.data.ctaLabel.size() <= 48 &&
         request.resource.data.showServices is bool &&
+        request.resource.data.showHero is bool &&
+        request.resource.data.showAbout is bool &&
+        request.resource.data.showContact is bool &&
+        request.resource.data.showChatbot is bool &&
+        request.resource.data.chatbotGreeting is string && request.resource.data.chatbotGreeting.size() <= 160 &&
         request.resource.data.showGallery is bool &&
         request.resource.data.heroImageId is string &&
         request.resource.data.heroImageId.matches("^fg-" + request.resource.data.industry + "-[a-z]+$") &&
