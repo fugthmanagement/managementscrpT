@@ -2,11 +2,11 @@ import './globals.css';
 
 export const metadata = {
   metadataBase: new URL("https://www.fugthmanagement.space"),
-  title: "Fugth Management | Make Every Hello Count",
+  title: "FUGTH Management | Voice, Calls & Business Websites",
   description: "An AI receptionist and connected business command center to help service businesses answer calls, capture leads, and organize their next steps.",
   alternates: { canonical: "/" },
   openGraph: {
-    title: "Fugth Management — Make Every Hello Count",
+    title: "FUGTH Management — A Better Way to Manage Customer Calls",
     description: "Give every incoming customer a better hello with voice AI and one connected business workspace.",
     url: "https://www.fugthmanagement.space",
     siteName: "Fugth Management", type: "website",
@@ -28,7 +28,7 @@ export default function RootLayout({ children }) {
           `
         }} />
       </head>
-      <body className="bg-black text-white">{children}</body>
+      <body className="bg-[#fafaf8] text-[#222522]">{children}</body>
     </html>
   );
 }
