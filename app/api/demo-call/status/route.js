@@ -26,11 +26,14 @@ export async function GET(req) {
         const summary=ended
           ? String(data.analysis?.summary||data.artifact?.transcript||data.transcript||"").slice(0,650)
           : rec.summary;
+        const summaryAvailable=String(data.analysis?.summary||data.artifact?.transcript||data.transcript||"").trim().length>0;
+        const elapsedSinceEnd=data.endedAt?Date.now()-Date.parse(data.endedAt):0;
+        const analysisSettled=Boolean(ended && (summaryAvailable || elapsedSinceEnd>30000));
         const intent=ended?intentFromText(summary):rec.intent;
         const start=Date.parse(data.startedAt||rec.startedAt);
         const end=Date.parse(data.endedAt||"");
         const duration=Number.isFinite(start)&&Number.isFinite(end)?Math.max(0,Math.round((end-start)/1000)):null;
-        rec={...rec,status:data.status||rec.status,summary:summary||"The short demo ended without enough conversation to summarize.",intent,endedAt:data.endedAt||null,completed:ended,duration,lastPolledAt:Date.now()};
+        rec={...rec,status:data.status||rec.status,summary:summary||(analysisSettled?"The short demo ended without enough conversation to summarize.":"Your FUGTH call is finished; preparing the short recap."),intent,endedAt:data.endedAt||null,completed:analysisSettled,duration,lastPolledAt:Date.now()};
         await ref.set({
           status:rec.status,summary:rec.summary,intent:rec.intent,
           endedAt:rec.endedAt,completed:rec.completed,duration:rec.duration,lastPolledAt:rec.lastPolledAt
