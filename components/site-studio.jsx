@@ -5,6 +5,7 @@ import { doc,getDoc,runTransaction,setDoc } from "firebase/firestore";
 import {db} from "../lib/firebase";
 import {buildStarterSite,SITE_THEMES,SITE_INDUSTRIES,getIndustry,siteFields} from "../lib/site-presets";
 import SiteRenderer from "./site-renderer";
+import {getIndustryPhotos} from "../lib/site-images";
 
 const classInput="mt-2 block w-full rounded-xl border border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-900 outline-none focus:border-zinc-900";
 export default function SiteStudio({user,workspace}){
@@ -32,7 +33,7 @@ export default function SiteStudio({user,workspace}){
   const update=(field,value)=>setSite(s=>({...s,[field]:value}));
   function changeIndustry(id){
     const data=getIndustry(id);
-    setSite(prev=>({...prev,industry:data.id,theme:data.theme,eyebrow:data.eyebrow,headline:data.headline,description:data.lead,services:data.services}));
+    setSite(prev=>({...prev,industry:data.id,theme:data.theme,eyebrow:data.eyebrow,headline:data.headline,description:data.lead,services:data.services,heroImageId:getIndustryPhotos(data.id)[0]?.id||"",galleryImageIds:getIndustryPhotos(data.id).slice(1,3).map(photo=>photo.id),showGallery:true}));
   }
   async function save(publish=false){
     setSaving(true);setError("");setNote("");
@@ -92,8 +93,20 @@ export default function SiteStudio({user,workspace}){
         <div className="px-2 pb-2 pt-3"><strong className="block text-sm text-zinc-950">{t.name}</strong><span className="mt-1 block text-xs text-zinc-500">{t.subtitle}</span></div>
       </button>)}</div>
     </section>
+    
     <section className="rounded-3xl border border-zinc-200 bg-white p-5 sm:p-8">
-      <p className="text-[10px] font-black uppercase tracking-[.18em] text-zinc-500">02 / YOUR BUSINESS</p><h3 className="mt-3 text-2xl font-black">Quick details</h3>
+      <p className="text-[10px] font-black uppercase tracking-[.18em] text-zinc-500">02 / PHOTOGRAPHY LIBRARY</p>
+      <h3 className="mt-3 text-2xl font-black tracking-tight text-zinc-900">Pictures that fit the business.</h3>
+      <p className="mt-3 text-sm leading-7 text-zinc-600">Choose from curated images for this industry. Every picture has a FUGTH image ID, descriptive alt text, searchable tags and original source credit. Sample images are illustrative—not actual photographs of this business.</p>
+      <div className="mt-5 grid gap-3 sm:grid-cols-2">{getIndustryPhotos(site.industry).map(photo=><button key={photo.id} type="button" aria-pressed={site.heroImageId===photo.id} onClick={()=>update("heroImageId",photo.id)} className={`overflow-hidden rounded-2xl border p-2 text-left ${site.heroImageId===photo.id?"border-zinc-950 ring-2 ring-zinc-950":"border-zinc-200 hover:border-zinc-400"}`}>
+        <div className="aspect-[16/10] overflow-hidden rounded-xl bg-zinc-100"><img src={photo.src} alt={photo.alt} loading="lazy" className="h-full w-full object-cover" data-image-id={photo.id} onError={e=>{e.currentTarget.style.visibility="hidden";}}/></div>
+        <div className="px-2 py-3"><span className="block break-all font-mono text-[10px] font-bold text-zinc-700">{photo.id}</span><p className="mt-1 text-xs text-zinc-500">{photo.tags.join(" · ")}</p><p className="mt-2 text-[11px] text-zinc-500">Photo: {photo.credit}</p></div>
+      </button>)}</div>
+      <label className="mt-5 flex cursor-pointer items-center gap-3 rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-sm font-bold text-zinc-700"><input type="checkbox" checked={site.showGallery!==false} onChange={e=>update("showGallery",e.target.checked)} className="h-4 w-4 accent-zinc-950"/>Show related photo gallery</label>
+      {site.showGallery!==false&&<p className="mt-3 text-xs leading-6 text-zinc-500">Secondary industry photos appear automatically when available. They are chosen by ID and cannot be replaced with unverified external links.</p>}
+    </section>
+<section className="rounded-3xl border border-zinc-200 bg-white p-5 sm:p-8">
+      <p className="text-[10px] font-black uppercase tracking-[.18em] text-zinc-500">03 / YOUR BUSINESS</p><h3 className="mt-3 text-2xl font-black">Quick details</h3>
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
         <label className="text-xs font-bold text-zinc-700">Business name<input className={classInput} maxLength={80} value={site.name||""} onChange={e=>update("name",e.target.value)}/></label>
         <label className="text-xs font-bold text-zinc-700">Business type<select className={classInput} value={site.industry||"general"} onChange={e=>changeIndustry(e.target.value)}>{SITE_INDUSTRIES.map(i=><option key={i.id} value={i.id}>{i.label}</option>)}</select></label>
