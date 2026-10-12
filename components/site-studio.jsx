@@ -37,11 +37,13 @@ export default function SiteStudio({user,workspace}){
       if(!db||!uid||!site)throw Error("Please sign in again.");
       const fields=siteFields(site);
       if(publish&&!fields.phone&&!fields.contactEmail)throw Error("Add a business contact number or email before publishing.");
-      const visibility=publish?"published":site.visibility==="hidden"?"hidden":"preview";
+      if(fields.contactEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fields.contactEmail))throw Error("Enter a valid public business email.");
+      if(fields.phone && !/^[+0-9() .-]{7,32}$/.test(fields.phone))throw Error("Enter a valid public business phone number.");
+      const visibility=publish?"published":site.visibility==="published"?"published":site.visibility==="hidden"?"hidden":"preview";
       const record={...fields,ownerId:uid,version:1,visibility,createdAt:site.createdAt||new Date().toISOString(),updatedAt:new Date().toISOString()};
       await setDoc(doc(db,"publicSites",uid),record);
       setSite(record);setHadSite(true);
-      setNote(visibility==="published"?"Your FUGTH site is published.":"Your site preview has been saved.");
+      setNote(visibility==="published"?"Your changes are published on your FUGTH site.":"Your site preview has been saved.");
     }catch(e){setError(e.message||"Could not save your site.");}
     finally{setSaving(false);}
   }
@@ -93,7 +95,7 @@ export default function SiteStudio({user,workspace}){
         <label className="text-xs font-bold text-zinc-700">Public business email<input type="email" className={classInput} maxLength={120} placeholder="Optional until publication" value={site.contactEmail||""} onChange={e=>update("contactEmail",e.target.value)}/></label>
         <label className="text-xs font-bold text-zinc-700">Public business number<input type="tel" className={classInput} maxLength={32} placeholder="Optional until publication" value={site.phone||""} onChange={e=>update("phone",e.target.value)}/></label>
       </div>
-      <div className="mt-7 flex flex-wrap gap-3"><button disabled={saving} onClick={()=>save(false)} className="rounded-xl bg-zinc-950 px-5 py-3.5 text-sm font-black text-white disabled:opacity-50">{saving?"Saving...":"Save preview"}</button><button disabled={saving} onClick={()=>save(true)} className="rounded-xl border border-zinc-950 bg-white px-5 py-3.5 text-sm font-black text-zinc-950 disabled:opacity-50">Publish website ↗</button>{site.visibility==="published"&&<button disabled={saving} onClick={async()=>{update("visibility","preview");await setDoc(doc(db,"publicSites",uid),{...site,visibility:"preview",updatedAt:new Date().toISOString()});setNote("Your site is back in preview mode.");}} className="rounded-xl border border-zinc-200 px-4 py-3 text-sm text-zinc-600">Unpublish</button>}</div>
+      <div className="mt-7 flex flex-wrap gap-3"><button disabled={saving} onClick={()=>save(false)} className="rounded-xl bg-zinc-950 px-5 py-3.5 text-sm font-black text-white disabled:opacity-50">{saving?"Saving...":site.visibility==="published"?"Save changes":"Save preview"}</button><button disabled={saving} onClick={()=>save(true)} className="rounded-xl border border-zinc-950 bg-white px-5 py-3.5 text-sm font-black text-zinc-950 disabled:opacity-50">Publish website ↗</button>{site.visibility==="published"&&<button disabled={saving} onClick={async()=>{update("visibility","preview");await setDoc(doc(db,"publicSites",uid),{...site,visibility:"preview",updatedAt:new Date().toISOString()});setNote("Your site is back in preview mode.");}} className="rounded-xl border border-zinc-200 px-4 py-3 text-sm text-zinc-600">Unpublish</button>}</div>
       <p className="mt-5 text-xs leading-6 text-zinc-500">A preview link is shareable with anyone who has the link and clearly labeled as a draft. No private account details are copied. Publishing removes the preview badge and makes the business contact information visible; it does not create a custom domain.</p>
     </section>
   </div>;
