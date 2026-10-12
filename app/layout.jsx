@@ -1,8 +1,17 @@
 import './globals.css';
 
 export const metadata = {
-  title: 'Fugth Management',
-  description: 'AI That Sounds Like a Human',
+  metadataBase: new URL("https://www.fugthmanagement.space"),
+  title: "Fugth Management | Make Every Hello Count",
+  description: "An AI receptionist and connected business command center to help service businesses answer calls, capture leads, and organize their next steps.",
+  alternates: { canonical: "/" },
+  openGraph: {
+    title: "Fugth Management — Make Every Hello Count",
+    description: "Give every incoming customer a better hello with voice AI and one connected business workspace.",
+    url: "https://www.fugthmanagement.space",
+    siteName: "Fugth Management", type: "website",
+  },
+  robots: { index: true, follow: true },
 };
 
 export default function RootLayout({ children }) {
