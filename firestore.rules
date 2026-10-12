@@ -27,6 +27,41 @@ service cloud.firestore {
           kind in ['leads','appointments','campaigns','knowledge','knowledgeFiles','notifications'];
       }
     }
+    // The public site document is an intentionally limited marketing preview, never
+    // a customer profile. No billing, leads, credentials or private calls go here.
+    match /publicSites/{uid} {
+      function hasSafeFields() {
+        return request.resource.data.keys().hasOnly([
+          'ownerId','version','visibility','name','industry','theme','eyebrow',
+          'headline','description','services','phone','contactEmail','createdAt','updatedAt',
+          'serviceArea','businessHours','ctaLabel','showServices'
+        ]) &&
+        request.resource.data.ownerId == uid &&
+        request.resource.data.version == 1 &&
+        request.resource.data.visibility in ['preview','published','hidden'] &&
+        request.resource.data.name is string && request.resource.data.name.size() <= 80 &&
+        request.resource.data.headline is string && request.resource.data.headline.size() <= 150 &&
+        request.resource.data.description is string && request.resource.data.description.size() <= 380 &&
+        request.resource.data.services is list && request.resource.data.services.size() <= 3 &&
+        request.resource.data.contactEmail is string && request.resource.data.contactEmail.size() <= 120 &&
+        request.resource.data.phone is string && request.resource.data.phone.size() <= 32 &&
+        request.resource.data.serviceArea is string && request.resource.data.serviceArea.size() <= 100 &&
+        request.resource.data.businessHours is string && request.resource.data.businessHours.size() <= 100 &&
+        request.resource.data.ctaLabel is string && request.resource.data.ctaLabel.size() <= 48 &&
+        request.resource.data.showServices is bool &&
+        request.resource.data.theme in ['editorial','bold','warm','professional'] &&
+        request.resource.data.industry in ['general','roofing','dental','salon','legal','hvac','automotive','realestate','restaurant','landscaping','contractor'];
+      }
+      allow get: if isOwner(uid) ||
+        resource.data.visibility in ['preview','published'];
+      allow list: if false;
+      allow create: if isOwner(uid) && hasSafeFields();
+      allow update: if isOwner(uid) &&
+        request.resource.data.ownerId == resource.data.ownerId &&
+        request.resource.data.createdAt == resource.data.createdAt &&
+        hasSafeFields();
+      allow delete: if isOwner(uid);
+    }
     match /{path=**} { allow read, write: if false; }
   }
 }

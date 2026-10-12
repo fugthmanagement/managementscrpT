@@ -1,4 +1,5 @@
 import { randomBytes } from "crypto";
+import { buildStarterSite } from "../../../../lib/site-presets";
 import { NextResponse } from 'next/server';
 import admin from 'firebase-admin';
 
@@ -94,7 +95,20 @@ export async function POST(req) {
       createdBy: verified.uid
     });
 
-    return NextResponse.json({ success: true, uid, email });
+    // Generate a separate, safe-to-share business preview. Existing custom sites are
+    // deliberately left unchanged if an existing client account is reopened.
+    let siteReady=true;
+    try {
+      await db.doc(`publicSites/${uid}`).create(
+        buildStarterSite(uid,body.businessName || displayName || "Your business",body.businessType||body.industry||"general")
+      );
+    } catch (siteError) {
+      if (siteError.code!==6 && siteError.code!=="already-exists") {
+        siteReady=false;
+        console.error("Client site preview generation failed",siteError?.code||"unknown");
+      }
+    }
+    return NextResponse.json({ success: true, uid, email, siteReady, siteUrl:`/sites/${uid}` });
   } catch (err) {
     console.error('Create-account error', err);
     return NextResponse.json({ error: err.message || 'Server error' }, { status: 500 });

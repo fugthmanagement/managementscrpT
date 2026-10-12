@@ -18,6 +18,8 @@ import {
 } from "firebase/firestore";
 import { auth, db } from "../lib/firebase";
 import PhoneSetup from "./phone-setup";
+import SiteStudio from "./site-studio";
+import {SITE_INDUSTRIES} from "../lib/site-presets";
 async function adminHeaders() { const token = await auth?.currentUser?.getIdToken(); if (!token) throw new Error("Sign in again to use founder tools."); return { "Content-Type": "application/json", Authorization: `Bearer ${token}` }; }
 import IntegrationsHub from "./integrations-hub";
 import VapiConsole from "./vapi-console";
@@ -64,10 +66,11 @@ const NAV_ITEMS = [
   { id: "campaigns", label: "Campaigns", icon: "bolt" },
   { id: "knowledge", label: "AI training", icon: "book" },
   { id: "advisor", label: "Business advisor", icon: "advisor" },
+  { id: "site_studio", label: "Site Studio", icon: "site_studio" },
   { id: "settings", label: "Business settings", icon: "settings" },
 ];
 const EVERYDAY_NAV = ["overview","calls","leads","appointments","phones","integrations"];
-const TOOLS_NAV = ["campaigns","knowledge","advisor","settings"];
+const TOOLS_NAV = ["campaigns","knowledge","advisor","site_studio","settings"];
 
 const LEAD_STAGES = [
   "new",
@@ -148,6 +151,8 @@ function Icon({ name, className = "h-5 w-5" }) {
   }
 
   if (name === "integrations") { return (<svg {...common}><circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="M9 6h9v9M6 9v9h9"/></svg>); }
+
+  if (name === "site_studio") { return (<svg {...common}><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M8 4v6"/><path d="m9 15 2 2 4-4"/></svg>); }
 
   if (name === "advisor") {
     return (
@@ -449,9 +454,11 @@ export default function DashboardPage() {
     },
   ]);
 
+  const [lastCreatedSite, setLastCreatedSite] = useState("");
   const [devForm, setDevForm] = useState({
     email: "",
     businessName: "",
+    businessType: "general",
     phone: "",
     plan: "Starter",
     role: "client",
@@ -963,12 +970,30 @@ export default function DashboardPage() {
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Create account API failed.");
 
-      setNotice("Developer account action completed.");
+      setLastCreatedSite(data.siteReady ? (data.siteUrl || "") : "");
+      setDevForm(prev=>({...prev,uid:data.uid||prev.uid}));
+      setNotice(data.siteReady?"Client account created with a FUGTH site preview.":"Account created, but the site preview needs Firebase configuration.");
     } catch (error) {
       setNotice(error.message);
     } finally {
       setBusy("");
     }
+  }
+
+  async function devGenerateSite() {
+    if(!isAdmin) return;
+    setBusy("devSite");
+    setNotice("");
+    try{
+      const response=await fetch("/api/dev/site",{
+        method:"POST",headers:await adminHeaders(),
+        body:JSON.stringify({businessName:devForm.businessName,businessType:devForm.businessType}),
+      });
+      const data=await response.json().catch(()=>({}));
+      if(!response.ok||!data.siteUrl)throw new Error(data.error||"Could not create prospect preview.");
+      setLastCreatedSite(data.siteUrl);
+      setNotice("FUGTH prospect website created. Open the link to show the client.");
+    }catch(error){setNotice(error.message);}finally{setBusy("");}
   }
 
   async function devUpdateAccount() {
@@ -1085,7 +1110,7 @@ export default function DashboardPage() {
           <header className="sticky top-0 z-20 border-b border-zinc-200 bg-white/95 px-4 py-4 shadow-sm backdrop-blur sm:px-6 lg:px-8">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex min-w-0 items-center gap-3"><button type="button" aria-label="Open navigation" onClick={()=>setSidebarOpen(true)} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-zinc-200 text-zinc-800 lg:hidden"><span className="text-xl">☰</span></button><div><p className="text-[10px] font-bold uppercase tracking-[.15em] text-zinc-500">{"Fugth workspace"}</p><h1 className="mt-1 text-xl font-black tracking-tight text-zinc-950 sm:text-2xl">{currentNav?.label||"Overview"}</h1></div></div>
-              <div className="flex items-center gap-2"><span className="hidden rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs font-semibold text-zinc-500 sm:block">{workspace.businessName||"Business"}</span></div>
+              <div className="flex items-center gap-2"><button type="button" onClick={()=>{setActiveTab("site_studio");setToolsOpen(true);setSidebarOpen(false);}} className="rounded-xl border border-zinc-300 bg-white px-3 py-2 text-xs font-black text-zinc-900 hover:bg-zinc-100">My website ↗</button><span className="hidden rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs font-semibold text-zinc-500 sm:block">{workspace.businessName||"Business"}</span></div>
             </div>
             {notice&&<div className="mt-3 rounded-xl border border-zinc-300 bg-zinc-100 px-4 py-3 text-sm text-zinc-800">{notice}</div>}
           </header>
@@ -1185,6 +1210,7 @@ export default function DashboardPage() {
 
             {activeTab === "phones" && <PhoneSetup user={user} workspace={workspace} />}
             {activeTab === "integrations" && <IntegrationsHub />}
+            {activeTab === "site_studio" && <SiteStudio user={user} workspace={workspace} />}
 
             {activeTab === "calls" && (
               <Panel
@@ -1683,7 +1709,7 @@ export default function DashboardPage() {
 
             {activeTab === "settings" && isAdmin && adminMode && (
               <section className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
-                <details className="rounded-2xl border border-zinc-200 bg-white p-5 xl:col-span-2"><summary className="cursor-pointer text-base font-black text-zinc-950">Account management <span className="ml-2 text-xs font-medium text-zinc-500">Create accounts and update clients</span></summary><div className="mt-5">                <Panel title="Developer Operations" subtitle="Admin-only tools for client creation, account updates, demos, and support.">
+                <details className="rounded-2xl border border-zinc-200 bg-white p-5 xl:col-span-2"><summary className="cursor-pointer text-base font-black text-zinc-950">Account management <span className="ml-2 text-xs font-medium text-zinc-500">Create accounts and update clients</span></summary><div className="mt-5">                <Panel title="Quick client setup" subtitle="Create a customer account with an automatic website, or generate a prospect website without an account. No billing details are changed.">
                   <form onSubmit={devCreateAccount} className="space-y-4">
                     <Field label="Client Email">
                       <input className={inputClass} value={devForm.email} onChange={(e) => setDevForm({ ...devForm, email: e.target.value })} placeholder="client@email.com" />
@@ -1691,6 +1717,11 @@ export default function DashboardPage() {
 
                     <Field label="Business Name">
                       <input className={inputClass} value={devForm.businessName} onChange={(e) => setDevForm({ ...devForm, businessName: e.target.value })} placeholder="Client Business LLC" />
+                    </Field>
+                    <Field label="Industry / Site Template">
+                      <select className={inputClass} value={devForm.businessType} onChange={(e)=>setDevForm({...devForm,businessType:e.target.value})}>
+                        {SITE_INDUSTRIES.map(category=><option value={category.id} key={category.id}>{category.label}</option>)}
+                      </select>
                     </Field>
 
                     <div className="grid gap-4 sm:grid-cols-2">
@@ -1727,6 +1758,10 @@ export default function DashboardPage() {
                       <GhostButton onClick={devUpdateAccount} disabled={busy === "devUpdate"}>
                         Update Account
                       </GhostButton>
+                      <GhostButton onClick={devGenerateSite} disabled={busy === "devSite" || !devForm.businessName.trim()}>
+                        {busy === "devSite" ? "Generating..." : "Generate prospect site"}
+                      </GhostButton>
+                      {lastCreatedSite && <a href={lastCreatedSite} target="_blank" rel="noopener noreferrer" className="rounded-xl border border-zinc-300 bg-white px-5 py-3 text-sm font-black text-zinc-950">Open created client site ↗</a>}
                     </div>
                   </form>
                 </Panel>
