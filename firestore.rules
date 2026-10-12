@@ -33,7 +33,8 @@ service cloud.firestore {
       function hasSafeFields() {
         return request.resource.data.keys().hasOnly([
           'ownerId','version','visibility','name','industry','theme','eyebrow',
-          'headline','description','services','phone','contactEmail','createdAt','updatedAt'
+          'headline','description','services','phone','contactEmail','createdAt','updatedAt',
+          'serviceArea','businessHours','ctaLabel','showServices'
         ]) &&
         request.resource.data.ownerId == uid &&
         request.resource.data.version == 1 &&
@@ -44,6 +45,10 @@ service cloud.firestore {
         request.resource.data.services is list && request.resource.data.services.size() <= 3 &&
         request.resource.data.contactEmail is string && request.resource.data.contactEmail.size() <= 120 &&
         request.resource.data.phone is string && request.resource.data.phone.size() <= 32 &&
+        request.resource.data.serviceArea is string && request.resource.data.serviceArea.size() <= 100 &&
+        request.resource.data.businessHours is string && request.resource.data.businessHours.size() <= 100 &&
+        request.resource.data.ctaLabel is string && request.resource.data.ctaLabel.size() <= 48 &&
+        request.resource.data.showServices is bool &&
         request.resource.data.theme in ['editorial','bold','warm','professional'] &&
         request.resource.data.industry in ['general','roofing','dental','salon','legal','hvac','automotive','realestate','restaurant','landscaping','contractor'];
       }
