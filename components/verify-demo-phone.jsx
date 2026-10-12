@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { RecaptchaVerifier, linkWithPhoneNumber, updatePhoneNumber, PhoneAuthProvider } from "firebase/auth";
+import { RecaptchaVerifier, linkWithPhoneNumber } from "firebase/auth";
 import { auth } from "../lib/firebase";
 
 function e164(value) {
@@ -16,7 +16,7 @@ export default function VerifyDemoPhone({user,number,onVerified}) {
   const [error,setError]=useState("");
   const verifyRef=useRef(null);
   const captchaRef=useRef(null);
-  useEffect(()=>()=>{verifyRef.current?.clear().catch(()=>{});verifyRef.current=null;},[]);
+  useEffect(()=>()=>{try { verifyRef.current?.clear(); } catch {}verifyRef.current=null;},[]);
   const currentNumber=e164(number);
   const isLinked=Boolean(currentNumber&&currentNumber===user?.phoneNumber);
   async function sendCode(){
