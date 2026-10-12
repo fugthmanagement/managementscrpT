@@ -20,6 +20,8 @@ jobs:
           node-version: "22"
       - name: Install dependencies
         run: npm install --no-audit --no-fund
+      - name: Test FUGTH account number allocation
+        run: node --experimental-default-type=module --test tests/account-number.test.mjs
       - name: Build FUGTH website
         env:
           NEXT_TELEMETRY_DISABLED: "1"
