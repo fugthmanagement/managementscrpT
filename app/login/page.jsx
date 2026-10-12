@@ -47,6 +47,13 @@ export default function Login(){
             await setDoc(doc(db,"publicSites",created.user.uid),buildStarterSite(created.user.uid,businessName||"Your business",businessName));
           } catch { console.warn("Site preview will be initialized in FUGTH Site Studio."); }
         }
+        try{
+          const token=await created.user.getIdToken();
+          const response=await fetch("/api/account-number",{
+            method:"POST",headers:{Authorization:`Bearer ${token}`},cache:"no-store"
+          });
+          if(!response.ok)console.warn("FUGTH 537 account number pending secure setup.");
+        }catch{console.warn("FUGTH 537 account number will be assigned after sign-in.");}
       }
       const wantsDemo = new URLSearchParams(window.location.search).get("demo") === "1";
       window.location.assign(wantsDemo ? "/dashboard" : mode === "signup" ? "/plans" : "/dashboard");
