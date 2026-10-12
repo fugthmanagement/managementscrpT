@@ -21,7 +21,7 @@ import PhoneSetup from "./phone-setup";
 import FugthVoiceDemo from "./fugth-voice-demo";
 async function adminHeaders() { const token = await auth?.currentUser?.getIdToken(); if (!token) throw new Error("Sign in again to use founder tools."); return { "Content-Type": "application/json", Authorization: `Bearer ${token}` }; }
 import IntegrationsHub from "./integrations-hub";
-import FUGTHConsole from "./vapi-console";
+import VapiConsole from "./vapi-console";
 
 const ADMIN_EMAILS = [
   "fugthmanagement@gmail.com",
@@ -50,7 +50,7 @@ const DEFAULT_WORKSPACE = {
   vapiNumber: "",
   vapiAssistantId: "",
   vapiLinked: false,
-  needsFUGTHLink: true,
+  needsVapiLink: true,
   aiScript: DEFAULT_SCRIPT,
   primaryGoal: "Book more jobs from missed calls and cold leads.",
 };
@@ -495,7 +495,7 @@ export default function DashboardPage() {
             vapiNumber: undefined,
             vapiAssistantId: undefined,
             vapiLinked: undefined,
-            needsFUGTHLink: undefined,
+            needsVapiLink: undefined,
             email: user.email || "",
             ownerName: user.displayName || "",
             createdAt: serverTimestamp(),
@@ -1632,7 +1632,7 @@ export default function DashboardPage() {
                 </Panel>
 
                 </div></details>
-                <details className="rounded-2xl border border-zinc-200 bg-white p-5 xl:col-span-2"><summary className="cursor-pointer text-base font-black text-zinc-950">FUGTH infrastructure <span className="ml-2 text-xs font-medium text-zinc-500">Assistants, phone numbers and recent call states</span></summary><div className="mt-5"><FUGTHConsole /></div></details>
+                <details className="rounded-2xl border border-zinc-200 bg-white p-5 xl:col-span-2"><summary className="cursor-pointer text-base font-black text-zinc-950">FUGTH infrastructure <span className="ml-2 text-xs font-medium text-zinc-500">Assistants, phone numbers and recent call states</span></summary><div className="mt-5"><VapiConsole /></div></details>
                 <details className="rounded-2xl border border-zinc-200 bg-white p-5 xl:col-span-2"><summary className="cursor-pointer text-base font-black text-zinc-950">Founder diagnostics <span className="ml-2 text-xs font-medium text-zinc-500">Internal test checklist</span></summary><div className="mt-5">                <Panel title="Admin Snapshot" subtitle="Fast control center for founder testing.">
                   <div className="grid gap-4 sm:grid-cols-2">
                     <StatCard label="Workspace Leads" value={metrics.totalLeads} icon="leads" />
