@@ -29,7 +29,10 @@ export async function POST(req) {
     if (!ADMIN_EMAILS.includes(adminEmail)) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
 
     const body = await req.json();
-    const { uid, planTier, planStatus, fugthNumber, stripeCustomerId, email, password } = body;
+    const { uid, stripeCustomerId, email, password } = body;
+    const planTier = body.planTier || body.plan;
+    const planStatus = body.planStatus || body.status;
+    const fugthNumber = body.fugthNumber ?? body.phone;
     if (!uid) return NextResponse.json({ error: 'Missing uid' }, { status: 400 });
 
     // Update auth user if email/password provided
