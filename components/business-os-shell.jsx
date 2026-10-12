@@ -18,6 +18,7 @@ import {
 } from "firebase/firestore";
 import { auth, db } from "../lib/firebase";
 import PhoneSetup from "./phone-setup";
+import FugthVoiceDemo from "./fugth-voice-demo";
 async function adminHeaders() { const token = await auth?.currentUser?.getIdToken(); if (!token) throw new Error("Sign in again to use founder tools."); return { "Content-Type": "application/json", Authorization: `Bearer ${token}` }; }
 import IntegrationsHub from "./integrations-hub";
 import VapiConsole from "./vapi-console";
@@ -396,6 +397,7 @@ export default function DashboardPage() {
   const [settingsForm, setSettingsForm] = useState(DEFAULT_WORKSPACE);
 
   const [calls, setCalls] = useState([]);
+  const [demoCalls, setDemoCalls] = useState([]);
   const [leads, setLeads] = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [campaigns, setCampaigns] = useState([]);
@@ -421,7 +423,7 @@ export default function DashboardPage() {
     service: "",
     date: "",
     time: "",
-    status: "scheduled",
+    status: "requested",
     notes: "",
   });
 
@@ -538,6 +540,7 @@ export default function DashboardPage() {
     };
 
     const unsubCalls = listen("calls", setCalls);
+    const unsubDemoCalls = listen("demoCalls", setDemoCalls);
     const unsubLeads = listen("leads", setLeads);
     const unsubAppointments = listen("appointments", setAppointments);
     const unsubCampaigns = listen("campaigns", setCampaigns);
@@ -546,6 +549,7 @@ export default function DashboardPage() {
     return () => {
       unsubWorkspace();
       unsubCalls();
+      unsubDemoCalls();
       unsubLeads();
       unsubAppointments();
       unsubCampaigns();
@@ -872,35 +876,6 @@ export default function DashboardPage() {
     }
   }
 
-  async function createTestCall() {
-    if (!user?.uid) return;
-
-    setBusy("testCall");
-    setNotice("");
-
-    try {
-      await addDoc(
-        collection(db, "users", user.uid, "calls"),
-        sanitizeForFirestore({
-          callerName: "Demo Caller",
-          phone: "+1 555 0100",
-          status: "answered",
-          outcome: "booked",
-          summary: "Demo call created from the dashboard to test the call feed.",
-          duration: 142,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        })
-      );
-
-      setNotice("Demo call added.");
-    } catch (error) {
-      setNotice(error.message);
-    } finally {
-      setBusy("");
-    }
-  }
-
   async function askAdvisor(event) {
     event.preventDefault();
 
@@ -1092,94 +1067,22 @@ export default function DashboardPage() {
 
           <div className="mx-auto w-full max-w-[1320px] flex-1 space-y-6 px-4 py-6 sm:px-6 lg:px-8">
             {activeTab === "overview" && (
-              <section className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-zinc-200 bg-white p-5 sm:p-6">
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-[.16em] text-zinc-500">Subscription</p>
-                  <p className="mt-2 text-lg font-black text-zinc-950">{workspace.billingActive ? String(workspace.planTier||"").toUpperCase()+" · Active" : "Subscription not activated"}</p>
-                  <p className="mt-1 text-xs leading-6 text-zinc-500">
-                    {workspace.billingActive ? (workspace.billingCancelAtPeriodEnd?"Access ends ":"Next renewal ")+formatDateTime(workspace.billingCurrentPeriodEnd) : "Select a plan to activate voice services. Payment activation is verified by Stripe."}
-                  </p>
-                </div>
-                <Link href="/plans" className="rounded-xl bg-zinc-950 px-4 py-3 text-xs font-black text-white">{workspace.billingActive?"Review plans":"Choose your plan"} →</Link>
-              </section>
-            )}
-            {activeTab === "overview" && (
               <>
-                <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                  <StatCard label="Total Leads" value={metrics.totalLeads} note={`${metrics.hotLeads} hot/follow-up`} icon="leads" />
-                  <StatCard label="Calls" value={metrics.totalCalls} note={`${metrics.callAnswerRate}% answer rate`} icon="calls" tone={metrics.missedCalls ? "amber" : "emerald"} />
-                  <StatCard label="Appointments" value={metrics.bookedAppointments} note={`${metrics.appointmentsToday} today`} icon="calendar" />
-                  <StatCard label="Pipeline" value={money(metrics.pipelineValue)} note={`${metrics.conversionRate}% lead conversion`} icon="advisor" />
+                <FugthVoiceDemo user={user} workspace={workspace} />
+                <section className="grid gap-3 md:grid-cols-3">
+                  <StatCard label="Recent calls" value={metrics.totalCalls} note="Customer conversation records" icon="calls" />
+                  <StatCard label="New leads" value={metrics.totalLeads} note="Keep track of follow-ups" icon="leads" />
+                  <StatCard label="Appointments" value={metrics.bookedAppointments} note="Confirmed or pending bookings" icon="calendar" />
                 </section>
-
-                <section className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-                  <Panel
-                    title="Voice Ops Command Center"
-                    subtitle="Live business health, Vapi readiness, CRM pipeline, and next actions."
-                    action={<PrimaryButton onClick={() => setActiveTab("campaigns")}>Start calling</PrimaryButton>}
-                  >
-                    <div className="grid gap-4 md:grid-cols-3">
-                      <div className="rounded-[1.5rem] border border-zinc-200 bg-zinc-50 p-4">
-                        <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">AI Number</p>
-                        <p className="mt-2 text-lg font-black text-zinc-900">{workspace.vapiNumber || "Not linked"}</p>
-                        <p className="mt-2 text-sm text-zinc-500">
-                          {workspace.vapiLinked ? "Check call routing with a live test first." : "Open Phone setup to request your AI line."}
-                        </p>
-                      </div>
-
-                      <div className="rounded-[1.5rem] border border-zinc-200 bg-zinc-50 p-4">
-                        <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">Plan Usage</p>
-                        <p className="mt-2 text-lg font-black text-zinc-900">{workspace.planTier || workspace.plan || "No active plan"}</p>
-                        <p className="mt-2 text-sm text-zinc-500">
-                          {metrics.totalCalls} call records shown. Plan limits depend on billing.
-                        </p>
-                      </div>
-
-                      <div className="rounded-[1.5rem] border border-zinc-200 bg-zinc-50 p-4">
-                        <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">Trainer Data</p>
-                        <p className="mt-2 text-lg font-black text-zinc-900">{metrics.knowledgeCount} items</p>
-                        <p className="mt-2 text-sm text-zinc-500">FAQs, service rules, objections, and offers.</p>
-                      </div>
-                    </div>
-
-                    <div className="mt-5 rounded-[1.5rem] border border-zinc-200 bg-gradient-to-br from-emerald-400/10 to-cyan-400/5 p-5">
-                      <p className="text-sm font-black text-emerald-100">Current AI Receptionist Script</p>
-                      <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-zinc-700">
-                        {workspace.aiScript || DEFAULT_SCRIPT}
-                      </p>
-                    </div>
-                  </Panel>
-
-                  <Panel title="Business Brain" subtitle="What the platform thinks you should do next.">
-                    <div className="space-y-3">
-                      {advisorCards.map((card) => (
-                        <div key={card.title} className="rounded-[1.5rem] border border-zinc-200 bg-zinc-50 p-4">
-                          <div className="flex items-start gap-3">
-                            <div
-                              className={cx(
-                                "mt-1 h-3 w-3 rounded-full",
-                                card.tone === "rose"
-                                  ? "bg-rose-400"
-                                  : card.tone === "amber"
-                                    ? "bg-amber-400"
-                                    : "bg-zinc-950"
-                              )}
-                            />
-                            <div>
-                              <p className="font-black text-zinc-900">{card.title}</p>
-                              <p className="mt-1 text-sm text-zinc-500">{card.body}</p>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </Panel>
-                </section>
-
-                <section className="grid gap-6 xl:grid-cols-2">
+                <div className="grid gap-5 xl:grid-cols-2">
                   <RecentCalls calls={calls} />
                   <RecentAppointments appointments={appointments} />
-                </section>
+                </div>
+                <div className="rounded-2xl border border-zinc-200 bg-white p-5 sm:p-6">
+                  <h3 className="text-lg font-black tracking-tight text-zinc-950">Ready to set up your own FUGTH line?</h3>
+                  <p className="mt-2 text-sm leading-7 text-zinc-600">Keep your existing customer-facing number, choose when your FUGTH agent answers, and see how you can organize incoming calls.</p>
+                  <button type="button" onClick={()=>setActiveTab("phones")} className="mt-4 rounded-xl border border-zinc-950 px-5 py-3 text-sm font-black text-zinc-950 hover:bg-zinc-100">Explore phone setup →</button>
+                </div>
               </>
             )}
 
@@ -1190,8 +1093,14 @@ export default function DashboardPage() {
               <Panel
                 title="Call Intelligence"
                 subtitle="Inbound, outbound, missed calls, recordings, summaries, and call outcomes."
-                action={<GhostButton onClick={createTestCall}>Create demo call</GhostButton>}
+                action={<GhostButton onClick={() => setActiveTab("overview")}>Try live FUGTH demo</GhostButton>}
               >
+                <section className="mb-6 rounded-2xl border border-zinc-200 bg-[#f8f8f6] p-5">
+                  <div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="text-lg font-black text-zinc-950">Your FUGTH voice previews</h3><p className="mt-1 text-xs text-zinc-500">Short test-call summaries, saved to your own account.</p></div><span className="text-xs font-bold text-zinc-500">{demoCalls.length} previews</span></div>
+                  {demoCalls.length===0?<p className="mt-4 text-sm text-zinc-500">Try the live voice preview on Overview to see your first call here.</p>:<div className="mt-4 grid gap-3 sm:grid-cols-2">{demoCalls.slice(0,6).map(item=>(
+                    <article key={item.id} className="rounded-xl border border-zinc-200 bg-white p-4"><div className="flex justify-between gap-2"><strong className="text-sm text-zinc-900">{item.intent||"Voice preview"}</strong><span className="text-xs text-zinc-500">{item.status||"Pending"}</span></div><p className="mt-2 text-xs capitalize text-zinc-500">{item.industry||"General"} · {item.role||"Receptionist"} · {item.duration??"Up to 15"}s</p><p className="mt-3 text-sm leading-6 text-zinc-700">{item.summary||"Waiting for call analysis."}</p></article>
+                  ))}</div>}
+                </section>
                 <div className="grid gap-4 md:grid-cols-3">
                   <StatCard label="Total Calls" value={metrics.totalCalls} icon="calls" />
                   <StatCard label="Missed" value={metrics.missedCalls} icon="calls" tone={metrics.missedCalls ? "rose" : "emerald"} />
@@ -1200,7 +1109,7 @@ export default function DashboardPage() {
 
                 <div className="mt-6 space-y-4">
                   {calls.length === 0 ? (
-                    <EmptyState title="No calls yet" body="When Vapi starts sending call logs, they will show up here." />
+                    <EmptyState title="No calls yet" body="New FUGTH call records will appear here as calls are handled." />
                   ) : (
                     calls.map((call) => (
                       <div key={call.id} className="rounded-[1.5rem] border border-zinc-200 bg-zinc-50 p-5">
@@ -1247,7 +1156,7 @@ export default function DashboardPage() {
 
             {activeTab === "leads" && (
               <section className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
-                <div className="xl:col-span-2 rounded-2xl border border-zinc-200 bg-white p-6"><p className="text-xs font-black uppercase tracking-[.14em] text-zinc-500">Founder access</p><h2 className="mt-2 text-2xl font-black text-zinc-900">Administration</h2><p className="mt-2 text-sm text-zinc-600">Account management and developer operations stay here, separate from the client workspace.</p>{!adminVerified&&<p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-900">Verify this account\u0027s email in Firebase Authentication before using privileged account or calling operations.</p>}</div>
+                
                 <Panel title="Add Lead" subtitle="Save cold leads, inbound leads, Google Maps leads, and follow-up notes.">
                   <form onSubmit={addLead} className="space-y-4">
                     <Field label="Business Name">
@@ -1480,8 +1389,16 @@ export default function DashboardPage() {
             )}
 
             {activeTab === "appointments" && (
-              <section className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
-                <Panel title="Quick Appointment" subtitle="Manual booking form for calls, demos, and client jobs.">
+              <section className="space-y-5">
+                <div className="flex flex-wrap items-end justify-between gap-4 rounded-2xl border border-zinc-200 bg-white p-5 sm:p-7">
+                  <div><p className="text-[10px] font-black uppercase tracking-[.17em] text-zinc-500">FUGTH BOOKINGS</p><h2 className="mt-3 text-2xl font-black text-zinc-950">Your appointments, without extra work.</h2><p className="mt-3 max-w-xl text-sm leading-7 text-zinc-600">Review requests from customers and link the scheduling tools your business already uses. An appointment is not confirmed until your team or connected calendar confirms it.</p></div>
+                  <button type="button" onClick={()=>setActiveTab("integrations")} className="rounded-xl bg-zinc-950 px-5 py-3 text-sm font-black text-white">Connect a calendar →</button>
+                </div>
+                <RecentAppointments appointments={appointments} large />
+                <details className="group rounded-2xl border border-zinc-200 bg-white p-5">
+                  <summary className="cursor-pointer text-sm font-black text-zinc-950">+ Add an appointment manually <span className="ml-2 text-xs font-normal text-zinc-500">For appointments arranged outside your connected calendar</span></summary>
+                  <div className="mt-5">
+                <Panel title="New appointment" subtitle="Record a confirmed appointment or a request that still needs confirmation.">
                   <form onSubmit={createAppointment} className="space-y-4">
                     <Field label="Customer Name">
                       <input className={inputClass} value={appointmentForm.customerName} onChange={(e) => setAppointmentForm({ ...appointmentForm, customerName: e.target.value })} placeholder="Customer name" />
@@ -1505,6 +1422,9 @@ export default function DashboardPage() {
                       </Field>
                     </div>
 
+                    <Field label="Booking status">
+                      <select className={inputClass} value={appointmentForm.status} onChange={e=>setAppointmentForm({...appointmentForm,status:e.target.value})}><option value="requested">Request — needs confirmation</option><option value="scheduled">Confirmed by staff</option></select>
+                    </Field>
                     <Field label="Notes">
                       <textarea className={cx(inputClass, "min-h-28")} value={appointmentForm.notes} onChange={(e) => setAppointmentForm({ ...appointmentForm, notes: e.target.value })} placeholder="Address, job details, quote notes..." />
                     </Field>
@@ -1514,8 +1434,8 @@ export default function DashboardPage() {
                     </PrimaryButton>
                   </form>
                 </Panel>
-
-                <RecentAppointments appointments={appointments} large />
+                  </div>
+                </details>
               </section>
             )}
 
@@ -1630,7 +1550,7 @@ export default function DashboardPage() {
             {activeTab === "settings" && !adminMode && (
               <Panel title="Business settings" subtitle="Business details, hours, and assistant instructions. Configure your phone in Phone setup.">
               <div className="mb-5 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-zinc-200 bg-zinc-50 p-4">
-                <div><p className="text-xs font-black uppercase tracking-widest text-zinc-500">Your subscription</p><p className="mt-2 text-sm font-bold">{workspace.billingActive?String(workspace.planTier||"").toUpperCase()+" · "+String(workspace.planStatus||"active"):"No verified active subscription"}</p><p className="mt-1 text-xs text-zinc-600">{workspace.billingCurrentPeriodEnd?"Billing period ends "+formatDateTime(workspace.billingCurrentPeriodEnd):"Monthly billing dates appear after verified Stripe payment."}</p></div>
+                <div><p className="text-xs font-black uppercase tracking-widest text-zinc-500">Your subscription</p><p className="mt-2 text-sm font-bold">{workspace.billingActive?String(workspace.planTier||"").toUpperCase()+" · "+String(workspace.planStatus||"active"):"No verified active subscription"}</p><p className="mt-1 text-xs text-zinc-600">{workspace.billingCurrentPeriodEnd?"Billing period ends "+formatDateTime(workspace.billingCurrentPeriodEnd):"Monthly billing dates appear after verified FUGTH payment."}</p></div>
                 <Link href="/plans" className="rounded-lg bg-zinc-950 px-4 py-2.5 text-xs font-black text-white">View subscriptions →</Link>
               </div>
                 <form onSubmit={saveWorkspace} className="space-y-5">
@@ -1732,7 +1652,7 @@ export default function DashboardPage() {
                 </Panel>
 
                 </div></details>
-                <details className="rounded-2xl border border-zinc-200 bg-white p-5 xl:col-span-2"><summary className="cursor-pointer text-base font-black text-zinc-950">Vapi infrastructure <span className="ml-2 text-xs font-medium text-zinc-500">Assistants, phone numbers and recent call states</span></summary><div className="mt-5"><VapiConsole /></div></details>
+                <details className="rounded-2xl border border-zinc-200 bg-white p-5 xl:col-span-2"><summary className="cursor-pointer text-base font-black text-zinc-950">FUGTH infrastructure <span className="ml-2 text-xs font-medium text-zinc-500">Assistants, phone numbers and recent call states</span></summary><div className="mt-5"><VapiConsole /></div></details>
                 <details className="rounded-2xl border border-zinc-200 bg-white p-5 xl:col-span-2"><summary className="cursor-pointer text-base font-black text-zinc-950">Founder diagnostics <span className="ml-2 text-xs font-medium text-zinc-500">Internal test checklist</span></summary><div className="mt-5">                <Panel title="Admin Snapshot" subtitle="Fast control center for founder testing.">
                   <div className="grid gap-4 sm:grid-cols-2">
                     <StatCard label="Workspace Leads" value={metrics.totalLeads} icon="leads" />
@@ -1744,7 +1664,7 @@ export default function DashboardPage() {
                   <div className="mt-6 rounded-[1.5rem] border border-zinc-200 bg-zinc-50 p-5">
                     <p className="font-black text-zinc-900">Founder Checklist</p>
                     <div className="mt-4 space-y-3 text-sm text-zinc-700">
-                      <ChecklistItem done={Boolean(workspace.vapiNumber)}>Vapi number linked</ChecklistItem>
+                      <ChecklistItem done={Boolean(workspace.vapiNumber)}>FUGTH number linked</ChecklistItem>
                       <ChecklistItem done={metrics.knowledgeCount >= 3}>Trainer has at least 3 knowledge items</ChecklistItem>
                       <ChecklistItem done={metrics.totalLeads > 0}>CRM has saved leads</ChecklistItem>
                       <ChecklistItem done={metrics.bookedAppointments > 0}>Appointments are being tracked</ChecklistItem>
@@ -1802,7 +1722,7 @@ function ChecklistItem({ done, children }) {
 
 function RecentCalls({ calls }) {
   return (
-    <Panel title="Recent Calls" subtitle="Latest Vapi or manual call activity.">
+    <Panel title="Recent Calls" subtitle="Latest customer conversations in your FUGTH workspace.">
       <div className="space-y-3">
         {calls.length === 0 ? (
           <EmptyState title="No recent calls" body="Call records will appear here." />

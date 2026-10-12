@@ -22,6 +22,10 @@ service cloud.firestore {
         allow read, create: if isOwner(uid);
         allow update, delete: if false;
       }
+      match /demoCalls/{id} {
+        allow read: if isOwner(uid);
+        allow create, update, delete: if false;
+      }
       match /{kind}/{id} {
         allow read, create, update, delete: if isOwner(uid) &&
           kind in ['leads','appointments','campaigns','knowledge','knowledgeFiles','notifications'];
