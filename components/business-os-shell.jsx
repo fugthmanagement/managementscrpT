@@ -459,7 +459,8 @@ export default function DashboardPage() {
     status: "active",
   });
 
-  const isAdmin = Boolean(user?.emailVerified) && ADMIN_EMAILS.includes(normalize(user?.email));
+  const isAdmin = ADMIN_EMAILS.includes(normalize(user?.email));
+  const adminVerified = Boolean(user?.emailVerified);
   const primaryNav = NAV_ITEMS.filter(item => EVERYDAY_NAV.includes(item.id));
   const toolsNav = NAV_ITEMS.filter(item => TOOLS_NAV.includes(item.id));
   const currentNav = NAV_ITEMS.find(item => item.id === activeTab);
@@ -1221,7 +1222,7 @@ export default function DashboardPage() {
 
             {activeTab === "leads" && (
               <section className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
-                <div className="xl:col-span-2 rounded-2xl border border-zinc-200 bg-white p-6"><p className="text-xs font-black uppercase tracking-[.14em] text-zinc-500">Founder access</p><h2 className="mt-2 text-2xl font-black text-zinc-900">Administration</h2><p className="mt-2 text-sm text-zinc-600">Account management and developer operations stay here, separate from the client workspace.</p></div>
+                <div className="xl:col-span-2 rounded-2xl border border-zinc-200 bg-white p-6"><p className="text-xs font-black uppercase tracking-[.14em] text-zinc-500">Founder access</p><h2 className="mt-2 text-2xl font-black text-zinc-900">Administration</h2><p className="mt-2 text-sm text-zinc-600">Account management and developer operations stay here, separate from the client workspace.</p>{!adminVerified&&<p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-900">Verify this account\u0027s email in Firebase Authentication before using privileged account or calling operations.</p>}</div>
                 <Panel title="Add Lead" subtitle="Save cold leads, inbound leads, Google Maps leads, and follow-up notes.">
                   <form onSubmit={addLead} className="space-y-4">
                     <Field label="Business Name">
