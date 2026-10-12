@@ -6,7 +6,7 @@ function normalizeToE164(num) {
   let s = String(num).trim();
   // Keep plus and digits only
   s = s.replace(/[^+0-9]/g, '');
-  if (s.startsWith('+')) return s;
+  if (s.startsWith('+')) return /^\\+[1-9]\\d{7,14}$/.test(s) ? s : null;
   const digits = s.replace(/\D/g, '');
   if (digits.length === 10) return '+1' + digits;
   if (digits.length > 10 && digits.length <= 15) return '+' + digits;
@@ -86,7 +86,7 @@ export async function POST(req) {
 
     // Build standard high-compatibility Vapi payload
     const vapiPayload = {
-      maxDurationSeconds: 400,
+      maxDurationSeconds: 90,
       phoneNumberId: vapiNumberId ? vapiNumberId.trim() : undefined,
       customer: {
         number: to
