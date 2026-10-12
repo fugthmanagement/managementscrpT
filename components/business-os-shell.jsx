@@ -423,7 +423,7 @@ export default function DashboardPage() {
     service: "",
     date: "",
     time: "",
-    status: "scheduled",
+    status: "requested",
     notes: "",
   });
 
@@ -1390,6 +1390,10 @@ export default function DashboardPage() {
 
             {activeTab === "appointments" && (
               <section className="space-y-5">
+                <div className="flex flex-wrap items-end justify-between gap-4 rounded-2xl border border-zinc-200 bg-white p-5 sm:p-7">
+                  <div><p className="text-[10px] font-black uppercase tracking-[.17em] text-zinc-500">FUGTH BOOKINGS</p><h2 className="mt-3 text-2xl font-black text-zinc-950">Your appointments, without extra work.</h2><p className="mt-3 max-w-xl text-sm leading-7 text-zinc-600">Review requests from customers and link the scheduling tools your business already uses. An appointment is not confirmed until your team or connected calendar confirms it.</p></div>
+                  <button type="button" onClick={()=>setActiveTab("integrations")} className="rounded-xl bg-zinc-950 px-5 py-3 text-sm font-black text-white">Connect a calendar →</button>
+                </div>
                 <RecentAppointments appointments={appointments} large />
                 <details className="group rounded-2xl border border-zinc-200 bg-white p-5">
                   <summary className="cursor-pointer text-sm font-black text-zinc-950">+ Add an appointment manually <span className="ml-2 text-xs font-normal text-zinc-500">For appointments arranged outside your connected calendar</span></summary>
@@ -1418,6 +1422,9 @@ export default function DashboardPage() {
                       </Field>
                     </div>
 
+                    <Field label="Booking status">
+                      <select className={inputClass} value={appointmentForm.status} onChange={e=>setAppointmentForm({...appointmentForm,status:e.target.value})}><option value="requested">Request — needs confirmation</option><option value="scheduled">Confirmed by staff</option></select>
+                    </Field>
                     <Field label="Notes">
                       <textarea className={cx(inputClass, "min-h-28")} value={appointmentForm.notes} onChange={(e) => setAppointmentForm({ ...appointmentForm, notes: e.target.value })} placeholder="Address, job details, quote notes..." />
                     </Field>
