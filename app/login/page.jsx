@@ -43,8 +43,10 @@ export default function Login(){
               updatedAt:serverTimestamp()
             },{merge:true});
           } catch { console.warn("Customer workspace will initialize when the dashboard is opened."); }
-          try { await setDoc(doc(db,"publicSites",created.user.uid),buildStarterSite(created.user.uid,businessName||"Your business",businessName)); }
-        catch (siteError) { console.warn("Site preview will be initialized in FUGTH Site Studio."); }
+          try {
+            await setDoc(doc(db,"publicSites",created.user.uid),buildStarterSite(created.user.uid,businessName||"Your business",businessName));
+          } catch { console.warn("Site preview will be initialized in FUGTH Site Studio."); }
+        }
       }
       const wantsDemo = new URLSearchParams(window.location.search).get("demo") === "1";
       window.location.assign(wantsDemo ? "/dashboard" : mode === "signup" ? "/plans" : "/dashboard");
