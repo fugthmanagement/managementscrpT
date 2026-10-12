@@ -1,3 +1,4 @@
+import { authenticatedUser, firebaseAdmin } from "../../../lib/server/auth";
 import { createSign } from "crypto";
 import { NextResponse } from "next/server";
 
@@ -166,7 +167,14 @@ export async function GET() {
 
 export async function POST(req) {
   try {
+    const user = await authenticatedUser(req);
+    if (!user) return NextResponse.json({ error: "Sign in required." }, { status: 401 });
     const { userId, businessName, industry, assistantPersona } = await req.json();
+    if (user.uid !== userId) return NextResponse.json({ error: "Account mismatch." }, { status: 403 });
+    if (!process.env.FIREBASE_SERVICE_ACCOUNT && !(process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY)) return NextResponse.json({ error: "Phone provisioning is not yet available." }, { status: 503 });
+    const profile = await firebaseAdmin().firestore().doc("users/"+user.uid).get();
+    if (!profile.data()?.billingActive) return NextResponse.json({ error: "An active FUGTH subscription is required to activate a phone line." }, { status: 402 });
+    if (profile.data()?.vapiAssistantId || profile.data()?.assistantId) return NextResponse.json({ error: "This account already has a voice agent. Contact support to make changes." }, { status: 409 });
     const privateKey = process.env.VOICE_PRIVATE_KEY || process.env.VAPI_PRIVATE_KEY;
 
     if (!privateKey) {
