@@ -1,3 +1,4 @@
+import { authenticatedUser, isFounder, errorResponse } from "../../../../lib/server/auth";
 import { NextResponse } from 'next/server';
 
 function normalizeToE164(num) {
@@ -41,6 +42,9 @@ const INDUSTRY_PROMPTS = {
 
 export async function POST(req) {
   try {
+    const user = await authenticatedUser(req);
+    if (!user) return errorResponse(401, "Sign in required.");
+    if (!isFounder(user)) return errorResponse(403, "Founder access required.");
     const body = await req.json();
     const {
       phoneNumber: rawPhone,
