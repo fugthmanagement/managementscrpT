@@ -1,58 +1,44 @@
 import Stripe from "stripe";
 import { NextResponse } from "next/server";
+import { authenticatedUser } from "../../../../lib/server/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2024-06-20" }) : null;
-
 const priceMap = {
   starter: process.env.STRIPE_STARTER_PRICE_ID,
   growth: process.env.STRIPE_GROWTH_PRICE_ID,
   elite: process.env.STRIPE_ELITE_PRICE_ID,
 };
-
+const siteUrl = "https://www.fugthmanagement.space";
 export async function POST(req) {
+  const user = await authenticatedUser(req);
+  if (!user?.uid || !user.email) return NextResponse.json({ error: "Please sign in before selecting a plan." }, { status: 401 });
+  if (!process.env.STRIPE_SECRET_KEY) return NextResponse.json({error:"Subscription payment provider is not configured."},{status:503});
+  // Do not accept payment if webhooks cannot securely activate the Firebase subscription.
+  if (!process.env.STRIPE_WEBHOOK_SECRET || !(process.env.FIREBASE_SERVICE_ACCOUNT || (process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY))) {
+    return NextResponse.json({ error: "Subscriptions are being configured. Contact support before making a payment." }, { status: 503 });
+  }
+  const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+  if (!publishableKey?.startsWith("pk_")) return NextResponse.json({ error: "Secure on-site checkout is not configured yet." }, { status: 503 });
   try {
-    if (!stripe) {
-      return NextResponse.json({ error: "STRIPE_SECRET_KEY is missing." }, { status: 500 });
-    }
-
-    const { planKey, userId, email } = await req.json();
+    const { planKey } = await req.json();
     const priceId = priceMap[planKey];
-
-    if (!planKey || !priceId) {
-      return NextResponse.json({ error: "Valid planKey and Stripe price id are required." }, { status: 400 });
-    }
-
-    const origin = process.env.NEXT_PUBLIC_APP_URL || "https://www.fugthmanagement.space";
-    const successUrl = `${origin}/dashboard?checkout=success&plan=${encodeURIComponent(planKey)}`;
-    const cancelUrl = `${origin}/dashboard?checkout=cancelled`;
-
+    if (!priceId) return NextResponse.json({ error: "Select an available subscription plan." }, { status: 400 });
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {apiVersion:"2024-06-20"});
     const session = await stripe.checkout.sessions.create({
+      ui_mode: "embedded",
       mode: "subscription",
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: successUrl,
-      cancel_url: cancelUrl,
+      customer_email: user.email,
+      client_reference_id: user.uid,
+      return_url: siteUrl + "/billing/return?session_id={CHECKOUT_SESSION_ID}",
       allow_promotion_codes: true,
-      client_reference_id: userId || email || planKey,
-      customer_email: email || undefined,
-      metadata: {
-        planKey,
-        userId: userId || "",
-        email: email || "",
-      },
-      subscription_data: {
-        metadata: {
-          planKey,
-          userId: userId || "",
-          email: email || "",
-        },
-      },
+      metadata: { userId: user.uid, planKey, email: user.email },
+      subscription_data: { metadata: { userId: user.uid, planKey, email: user.email } },
     });
-
-    return NextResponse.json({ url: session.url });
-  } catch (error) {
-    return NextResponse.json({ error: error.message || "Checkout session creation failed." }, { status: 500 });
+    return NextResponse.json({ clientSecret: session.client_secret, publishableKey });
+  } catch (e) {
+    console.error("Stripe checkout session error", { code: e.code || "", type: e.type || "" });
+    return NextResponse.json({ error: "We could not prepare secure checkout. Please try again." }, { status: 500 });
   }
 }
