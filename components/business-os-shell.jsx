@@ -19,6 +19,7 @@ import {
 import { auth, db } from "../lib/firebase";
 import PhoneSetup from "./phone-setup";
 import SiteStudio from "./site-studio";
+import {SITE_INDUSTRIES} from "../lib/site-presets";
 async function adminHeaders() { const token = await auth?.currentUser?.getIdToken(); if (!token) throw new Error("Sign in again to use founder tools."); return { "Content-Type": "application/json", Authorization: `Bearer ${token}` }; }
 import IntegrationsHub from "./integrations-hub";
 import VapiConsole from "./vapi-console";
@@ -457,6 +458,7 @@ export default function DashboardPage() {
   const [devForm, setDevForm] = useState({
     email: "",
     businessName: "",
+    businessType: "general",
     phone: "",
     plan: "Starter",
     role: "client",
@@ -976,6 +978,22 @@ export default function DashboardPage() {
     } finally {
       setBusy("");
     }
+  }
+
+  async function devGenerateSite() {
+    if(!isAdmin) return;
+    setBusy("devSite");
+    setNotice("");
+    try{
+      const response=await fetch("/api/dev/site",{
+        method:"POST",headers:await adminHeaders(),
+        body:JSON.stringify({businessName:devForm.businessName,businessType:devForm.businessType}),
+      });
+      const data=await response.json().catch(()=>({}));
+      if(!response.ok||!data.siteUrl)throw new Error(data.error||"Could not create prospect preview.");
+      setLastCreatedSite(data.siteUrl);
+      setNotice("FUGTH prospect website created. Open the link to show the client.");
+    }catch(error){setNotice(error.message);}finally{setBusy("");}
   }
 
   async function devUpdateAccount() {
@@ -1691,7 +1709,7 @@ export default function DashboardPage() {
 
             {activeTab === "settings" && isAdmin && adminMode && (
               <section className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
-                <details className="rounded-2xl border border-zinc-200 bg-white p-5 xl:col-span-2"><summary className="cursor-pointer text-base font-black text-zinc-950">Account management <span className="ml-2 text-xs font-medium text-zinc-500">Create accounts and update clients</span></summary><div className="mt-5">                <Panel title="Developer Operations" subtitle="Admin-only tools for client creation, account updates, demos, and support.">
+                <details className="rounded-2xl border border-zinc-200 bg-white p-5 xl:col-span-2"><summary className="cursor-pointer text-base font-black text-zinc-950">Account management <span className="ml-2 text-xs font-medium text-zinc-500">Create accounts and update clients</span></summary><div className="mt-5">                <Panel title="Quick client setup" subtitle="Create a customer account with an automatic website, or generate a prospect website without an account. No billing details are changed.">
                   <form onSubmit={devCreateAccount} className="space-y-4">
                     <Field label="Client Email">
                       <input className={inputClass} value={devForm.email} onChange={(e) => setDevForm({ ...devForm, email: e.target.value })} placeholder="client@email.com" />
@@ -1699,6 +1717,11 @@ export default function DashboardPage() {
 
                     <Field label="Business Name">
                       <input className={inputClass} value={devForm.businessName} onChange={(e) => setDevForm({ ...devForm, businessName: e.target.value })} placeholder="Client Business LLC" />
+                    </Field>
+                    <Field label="Industry / Site Template">
+                      <select className={inputClass} value={devForm.businessType} onChange={(e)=>setDevForm({...devForm,businessType:e.target.value})}>
+                        {SITE_INDUSTRIES.map(category=><option value={category.id} key={category.id}>{category.label}</option>)}
+                      </select>
                     </Field>
 
                     <div className="grid gap-4 sm:grid-cols-2">
@@ -1734,6 +1757,9 @@ export default function DashboardPage() {
                       </PrimaryButton>
                       <GhostButton onClick={devUpdateAccount} disabled={busy === "devUpdate"}>
                         Update Account
+                      </GhostButton>
+                      <GhostButton onClick={devGenerateSite} disabled={busy === "devSite" || !devForm.businessName.trim()}>
+                        {busy === "devSite" ? "Generating..." : "Generate prospect site"}
                       </GhostButton>
                       {lastCreatedSite && <a href={lastCreatedSite} target="_blank" rel="noopener noreferrer" className="rounded-xl border border-zinc-300 bg-white px-5 py-3 text-sm font-black text-zinc-950">Open created client site ↗</a>}
                     </div>
