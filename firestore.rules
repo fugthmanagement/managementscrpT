@@ -18,7 +18,8 @@ service cloud.firestore {
       allow delete: if false;
       match /calls/{id} {
         allow read: if owner(uid);
-        allow create, update, delete: if false;
+        allow create: if owner(uid);
+        allow update, delete: if false;
       }
       match /{collectionName}/{id} {
         allow read, create, update, delete: if owner(uid) &&
