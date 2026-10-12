@@ -400,6 +400,8 @@ export default function DashboardPage() {
   const [workspace, setWorkspace] = useState(DEFAULT_WORKSPACE);
   const accountNumberAttempts=useRef(new Set());
   const [lastCreatedAccountNumber,setLastCreatedAccountNumber]=useState("");
+  const [lastClientActivationLink,setLastClientActivationLink]=useState("");
+  const [clientInviteNeeded,setClientInviteNeeded]=useState(false);
   const [settingsForm, setSettingsForm] = useState(DEFAULT_WORKSPACE);
 
   const [calls, setCalls] = useState([]);
@@ -989,6 +991,8 @@ export default function DashboardPage() {
 
       setLastCreatedSite(data.siteReady ? (data.siteUrl || "") : "");
       setLastCreatedAccountNumber(data.accountNumber||"");
+      setLastClientActivationLink(data.activationLink||"");
+      setClientInviteNeeded(Boolean(data.activationNeeded));
       setDevForm(prev=>({...prev,uid:data.uid||prev.uid}));
       setNotice(data.siteReady?`Client #${data.accountNumber||"pending"} created with a FUGTH website preview.`:`Client #${data.accountNumber||"pending"} created, but the website preview needs Firebase configuration.`);
     } catch (error) {
@@ -1784,6 +1788,9 @@ export default function DashboardPage() {
                         {busy === "devSite" ? "Generating..." : "Generate prospect site"}
                       </GhostButton>
                       {lastCreatedAccountNumber && <span className="rounded-xl bg-zinc-100 px-4 py-3 font-mono text-sm font-black text-zinc-900">FUGTH #{lastCreatedAccountNumber}</span>}
+                      {lastClientActivationLink && <button type="button" onClick={()=>navigator.clipboard?.writeText(lastClientActivationLink)} className="rounded-xl border border-zinc-300 bg-white px-4 py-3 text-sm font-black text-zinc-900">Copy secure account activation link</button>}
+                      {clientInviteNeeded && <p className="basis-full rounded-xl bg-amber-50 p-3 text-xs leading-6 text-amber-900">Share the private activation link only with this client. It has not been emailed automatically. If a link is unavailable, the client can open FUGTH Login → Forgot password to set their own password.</p>}
+
                       {lastCreatedSite && <a href={lastCreatedSite} target="_blank" rel="noopener noreferrer" className="rounded-xl border border-zinc-300 bg-white px-5 py-3 text-sm font-black text-zinc-950">Open created client site ↗</a>}
                     </div>
                   </form>
