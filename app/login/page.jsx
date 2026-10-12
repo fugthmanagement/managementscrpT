@@ -27,7 +27,8 @@ export default function Login(){
       if(mode==="signup"&&password.length<6)throw new Error("Password must be at least six characters.");
       if(mode==="login")await signInWithEmailAndPassword(auth,e,password);
       else await createUserWithEmailAndPassword(auth,e,password);
-      window.location.assign(mode === "signup" ? "/plans" : "/dashboard");
+      const wantsDemo = new URLSearchParams(window.location.search).get("demo") === "1";
+      window.location.assign(wantsDemo ? "/dashboard" : mode === "signup" ? "/plans" : "/dashboard");
     }catch(err){setError(String(err?.message||"Could not sign in").replace("Firebase: ",""));}
     finally{setBusy("");}
   }
