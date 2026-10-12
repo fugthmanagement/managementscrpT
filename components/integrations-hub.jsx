@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { auth } from "../lib/firebase";
+import WebhookIntegration from "./webhook-integration";
 const catalog = [
   { name:"Google Calendar", tag:"Calendar", categories:["All industries"], type:"google", icon:"31", description:"Secure Google sign-in, check availability and create appointments in your primary calendar.", state:"connectable" },
   { name:"Microsoft 365 / Outlook", tag:"Calendar", categories:["All industries"], icon:"O", description:"Outlook calendars and Microsoft Bookings.", state:"planned" },
@@ -87,6 +88,7 @@ export default function IntegrationsHub(){
         <p className="mt-3 text-[11px] leading-5 text-slate-400">Avoid patient health details, legal case information or other sensitive personal information in this basic integration.</p>
       </div>
     </div>
+    <WebhookIntegration />
     <div className="rounded-[1.6rem] border border-white/10 bg-slate-900/90 p-5 sm:p-7">
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end"><div><h3 className="text-xl font-black">Explore upcoming integrations</h3><p className="mt-2 text-sm text-slate-400">Choose an industry to find the apps your customers may already use. Only Google Calendar is currently connectable.</p></div><input aria-label="Search integrations" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search apps or workflows..." className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-blue-400 md:w-64"/></div>
       <div className="mt-6 flex gap-2 overflow-x-auto pb-3">{industries.map(x=><button key={x} onClick={()=>setFilter(x)} className={`shrink-0 rounded-full border px-4 py-2 text-xs font-bold ${filter===x?"border-blue-300 bg-blue-400 text-slate-950":"border-white/10 text-slate-300 hover:border-white/30"}`}>{x}</button>)}</div>
