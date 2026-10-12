@@ -9,7 +9,7 @@ service cloud.firestore {
         'billingCurrentPeriodEnd','billingRenewsAt','billingExpiresAt',
         'billingCancelAtPeriodEnd','billingTrialEndsAt','billingUpdatedAt','vapiNumber','vapiPhoneNumberId',
         'vapiAssistantId','vapiLinked','vapiLinkedAt','needsVapiLink','voiceProvisionedAt',
-        'assignedNumberId','assignedAssistantId'
+        'assignedNumberId','assignedAssistantId','accountNumber','accountNumberIssuedAt'
       ];
     }
     match /users/{uid} {
@@ -34,7 +34,8 @@ service cloud.firestore {
         return request.resource.data.keys().hasOnly([
           'ownerId','version','visibility','name','industry','theme','eyebrow',
           'headline','description','services','phone','contactEmail','createdAt','updatedAt',
-          'serviceArea','businessHours','ctaLabel','showServices'
+          'serviceArea','businessHours','ctaLabel','showServices',
+          'heroImageId','galleryImageIds','showGallery'
         ]) &&
         request.resource.data.ownerId == uid &&
         request.resource.data.version == 1 &&
@@ -49,6 +50,10 @@ service cloud.firestore {
         request.resource.data.businessHours is string && request.resource.data.businessHours.size() <= 100 &&
         request.resource.data.ctaLabel is string && request.resource.data.ctaLabel.size() <= 48 &&
         request.resource.data.showServices is bool &&
+        request.resource.data.showGallery is bool &&
+        request.resource.data.heroImageId is string &&
+        request.resource.data.heroImageId.matches("^fg-[a-z]+-[a-z]+$") &&
+        request.resource.data.galleryImageIds is list && request.resource.data.galleryImageIds.size() <= 2 &&
         request.resource.data.theme in ['editorial','bold','warm','professional'] &&
         request.resource.data.industry in ['general','roofing','dental','salon','legal','hvac','automotive','realestate','restaurant','landscaping','contractor'];
       }
