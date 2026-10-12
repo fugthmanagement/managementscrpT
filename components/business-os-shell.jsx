@@ -18,6 +18,7 @@ import {
 } from "firebase/firestore";
 import { auth, db } from "../lib/firebase";
 import IntegrationsHub from "./integrations-hub";
+import VapiConsole from "./vapi-console";
 async function authHeaders() { const token = await auth.currentUser?.getIdToken(); if (!token) throw new Error("Sign in required"); return { "Content-Type": "application/json", Authorization: `Bearer ${token}` }; }
 
 const ADMIN_EMAILS = [
@@ -1776,6 +1777,7 @@ export default function DashboardPage() {
 
             {activeTab === "dev_ops" && isAdmin && (
               <section className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+                <div className="xl:col-span-2"><VapiConsole /></div>
                 <Panel title="Developer Operations" subtitle="Admin-only tools for client creation, account updates, demos, and support.">
                   <form onSubmit={devCreateAccount} className="space-y-4">
                     <Field label="Client Email">
