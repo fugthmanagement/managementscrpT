@@ -1,32 +1,30 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    function isSignedIn() {
-      return request.auth != null;
+    function isOwner(uid) { return request.auth != null && request.auth.uid == uid; }
+    function protectedKeys() {
+      return [
+        'plan','status','planTier','planStatus','billingActive','billingEmail',
+        'stripeCustomerId','stripeSubscriptionId','vapiNumber','vapiPhoneNumberId',
+        'vapiAssistantId','vapiLinked','vapiLinkedAt','needsVapiLink','voiceProvisionedAt',
+        'assignedNumberId','assignedAssistantId'
+      ];
     }
-
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
-    match /users/{userId} {
-      allow read, create, update: if isOwner(userId);
+    match /users/{uid} {
+      allow get, list: if isOwner(uid);
+      allow create: if isOwner(uid) && !request.resource.data.keys().hasAny(protectedKeys());
+      allow update: if isOwner(uid) &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(protectedKeys());
       allow delete: if false;
-
-      match /calls/{callId} {
-        allow read, create, update: if isOwner(userId);
-        allow delete: if false;
+      match /calls/{id} {
+        allow read, create: if isOwner(uid);
+        allow update, delete: if false;
       }
-
-      match /knowledgeFiles/{fileId} {
-        allow read, create, update: if isOwner(userId);
-        allow delete: if isOwner(userId);
-      }
-
-      match /notifications/{notificationId} {
-        allow read, create, update: if isOwner(userId);
-        allow delete: if false;
+      match /{kind}/{id} {
+        allow read, create, update, delete: if isOwner(uid) &&
+          kind in ['leads','appointments','campaigns','knowledge','knowledgeFiles','notifications'];
       }
     }
+    match /{path=**} { allow read, write: if false; }
   }
 }

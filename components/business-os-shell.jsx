@@ -17,6 +17,10 @@ import {
   updateDoc,
 } from "firebase/firestore";
 import { auth, db } from "../lib/firebase";
+import PhoneSetup from "./phone-setup";
+async function adminHeaders() { const token = await auth?.currentUser?.getIdToken(); if (!token) throw new Error("Sign in again to use founder tools."); return { "Content-Type": "application/json", Authorization: `Bearer ${token}` }; }
+import IntegrationsHub from "./integrations-hub";
+import VapiConsole from "./vapi-console";
 
 const ADMIN_EMAILS = [
   "fugthmanagement@gmail.com",
@@ -40,8 +44,8 @@ const DEFAULT_WORKSPACE = {
   serviceArea: "",
   hours: "Mon-Fri 9 AM - 5 PM",
   bookingLink: "",
-  plan: "Starter",
-  status: "active",
+  plan: "",
+  status: "",
   vapiNumber: "",
   vapiAssistantId: "",
   vapiLinked: false,
@@ -51,16 +55,19 @@ const DEFAULT_WORKSPACE = {
 };
 
 const NAV_ITEMS = [
-  { id: "overview", label: "Command Center", icon: "overview" },
-  { id: "calls", label: "Calls", icon: "calls" },
-  { id: "leads", label: "Leads CRM", icon: "leads" },
-  { id: "campaigns", label: "Cold Calling", icon: "bolt" },
+  { id: "overview", label: "Overview", icon: "overview" },
+  { id: "calls", label: "Call inbox", icon: "calls" },
+  { id: "leads", label: "Leads", icon: "leads" },
   { id: "appointments", label: "Appointments", icon: "calendar" },
-  { id: "advisor", label: "AI Advisor", icon: "advisor" },
-  { id: "knowledge", label: "Trainer", icon: "book" },
-  { id: "settings", label: "Settings", icon: "settings" },
-  { id: "dev_ops", label: "Dev Ops", icon: "shield" },
+  { id: "phones", label: "Phone setup", icon: "calls" },
+  { id: "integrations", label: "Connections", icon: "integrations" },
+  { id: "campaigns", label: "Campaigns", icon: "bolt" },
+  { id: "knowledge", label: "AI training", icon: "book" },
+  { id: "advisor", label: "Business advisor", icon: "advisor" },
+  { id: "settings", label: "Business settings", icon: "settings" },
 ];
+const EVERYDAY_NAV = ["overview","calls","leads","appointments","phones","integrations"];
+const TOOLS_NAV = ["campaigns","knowledge","advisor","settings"];
 
 const LEAD_STAGES = [
   "new",
@@ -79,9 +86,9 @@ const PLAN_LIMITS = {
 };
 
 const inputClass =
-  "w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-emerald-400/60 focus:bg-white/[0.07]";
+  "w-full rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-900 outline-none transition placeholder:text-zinc-500 focus:border-zinc-900 focus:bg-zinc-100";
 
-const labelClass = "mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400";
+const labelClass = "mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500";
 
 function Icon({ name, className = "h-5 w-5" }) {
   const common = {
@@ -139,6 +146,8 @@ function Icon({ name, className = "h-5 w-5" }) {
       </svg>
     );
   }
+
+  if (name === "integrations") { return (<svg {...common}><circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="M9 6h9v9M6 9v9h9"/></svg>); }
 
   if (name === "advisor") {
     return (
@@ -234,6 +243,7 @@ function formatDateTime(value) {
   return new Intl.DateTimeFormat("en-US", {
     month: "short",
     day: "numeric",
+    year: "numeric",
     hour: "numeric",
     minute: "2-digit",
   }).format(date);
@@ -275,7 +285,7 @@ function statusClass(status = "") {
   const s = normalize(status);
 
   if (["won", "booked", "completed", "answered", "active", "hot"].includes(s)) {
-    return "border-emerald-400/30 bg-emerald-400/10 text-emerald-200";
+    return "border-emerald-400/30 bg-zinc-950/10 text-emerald-200";
   }
 
   if (["follow_up", "called", "pending", "warm", "scheduled"].includes(s)) {
@@ -286,7 +296,7 @@ function statusClass(status = "") {
     return "border-rose-400/30 bg-rose-400/10 text-rose-200";
   }
 
-  return "border-slate-500/30 bg-slate-500/10 text-slate-200";
+  return "border-slate-500/30 bg-slate-500/10 text-zinc-700";
 }
 
 function Pill({ children, tone }) {
@@ -299,12 +309,12 @@ function Pill({ children, tone }) {
 
 function Panel({ title, subtitle, action, children, className = "" }) {
   return (
-    <section className={cx("rounded-[2rem] border border-white/10 bg-white/[0.045] p-5 shadow-2xl shadow-black/20 backdrop-blur-xl", className)}>
+    <section className={cx("rounded-2xl border border-zinc-200 bg-white p-5 shadow-2xl shadow-black/20 backdrop-blur-xl", className)}>
       {(title || subtitle || action) && (
         <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            {title && <h2 className="text-lg font-bold text-white">{title}</h2>}
-            {subtitle && <p className="mt-1 text-sm text-slate-400">{subtitle}</p>}
+            {title && <h2 className="text-lg font-bold text-zinc-900">{title}</h2>}
+            {subtitle && <p className="mt-1 text-sm text-zinc-500">{subtitle}</p>}
           </div>
           {action}
         </div>
@@ -323,12 +333,12 @@ function StatCard({ label, value, note, icon, tone = "emerald" }) {
         : "from-emerald-400/20 to-cyan-500/10 text-emerald-200";
 
   return (
-    <div className="rounded-[1.7rem] border border-white/10 bg-slate-950/60 p-5">
+    <div className="rounded-[1.7rem] border border-zinc-200 bg-zinc-50 p-5">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{label}</p>
-          <p className="mt-3 text-3xl font-black text-white">{value}</p>
-          {note && <p className="mt-2 text-sm text-slate-400">{note}</p>}
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">{label}</p>
+          <p className="mt-3 text-3xl font-black text-zinc-900">{value}</p>
+          {note && <p className="mt-2 text-sm text-zinc-500">{note}</p>}
         </div>
         <div className={cx("rounded-2xl bg-gradient-to-br p-3", toneClass)}>
           <Icon name={icon || "overview"} />
@@ -345,7 +355,7 @@ function GhostButton({ children, onClick, type = "button", disabled = false, cla
       onClick={onClick}
       disabled={disabled}
       className={cx(
-        "rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-bold text-slate-200 transition hover:border-emerald-400/40 hover:bg-emerald-400/10 disabled:cursor-not-allowed disabled:opacity-50",
+        "rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-2 text-sm font-bold text-zinc-700 transition hover:border-zinc-500/40 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50",
         className
       )}
     >
@@ -361,7 +371,7 @@ function PrimaryButton({ children, onClick, type = "button", disabled = false, c
       onClick={onClick}
       disabled={disabled}
       className={cx(
-        "rounded-2xl bg-gradient-to-r from-emerald-400 to-cyan-400 px-5 py-3 text-sm font-black text-slate-950 shadow-lg shadow-emerald-500/20 transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-50",
+        "rounded-2xl bg-gradient-to-r from-zinc-900 to-zinc-800 px-5 py-3 text-sm font-black text-white shadow-lg shadow-zinc-500/10 transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-50",
         className
       )}
     >
@@ -375,6 +385,10 @@ export default function DashboardPage() {
   const [user, setUser] = useState(null);
 
   const [activeTab, setActiveTab] = useState("overview");
+  useEffect(() => { if (typeof window !== "undefined" && new URLSearchParams(window.location.search).has("integration")) setActiveTab("integrations"); }, []);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const [adminMode, setAdminMode] = useState(false);
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState("");
 
@@ -446,10 +460,10 @@ export default function DashboardPage() {
   });
 
   const isAdmin = ADMIN_EMAILS.includes(normalize(user?.email));
-  const visibleNav = useMemo(
-    () => NAV_ITEMS.filter((item) => isAdmin || item.id !== "dev_ops"),
-    [isAdmin]
-  );
+  const adminVerified = Boolean(user?.emailVerified);
+  const primaryNav = NAV_ITEMS.filter(item => EVERYDAY_NAV.includes(item.id));
+  const toolsNav = NAV_ITEMS.filter(item => TOOLS_NAV.includes(item.id));
+  const currentNav = NAV_ITEMS.find(item => item.id === activeTab);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (currentUser) => {
@@ -461,8 +475,8 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
-    if (!isAdmin && activeTab === "dev_ops") setActiveTab("overview");
-  }, [isAdmin, activeTab]);
+    if (!isAdmin && adminMode) setAdminMode(false);
+  }, [isAdmin, adminMode]);
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -664,34 +678,6 @@ export default function DashboardPage() {
       );
 
       setNotice("Workspace saved.");
-    } catch (error) {
-      setNotice(error.message);
-    } finally {
-      setBusy("");
-    }
-  }
-
-  async function linkVapiNumber() {
-    if (!user?.uid) return;
-
-    setBusy("vapi");
-    setNotice("");
-
-    try {
-      await setDoc(
-        doc(db, "users", user.uid),
-        sanitizeForFirestore({
-          vapiNumber: settingsForm.vapiNumber || workspace.vapiNumber || "",
-          vapiAssistantId: settingsForm.vapiAssistantId || workspace.vapiAssistantId || "",
-          vapiLinked: Boolean(settingsForm.vapiNumber || workspace.vapiNumber),
-          needsVapiLink: false,
-          vapiLinkedAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        }),
-        { merge: true }
-      );
-
-      setNotice("Vapi number linked to this workspace.");
     } catch (error) {
       setNotice(error.message);
     } finally {
@@ -955,7 +941,7 @@ export default function DashboardPage() {
     try {
       const response = await fetch("/api/dev/create-account", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await adminHeaders(),
         body: JSON.stringify(devForm),
       });
 
@@ -979,7 +965,7 @@ export default function DashboardPage() {
     try {
       const response = await fetch("/api/dev/update-account", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await adminHeaders(),
         body: JSON.stringify(devForm),
       });
 
@@ -1028,11 +1014,11 @@ export default function DashboardPage() {
 
   if (authLoading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-950 text-white">
-        <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-8 text-center">
-          <div className="mx-auto mb-4 h-12 w-12 animate-pulse rounded-2xl bg-emerald-400/20" />
+      <main className="flex min-h-screen items-center justify-center bg-white text-zinc-900">
+        <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-8 text-center">
+          <div className="mx-auto mb-4 h-12 w-12 animate-pulse rounded-2xl bg-zinc-950/20" />
           <p className="font-bold">Loading Fugth Command Center...</p>
-          <p className="mt-2 text-sm text-slate-400">Checking your secure workspace.</p>
+          <p className="mt-2 text-sm text-zinc-500">Checking your secure workspace.</p>
         </div>
       </main>
     );
@@ -1040,18 +1026,18 @@ export default function DashboardPage() {
 
   if (!user) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-950 px-4 text-white">
-        <div className="max-w-md rounded-[2rem] border border-white/10 bg-white/[0.04] p-8 text-center shadow-2xl">
-          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-to-br from-emerald-400 to-cyan-400 text-2xl font-black text-slate-950">
+      <main className="flex min-h-screen items-center justify-center bg-white px-4 text-zinc-900">
+        <div className="max-w-md rounded-2xl border border-zinc-200 bg-zinc-50 p-8 text-center shadow-2xl">
+          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-to-br from-zinc-900 to-zinc-800 text-2xl font-black text-white">
             F
           </div>
           <h1 className="text-2xl font-black">Fugth Management OS</h1>
-          <p className="mt-3 text-sm text-slate-400">
+          <p className="mt-3 text-sm text-zinc-500">
             Sign in to manage calls, leads, appointments, campaigns, AI training, and developer operations.
           </p>
           <Link
             href="/login"
-            className="mt-6 inline-flex rounded-2xl bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950"
+            className="mt-6 inline-flex rounded-2xl bg-zinc-950 px-5 py-3 text-sm font-black text-white"
           >
             Go to login
           </Link>
@@ -1061,116 +1047,47 @@ export default function DashboardPage() {
   }
 
   return (
-    <main className="min-h-screen overflow-hidden bg-slate-950 text-slate-100">
-      <div className="pointer-events-none fixed inset-0">
-        <div className="absolute left-[-10%] top-[-10%] h-80 w-80 rounded-full bg-emerald-500/20 blur-3xl" />
-        <div className="absolute right-[-10%] top-[20%] h-96 w-96 rounded-full bg-cyan-500/10 blur-3xl" />
-        <div className="absolute bottom-[-20%] left-[30%] h-96 w-96 rounded-full bg-purple-500/10 blur-3xl" />
-      </div>
-
+    <main className="fugth-dashboard min-h-screen bg-[#f6f6f4] text-[#202020]">
       <div className="relative flex min-h-screen">
-        <aside className="hidden w-72 shrink-0 border-r border-white/10 bg-slate-950/70 p-5 backdrop-blur-xl lg:flex lg:flex-col">
-          <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400 to-cyan-400 font-black text-slate-950">
-              FG
-            </div>
-            <div>
-              <p className="text-sm font-black text-white">Fugth Management</p>
-              <p className="text-xs text-slate-500">Voice Ops Platform</p>
+        {sidebarOpen && <button type="button" aria-label="Close navigation" onClick={() => setSidebarOpen(false)} className="fixed inset-0 z-40 bg-black/40 lg:hidden" />}
+        <aside className={cx("fixed inset-y-0 left-0 z-50 flex h-screen w-[270px] shrink-0 flex-col border-r border-zinc-200 bg-white px-4 pb-5 pt-5 shadow-xl transition-transform duration-200 lg:sticky lg:top-0 lg:z-10 lg:w-[246px] lg:translate-x-0 lg:shadow-none",sidebarOpen?"translate-x-0":"-translate-x-full")}>
+          <div className="flex items-center justify-between gap-3 px-3">
+            <Link href="/" className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-zinc-950 text-lg font-black text-white">F</span><span><strong className="block text-sm tracking-tight text-zinc-950">Fugth Management</strong><small className="block text-[10px] font-bold uppercase tracking-[.14em] text-zinc-500">Business workspace</small></span></Link>
+            <button type="button" onClick={()=>setSidebarOpen(false)} aria-label="Close menu" className="rounded-lg border border-zinc-200 p-2 lg:hidden">×</button>
+          </div>
+          <div className="mt-8 flex-1 space-y-6 overflow-y-auto pr-1">
+            <nav aria-label="Business navigation"><p className="mb-2 px-3 text-[10px] font-black uppercase tracking-[.17em] text-zinc-400">Daily workspace</p><div className="space-y-1">
+              {primaryNav.map(item=><button key={item.id} type="button" onClick={()=>{setActiveTab(item.id);setSidebarOpen(false)}} className={cx("flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-bold transition",activeTab===item.id?"bg-zinc-950 text-white":"text-zinc-600 hover:bg-zinc-100 hover:text-zinc-950")}><Icon name={item.icon} className="h-[18px] w-[18px]"/><span>{item.label}</span></button>)}
+            </div></nav>
+            <div><button type="button" aria-expanded={toolsOpen} onClick={()=>setToolsOpen(!toolsOpen)} className="flex w-full items-center justify-between rounded-xl px-3 py-3 text-left text-xs font-black uppercase tracking-[.14em] text-zinc-500 hover:bg-zinc-100"><span>More tools</span><span>{toolsOpen?"−":"+"}</span></button>
+              {toolsOpen&&<nav aria-label="Advanced tools" className="mt-1 space-y-1">{toolsNav.map(item=><button key={item.id} type="button" onClick={()=>{setActiveTab(item.id);setSidebarOpen(false)}} className={cx("flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold",activeTab===item.id?"bg-zinc-950 text-white":"text-zinc-600 hover:bg-zinc-100")}><Icon name={item.icon} className="h-[18px] w-[18px]"/>{item.label}</button>)}</nav>}
             </div>
           </div>
-
-          <nav className="mt-8 space-y-2">
-            {visibleNav.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => setActiveTab(item.id)}
-                className={cx(
-                  "flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-bold transition",
-                  activeTab === item.id
-                    ? "bg-emerald-400 text-slate-950 shadow-lg shadow-emerald-500/20"
-                    : "text-slate-400 hover:bg-white/[0.06] hover:text-white"
-                )}
-              >
-                <Icon name={item.icon} />
-                {item.label}
-              </button>
-            ))}
-          </nav>
-
-          <div className="mt-auto rounded-[1.5rem] border border-white/10 bg-white/[0.04] p-4">
-            <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Workspace</p>
-            <p className="mt-2 font-black text-white">{workspace.businessName}</p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Pill tone={statusClass(workspace.status)}>{workspace.status || "active"}</Pill>
-              <Pill tone="border-cyan-400/30 bg-cyan-400/10 text-cyan-200">{workspace.plan || "Starter"}</Pill>
-            </div>
-            <button
-              onClick={() => signOut(auth)}
-              className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 px-4 py-2 text-sm font-bold text-slate-300 hover:bg-white/[0.06]"
-            >
-              <Icon name="logout" className="h-4 w-4" />
-              Sign out
-            </button>
-          </div>
+          <div className="mt-4 border-t border-zinc-200 pt-4"><p className="truncate px-2 text-sm font-black text-zinc-900">{workspace.businessName||"My business"}</p><p className="mt-1 truncate px-2 text-xs text-zinc-500">{user.email}</p><button type="button" onClick={()=>signOut(auth)} className="mt-3 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-zinc-600 hover:bg-zinc-100"><Icon name="logout" className="h-4 w-4"/>Sign out</button></div>
         </aside>
 
         <section className="flex min-w-0 flex-1 flex-col">
-          <header className="sticky top-0 z-20 border-b border-white/10 bg-slate-950/75 px-4 py-4 backdrop-blur-xl sm:px-6 lg:px-8">
-            <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-              <div>
-                <div className="flex items-center gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/[0.06] font-black text-emerald-200">
-                    {initials(workspace.businessName || user.email)}
-                  </div>
-                  <div>
-                    <h1 className="text-xl font-black text-white sm:text-2xl">
-                      {workspace.businessName || "Fugth Command Center"}
-                    </h1>
-                    <p className="text-sm text-slate-400">
-                      {user.email} {isAdmin ? "· Developer Admin" : "· Client Workspace"}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2">
-                <Pill tone={workspace.vapiLinked || workspace.vapiNumber ? statusClass("active") : statusClass("pending")}>
-                  {workspace.vapiLinked || workspace.vapiNumber ? "Voice number linked" : "Needs Vapi link"}
-                </Pill>
-                <GhostButton onClick={createTestCall} disabled={busy === "testCall"}>
-                  Add demo call
-                </GhostButton>
-                <PrimaryButton onClick={() => setActiveTab("leads")}>Add lead</PrimaryButton>
-              </div>
+          <header className="sticky top-0 z-20 border-b border-zinc-200 bg-white/95 px-4 py-4 shadow-sm backdrop-blur sm:px-6 lg:px-8">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-3"><button type="button" aria-label="Open navigation" onClick={()=>setSidebarOpen(true)} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-zinc-200 text-zinc-800 lg:hidden"><span className="text-xl">☰</span></button><div><p className="text-[10px] font-bold uppercase tracking-[.15em] text-zinc-500">{"Fugth workspace"}</p><h1 className="mt-1 text-xl font-black tracking-tight text-zinc-950 sm:text-2xl">{currentNav?.label||"Overview"}</h1></div></div>
+              <div className="flex items-center gap-2"><span className="hidden rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs font-semibold text-zinc-500 sm:block">{workspace.businessName||"Business"}</span></div>
             </div>
-
-            <div className="mt-4 flex gap-2 overflow-x-auto pb-1 lg:hidden">
-              {visibleNav.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => setActiveTab(item.id)}
-                  className={cx(
-                    "flex shrink-0 items-center gap-2 rounded-2xl px-4 py-2 text-xs font-bold",
-                    activeTab === item.id
-                      ? "bg-emerald-400 text-slate-950"
-                      : "border border-white/10 bg-white/[0.04] text-slate-300"
-                  )}
-                >
-                  <Icon name={item.icon} className="h-4 w-4" />
-                  {item.label}
-                </button>
-              ))}
-            </div>
-
-            {notice && (
-              <div className="mt-4 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">
-                {notice}
-              </div>
-            )}
+            {notice&&<div className="mt-3 rounded-xl border border-zinc-300 bg-zinc-100 px-4 py-3 text-sm text-zinc-800">{notice}</div>}
           </header>
 
-          <div className="mx-auto w-full max-w-7xl flex-1 space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+          <div className="mx-auto w-full max-w-[1320px] flex-1 space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+            {activeTab === "overview" && (
+              <section className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-zinc-200 bg-white p-5 sm:p-6">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[.16em] text-zinc-500">Subscription</p>
+                  <p className="mt-2 text-lg font-black text-zinc-950">{workspace.billingActive ? String(workspace.planTier||"").toUpperCase()+" · Active" : "Subscription not activated"}</p>
+                  <p className="mt-1 text-xs leading-6 text-zinc-500">
+                    {workspace.billingActive ? (workspace.billingCancelAtPeriodEnd?"Access ends ":"Next renewal ")+formatDateTime(workspace.billingCurrentPeriodEnd) : "Select a plan to activate voice services. Payment activation is verified by Stripe."}
+                  </p>
+                </div>
+                <Link href="/plans" className="rounded-xl bg-zinc-950 px-4 py-3 text-xs font-black text-white">{workspace.billingActive?"Review plans":"Choose your plan"} →</Link>
+              </section>
+            )}
             {activeTab === "overview" && (
               <>
                 <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -1187,32 +1104,32 @@ export default function DashboardPage() {
                     action={<PrimaryButton onClick={() => setActiveTab("campaigns")}>Start calling</PrimaryButton>}
                   >
                     <div className="grid gap-4 md:grid-cols-3">
-                      <div className="rounded-[1.5rem] border border-white/10 bg-slate-950/60 p-4">
-                        <p className="text-xs uppercase tracking-[0.2em] text-slate-500">AI Number</p>
-                        <p className="mt-2 text-lg font-black text-white">{workspace.vapiNumber || "Not linked"}</p>
-                        <p className="mt-2 text-sm text-slate-400">
-                          {workspace.vapiLinked ? "Ready for inbound calls." : "Add your Vapi number in Settings."}
+                      <div className="rounded-[1.5rem] border border-zinc-200 bg-zinc-50 p-4">
+                        <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">AI Number</p>
+                        <p className="mt-2 text-lg font-black text-zinc-900">{workspace.vapiNumber || "Not linked"}</p>
+                        <p className="mt-2 text-sm text-zinc-500">
+                          {workspace.vapiLinked ? "Check call routing with a live test first." : "Open Phone setup to request your AI line."}
                         </p>
                       </div>
 
-                      <div className="rounded-[1.5rem] border border-white/10 bg-slate-950/60 p-4">
-                        <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Plan Usage</p>
-                        <p className="mt-2 text-lg font-black text-white">{workspace.plan || "Starter"}</p>
-                        <p className="mt-2 text-sm text-slate-400">
-                          {metrics.totalCalls}/{PLAN_LIMITS[workspace.plan]?.calls || 100} calls tracked.
+                      <div className="rounded-[1.5rem] border border-zinc-200 bg-zinc-50 p-4">
+                        <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">Plan Usage</p>
+                        <p className="mt-2 text-lg font-black text-zinc-900">{workspace.planTier || workspace.plan || "No active plan"}</p>
+                        <p className="mt-2 text-sm text-zinc-500">
+                          {metrics.totalCalls} call records shown. Plan limits depend on billing.
                         </p>
                       </div>
 
-                      <div className="rounded-[1.5rem] border border-white/10 bg-slate-950/60 p-4">
-                        <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Trainer Data</p>
-                        <p className="mt-2 text-lg font-black text-white">{metrics.knowledgeCount} items</p>
-                        <p className="mt-2 text-sm text-slate-400">FAQs, service rules, objections, and offers.</p>
+                      <div className="rounded-[1.5rem] border border-zinc-200 bg-zinc-50 p-4">
+                        <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">Trainer Data</p>
+                        <p className="mt-2 text-lg font-black text-zinc-900">{metrics.knowledgeCount} items</p>
+                        <p className="mt-2 text-sm text-zinc-500">FAQs, service rules, objections, and offers.</p>
                       </div>
                     </div>
 
-                    <div className="mt-5 rounded-[1.5rem] border border-white/10 bg-gradient-to-br from-emerald-400/10 to-cyan-400/5 p-5">
+                    <div className="mt-5 rounded-[1.5rem] border border-zinc-200 bg-gradient-to-br from-emerald-400/10 to-cyan-400/5 p-5">
                       <p className="text-sm font-black text-emerald-100">Current AI Receptionist Script</p>
-                      <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-300">
+                      <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-zinc-700">
                         {workspace.aiScript || DEFAULT_SCRIPT}
                       </p>
                     </div>
@@ -1221,7 +1138,7 @@ export default function DashboardPage() {
                   <Panel title="Business Brain" subtitle="What the platform thinks you should do next.">
                     <div className="space-y-3">
                       {advisorCards.map((card) => (
-                        <div key={card.title} className="rounded-[1.5rem] border border-white/10 bg-slate-950/60 p-4">
+                        <div key={card.title} className="rounded-[1.5rem] border border-zinc-200 bg-zinc-50 p-4">
                           <div className="flex items-start gap-3">
                             <div
                               className={cx(
@@ -1230,12 +1147,12 @@ export default function DashboardPage() {
                                   ? "bg-rose-400"
                                   : card.tone === "amber"
                                     ? "bg-amber-400"
-                                    : "bg-emerald-400"
+                                    : "bg-zinc-950"
                               )}
                             />
                             <div>
-                              <p className="font-black text-white">{card.title}</p>
-                              <p className="mt-1 text-sm text-slate-400">{card.body}</p>
+                              <p className="font-black text-zinc-900">{card.title}</p>
+                              <p className="mt-1 text-sm text-zinc-500">{card.body}</p>
                             </div>
                           </div>
                         </div>
@@ -1250,6 +1167,9 @@ export default function DashboardPage() {
                 </section>
               </>
             )}
+
+            {activeTab === "phones" && <PhoneSetup user={user} workspace={workspace} />}
+            {activeTab === "integrations" && <IntegrationsHub />}
 
             {activeTab === "calls" && (
               <Panel
@@ -1268,28 +1188,28 @@ export default function DashboardPage() {
                     <EmptyState title="No calls yet" body="When Vapi starts sending call logs, they will show up here." />
                   ) : (
                     calls.map((call) => (
-                      <div key={call.id} className="rounded-[1.5rem] border border-white/10 bg-slate-950/60 p-5">
+                      <div key={call.id} className="rounded-[1.5rem] border border-zinc-200 bg-zinc-50 p-5">
                         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                           <div>
                             <div className="flex flex-wrap items-center gap-2">
-                              <h3 className="font-black text-white">
+                              <h3 className="font-black text-zinc-900">
                                 {call.callerName || call.name || call.phone || "Unknown Caller"}
                               </h3>
                               <Pill tone={statusClass(call.status || call.outcome)}>
                                 {call.status || call.outcome || "new"}
                               </Pill>
                             </div>
-                            <p className="mt-1 text-sm text-slate-400">
+                            <p className="mt-1 text-sm text-zinc-500">
                               {call.phone || "No phone"} · {formatDateTime(call.createdAt || call.startedAt)}
                             </p>
                           </div>
-                          <p className="text-sm text-slate-500">
+                          <p className="text-sm text-zinc-500">
                             {call.duration ? `${call.duration}s` : "Duration not tracked"}
                           </p>
                         </div>
 
                         {(call.summary || call.transcript) && (
-                          <p className="mt-4 whitespace-pre-wrap rounded-2xl bg-white/[0.04] p-4 text-sm leading-6 text-slate-300">
+                          <p className="mt-4 whitespace-pre-wrap rounded-2xl bg-zinc-50 p-4 text-sm leading-6 text-zinc-700">
                             {call.summary || call.transcript}
                           </p>
                         )}
@@ -1312,6 +1232,7 @@ export default function DashboardPage() {
 
             {activeTab === "leads" && (
               <section className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+                <div className="xl:col-span-2 rounded-2xl border border-zinc-200 bg-white p-6"><p className="text-xs font-black uppercase tracking-[.14em] text-zinc-500">Founder access</p><h2 className="mt-2 text-2xl font-black text-zinc-900">Administration</h2><p className="mt-2 text-sm text-zinc-600">Account management and developer operations stay here, separate from the client workspace.</p>{!adminVerified&&<p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-900">Verify this account\u0027s email in Firebase Authentication before using privileged account or calling operations.</p>}</div>
                 <Panel title="Add Lead" subtitle="Save cold leads, inbound leads, Google Maps leads, and follow-up notes.">
                   <form onSubmit={addLead} className="space-y-4">
                     <Field label="Business Name">
@@ -1388,26 +1309,26 @@ export default function DashboardPage() {
                       <EmptyState title="No leads found" body="Add your first lead or clear the search." />
                     ) : (
                       filteredLeads.map((lead) => (
-                        <div key={lead.id} className="rounded-[1.5rem] border border-white/10 bg-slate-950/60 p-5">
+                        <div key={lead.id} className="rounded-[1.5rem] border border-zinc-200 bg-zinc-50 p-5">
                           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                             <div>
                               <div className="flex flex-wrap items-center gap-2">
-                                <h3 className="font-black text-white">
+                                <h3 className="font-black text-zinc-900">
                                   {lead.businessName || lead.contactName || "Unnamed Lead"}
                                 </h3>
                                 <Pill tone={statusClass(lead.status)}>{lead.status || "new"}</Pill>
                               </div>
-                              <p className="mt-1 text-sm text-slate-400">
+                              <p className="mt-1 text-sm text-zinc-500">
                                 {lead.contactName || "No contact"} · {lead.phone || "No phone"} · {lead.source || "Manual"}
                               </p>
-                              <p className="mt-2 text-sm text-slate-300">
+                              <p className="mt-2 text-sm text-zinc-700">
                                 {lead.service || "No service listed"} {lead.value ? `· ${money(lead.value)}` : ""}
                               </p>
                             </div>
 
                             <div className="flex flex-wrap gap-2">
                               <select
-                                className="rounded-2xl border border-white/10 bg-slate-900 px-3 py-2 text-sm"
+                                className="rounded-2xl border border-zinc-200 bg-slate-900 px-3 py-2 text-sm"
                                 value={lead.status || "new"}
                                 onChange={(e) => updateLead(lead.id, { status: e.target.value })}
                               >
@@ -1425,12 +1346,12 @@ export default function DashboardPage() {
                           </div>
 
                           {lead.notes && (
-                            <p className="mt-4 whitespace-pre-wrap rounded-2xl bg-white/[0.04] p-4 text-sm leading-6 text-slate-300">
+                            <p className="mt-4 whitespace-pre-wrap rounded-2xl bg-zinc-50 p-4 text-sm leading-6 text-zinc-700">
                               {lead.notes}
                             </p>
                           )}
 
-                          <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-500">
+                          <div className="mt-4 flex flex-wrap gap-2 text-xs text-zinc-500">
                             <span>Created: {formatDate(lead.createdAt)}</span>
                             {lead.lastCalledAt && <span>· Last called: {formatDateTime(lead.lastCalledAt)}</span>}
                           </div>
@@ -1483,9 +1404,9 @@ export default function DashboardPage() {
                     {LEAD_STAGES.map((stage) => {
                       const count = leads.filter((lead) => normalize(lead.status) === stage).length;
                       return (
-                        <div key={stage} className="rounded-[1.3rem] border border-white/10 bg-slate-950/60 p-4">
-                          <p className="text-xs uppercase tracking-[0.2em] text-slate-500">{stage}</p>
-                          <p className="mt-2 text-2xl font-black text-white">{count}</p>
+                        <div key={stage} className="rounded-[1.3rem] border border-zinc-200 bg-zinc-50 p-4">
+                          <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">{stage}</p>
+                          <p className="mt-2 text-2xl font-black text-zinc-900">{count}</p>
                         </div>
                       );
                     })}
@@ -1493,11 +1414,11 @@ export default function DashboardPage() {
 
                   <div className="mt-6 space-y-4">
                     {leads.filter((lead) => ["new", "follow_up", "hot"].includes(normalize(lead.status))).slice(0, 8).map((lead) => (
-                      <div key={lead.id} className="rounded-[1.5rem] border border-white/10 bg-white/[0.04] p-4">
+                      <div key={lead.id} className="rounded-[1.5rem] border border-zinc-200 bg-zinc-50 p-4">
                         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                           <div>
-                            <p className="font-black text-white">{lead.businessName || lead.contactName || "Lead"}</p>
-                            <p className="text-sm text-slate-400">{lead.phone || "No phone"} · {lead.service || "No service"}</p>
+                            <p className="font-black text-zinc-900">{lead.businessName || lead.contactName || "Lead"}</p>
+                            <p className="text-sm text-zinc-500">{lead.phone || "No phone"} · {lead.service || "No service"}</p>
                           </div>
                           <div className="flex flex-wrap gap-2">
                             <GhostButton onClick={() => updateLead(lead.id, { status: "called", lastCalledAt: serverTimestamp() })}>
@@ -1520,17 +1441,17 @@ export default function DashboardPage() {
                   </div>
 
                   <div className="mt-6">
-                    <h3 className="mb-3 font-black text-white">Saved Campaigns</h3>
+                    <h3 className="mb-3 font-black text-zinc-900">Saved Campaigns</h3>
                     <div className="space-y-3">
                       {campaigns.length === 0 ? (
                         <EmptyState title="No campaigns yet" body="Create your first outbound campaign." />
                       ) : (
                         campaigns.map((campaign) => (
-                          <div key={campaign.id} className="rounded-[1.5rem] border border-white/10 bg-slate-950/60 p-4">
+                          <div key={campaign.id} className="rounded-[1.5rem] border border-zinc-200 bg-zinc-50 p-4">
                             <div className="flex flex-wrap items-center justify-between gap-3">
                               <div>
-                                <p className="font-black text-white">{campaign.name || "Untitled Campaign"}</p>
-                                <p className="text-sm text-slate-400">{campaign.market || "No market"} · {campaign.goal || "No goal"}</p>
+                                <p className="font-black text-zinc-900">{campaign.name || "Untitled Campaign"}</p>
+                                <p className="text-sm text-zinc-500">{campaign.market || "No market"} · {campaign.goal || "No goal"}</p>
                               </div>
                               <Pill tone={statusClass(campaign.status)}>{campaign.status || "draft"}</Pill>
                             </div>
@@ -1586,7 +1507,7 @@ export default function DashboardPage() {
             {activeTab === "advisor" && (
               <Panel title="Executive AI Advisor" subtitle="Ask for business fixes, sales strategy, CRM cleanup, or next moves.">
                 <div className="grid gap-6 xl:grid-cols-[1fr_0.7fr]">
-                  <div className="rounded-[1.5rem] border border-white/10 bg-slate-950/60 p-4">
+                  <div className="rounded-[1.5rem] border border-zinc-200 bg-zinc-50 p-4">
                     <div className="max-h-[520px] space-y-4 overflow-y-auto pr-1">
                       {advisorMessages.map((message, index) => (
                         <div
@@ -1594,8 +1515,8 @@ export default function DashboardPage() {
                           className={cx(
                             "rounded-[1.4rem] p-4 text-sm leading-6",
                             message.role === "user"
-                              ? "ml-auto max-w-[85%] bg-emerald-400 text-slate-950"
-                              : "mr-auto max-w-[90%] bg-white/[0.06] text-slate-200"
+                              ? "ml-auto max-w-[85%] bg-zinc-950 text-white"
+                              : "mr-auto max-w-[90%] bg-zinc-100 text-zinc-700"
                           )}
                         >
                           {message.content}
@@ -1618,9 +1539,9 @@ export default function DashboardPage() {
 
                   <div className="space-y-4">
                     {advisorCards.map((card) => (
-                      <div key={card.title} className="rounded-[1.5rem] border border-white/10 bg-white/[0.04] p-5">
-                        <p className="font-black text-white">{card.title}</p>
-                        <p className="mt-2 text-sm leading-6 text-slate-400">{card.body}</p>
+                      <div key={card.title} className="rounded-[1.5rem] border border-zinc-200 bg-zinc-50 p-5">
+                        <p className="font-black text-zinc-900">{card.title}</p>
+                        <p className="mt-2 text-sm leading-6 text-zinc-500">{card.body}</p>
                       </div>
                     ))}
                   </div>
@@ -1663,15 +1584,15 @@ export default function DashboardPage() {
                       <EmptyState title="No training yet" body="Add FAQs, prices, service areas, and call rules." />
                     ) : (
                       knowledge.map((item) => (
-                        <div key={item.id} className="rounded-[1.5rem] border border-white/10 bg-slate-950/60 p-5">
+                        <div key={item.id} className="rounded-[1.5rem] border border-zinc-200 bg-zinc-50 p-5">
                           <div className="flex flex-wrap items-center justify-between gap-3">
                             <div>
-                              <p className="font-black text-white">{item.title || "Untitled"}</p>
-                              <p className="text-sm text-slate-500">{item.type || "Training"} · {formatDate(item.createdAt)}</p>
+                              <p className="font-black text-zinc-900">{item.title || "Untitled"}</p>
+                              <p className="text-sm text-zinc-500">{item.type || "Training"} · {formatDate(item.createdAt)}</p>
                             </div>
                             <Pill tone="border-cyan-400/30 bg-cyan-400/10 text-cyan-200">{item.type || "FAQ"}</Pill>
                           </div>
-                          <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-slate-300">{item.content}</p>
+                          <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-zinc-700">{item.content}</p>
                         </div>
                       ))
                     )}
@@ -1680,8 +1601,23 @@ export default function DashboardPage() {
               </section>
             )}
 
-            {activeTab === "settings" && (
-              <Panel title="Workspace Settings" subtitle="Client setup, Vapi number, business info, AI script, and plan controls.">
+            {activeTab === "settings" && isAdmin && (
+              <section className="rounded-2xl border border-zinc-200 bg-white p-5 sm:p-6">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div><p className="text-[11px] font-black uppercase tracking-widest text-zinc-500">Founder workspace access</p><p className="mt-2 text-sm text-zinc-600">The customer dashboard looks exactly the same for every account. Founder-only controls stay here in Settings.</p></div>
+                  <div className="inline-flex rounded-xl border border-zinc-200 bg-zinc-100 p-1" role="group" aria-label="Settings mode">
+                    <button type="button" aria-pressed={!adminMode} onClick={()=>setAdminMode(false)} className={cx("rounded-lg px-4 py-2.5 text-xs font-black",!adminMode?"bg-zinc-950 text-white":"text-zinc-700")}>Normal</button>
+                    <button type="button" aria-pressed={adminMode} onClick={()=>setAdminMode(true)} className={cx("rounded-lg px-4 py-2.5 text-xs font-black",adminMode?"bg-zinc-950 text-white":"text-zinc-700")}>Administration</button>
+                  </div>
+                </div>
+              </section>
+            )}
+            {activeTab === "settings" && !adminMode && (
+              <Panel title="Business settings" subtitle="Business details, hours, and assistant instructions. Configure your phone in Phone setup.">
+              <div className="mb-5 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-zinc-200 bg-zinc-50 p-4">
+                <div><p className="text-xs font-black uppercase tracking-widest text-zinc-500">Your subscription</p><p className="mt-2 text-sm font-bold">{workspace.billingActive?String(workspace.planTier||"").toUpperCase()+" · "+String(workspace.planStatus||"active"):"No verified active subscription"}</p><p className="mt-1 text-xs text-zinc-600">{workspace.billingCurrentPeriodEnd?"Billing period ends "+formatDateTime(workspace.billingCurrentPeriodEnd):"Monthly billing dates appear after verified Stripe payment."}</p></div>
+                <Link href="/plans" className="rounded-lg bg-zinc-950 px-4 py-2.5 text-xs font-black text-white">View subscriptions →</Link>
+              </div>
                 <form onSubmit={saveWorkspace} className="space-y-5">
                   <div className="grid gap-4 md:grid-cols-2">
                     <Field label="Business Name">
@@ -1708,27 +1644,6 @@ export default function DashboardPage() {
                     <Field label="Booking Link">
                       <input className={inputClass} value={settingsForm.bookingLink || ""} onChange={(e) => setSettingsForm({ ...settingsForm, bookingLink: e.target.value })} />
                     </Field>
-                    <Field label="Vapi Number">
-                      <input className={inputClass} value={settingsForm.vapiNumber || ""} onChange={(e) => setSettingsForm({ ...settingsForm, vapiNumber: e.target.value })} placeholder="+1..." />
-                    </Field>
-                    <Field label="Vapi Assistant ID">
-                      <input className={inputClass} value={settingsForm.vapiAssistantId || ""} onChange={(e) => setSettingsForm({ ...settingsForm, vapiAssistantId: e.target.value })} placeholder="assistant id" />
-                    </Field>
-                    <Field label="Plan">
-                      <select className={inputClass} value={settingsForm.plan || "Starter"} onChange={(e) => setSettingsForm({ ...settingsForm, plan: e.target.value })}>
-                        <option>Starter</option>
-                        <option>Growth</option>
-                        <option>Elite</option>
-                      </select>
-                    </Field>
-                    <Field label="Status">
-                      <select className={inputClass} value={settingsForm.status || "active"} onChange={(e) => setSettingsForm({ ...settingsForm, status: e.target.value })}>
-                        <option>active</option>
-                        <option>trial</option>
-                        <option>past_due</option>
-                        <option>inactive</option>
-                      </select>
-                    </Field>
                   </div>
 
                   <Field label="Primary Goal">
@@ -1743,20 +1658,17 @@ export default function DashboardPage() {
                     <PrimaryButton type="submit" disabled={busy === "settings"}>
                       Save Workspace
                     </PrimaryButton>
-                    <GhostButton onClick={linkVapiNumber} disabled={busy === "vapi"}>
-                      Link Vapi Number
-                    </GhostButton>
-                    <Link href="/pricing" className="rounded-2xl border border-white/10 px-5 py-3 text-center text-sm font-bold text-slate-200 hover:bg-white/[0.06]">
-                      View Pricing
+                    <Link href="/plans" className="rounded-2xl border border-zinc-200 px-5 py-3 text-center text-sm font-bold text-zinc-700 hover:bg-zinc-100">
+                      Subscription plans
                     </Link>
                   </div>
                 </form>
               </Panel>
             )}
 
-            {activeTab === "dev_ops" && isAdmin && (
+            {activeTab === "settings" && isAdmin && adminMode && (
               <section className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
-                <Panel title="Developer Operations" subtitle="Admin-only tools for client creation, account updates, demos, and support.">
+                <details className="rounded-2xl border border-zinc-200 bg-white p-5 xl:col-span-2"><summary className="cursor-pointer text-base font-black text-zinc-950">Account management <span className="ml-2 text-xs font-medium text-zinc-500">Create accounts and update clients</span></summary><div className="mt-5">                <Panel title="Developer Operations" subtitle="Admin-only tools for client creation, account updates, demos, and support.">
                   <form onSubmit={devCreateAccount} className="space-y-4">
                     <Field label="Client Email">
                       <input className={inputClass} value={devForm.email} onChange={(e) => setDevForm({ ...devForm, email: e.target.value })} placeholder="client@email.com" />
@@ -1804,7 +1716,9 @@ export default function DashboardPage() {
                   </form>
                 </Panel>
 
-                <Panel title="Admin Snapshot" subtitle="Fast control center for founder testing.">
+                </div></details>
+                <details className="rounded-2xl border border-zinc-200 bg-white p-5 xl:col-span-2"><summary className="cursor-pointer text-base font-black text-zinc-950">Vapi infrastructure <span className="ml-2 text-xs font-medium text-zinc-500">Assistants, phone numbers and recent call states</span></summary><div className="mt-5"><VapiConsole /></div></details>
+                <details className="rounded-2xl border border-zinc-200 bg-white p-5 xl:col-span-2"><summary className="cursor-pointer text-base font-black text-zinc-950">Founder diagnostics <span className="ml-2 text-xs font-medium text-zinc-500">Internal test checklist</span></summary><div className="mt-5">                <Panel title="Admin Snapshot" subtitle="Fast control center for founder testing.">
                   <div className="grid gap-4 sm:grid-cols-2">
                     <StatCard label="Workspace Leads" value={metrics.totalLeads} icon="leads" />
                     <StatCard label="Workspace Calls" value={metrics.totalCalls} icon="calls" />
@@ -1812,9 +1726,9 @@ export default function DashboardPage() {
                     <StatCard label="Pipeline Value" value={money(metrics.pipelineValue)} icon="advisor" />
                   </div>
 
-                  <div className="mt-6 rounded-[1.5rem] border border-white/10 bg-slate-950/60 p-5">
-                    <p className="font-black text-white">Founder Checklist</p>
-                    <div className="mt-4 space-y-3 text-sm text-slate-300">
+                  <div className="mt-6 rounded-[1.5rem] border border-zinc-200 bg-zinc-50 p-5">
+                    <p className="font-black text-zinc-900">Founder Checklist</p>
+                    <div className="mt-4 space-y-3 text-sm text-zinc-700">
                       <ChecklistItem done={Boolean(workspace.vapiNumber)}>Vapi number linked</ChecklistItem>
                       <ChecklistItem done={metrics.knowledgeCount >= 3}>Trainer has at least 3 knowledge items</ChecklistItem>
                       <ChecklistItem done={metrics.totalLeads > 0}>CRM has saved leads</ChecklistItem>
@@ -1823,21 +1737,9 @@ export default function DashboardPage() {
                     </div>
                   </div>
 
-                  <div className="mt-6 rounded-[1.5rem] border border-emerald-400/20 bg-emerald-400/10 p-5">
-                    <p className="font-black text-emerald-100">Dev API Paths Expected</p>
-                    <p className="mt-2 text-sm leading-6 text-emerald-50/80">
-                      This dashboard will reuse your existing Vercel backend if these routes exist:
-                      <br />
-                      <span className="font-mono">/api/dev/create-account</span>
-                      <br />
-                      <span className="font-mono">/api/dev/update-account</span>
-                      <br />
-                      <span className="font-mono">/api/advisor</span>
-                      <br />
-                      <span className="font-mono">/api/vapi/book-appointment</span>
-                    </p>
-                  </div>
+
                 </Panel>
+                </div></details>
               </section>
             )}
           </div>
@@ -1858,9 +1760,9 @@ function Field({ label, children }) {
 
 function EmptyState({ title, body }) {
   return (
-    <div className="rounded-[1.5rem] border border-dashed border-white/10 bg-white/[0.025] p-8 text-center">
-      <p className="font-black text-white">{title}</p>
-      <p className="mt-2 text-sm text-slate-400">{body}</p>
+    <div className="rounded-[1.5rem] border border-dashed border-zinc-200 bg-zinc-50 p-8 text-center">
+      <p className="font-black text-zinc-900">{title}</p>
+      <p className="mt-2 text-sm text-zinc-500">{body}</p>
     </div>
   );
 }
@@ -1872,13 +1774,13 @@ function ChecklistItem({ done, children }) {
         className={cx(
           "flex h-6 w-6 items-center justify-center rounded-full border text-xs font-black",
           done
-            ? "border-emerald-400 bg-emerald-400 text-slate-950"
-            : "border-white/10 bg-white/[0.04] text-slate-500"
+            ? "border-emerald-400 bg-zinc-950 text-white"
+            : "border-zinc-200 bg-zinc-50 text-zinc-500"
         )}
       >
         {done ? "✓" : "·"}
       </span>
-      <span className={done ? "text-slate-200" : "text-slate-500"}>{children}</span>
+      <span className={done ? "text-zinc-700" : "text-zinc-500"}>{children}</span>
     </div>
   );
 }
@@ -1891,15 +1793,15 @@ function RecentCalls({ calls }) {
           <EmptyState title="No recent calls" body="Call records will appear here." />
         ) : (
           calls.slice(0, 6).map((call) => (
-            <div key={call.id} className="rounded-[1.3rem] border border-white/10 bg-slate-950/60 p-4">
+            <div key={call.id} className="rounded-[1.3rem] border border-zinc-200 bg-zinc-50 p-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <p className="font-black text-white">{call.callerName || call.name || call.phone || "Unknown Caller"}</p>
-                  <p className="text-sm text-slate-400">{call.phone || "No phone"} · {formatDateTime(call.createdAt || call.startedAt)}</p>
+                  <p className="font-black text-zinc-900">{call.callerName || call.name || call.phone || "Unknown Caller"}</p>
+                  <p className="text-sm text-zinc-500">{call.phone || "No phone"} · {formatDateTime(call.createdAt || call.startedAt)}</p>
                 </div>
                 <Pill tone={statusClass(call.status || call.outcome)}>{call.status || call.outcome || "new"}</Pill>
               </div>
-              {call.summary && <p className="mt-3 text-sm leading-6 text-slate-400">{call.summary}</p>}
+              {call.summary && <p className="mt-3 text-sm leading-6 text-zinc-500">{call.summary}</p>}
             </div>
           ))
         )}
@@ -1916,18 +1818,18 @@ function RecentAppointments({ appointments, large = false }) {
           <EmptyState title="No appointments yet" body="Booked appointments will appear here." />
         ) : (
           appointments.slice(0, large ? 20 : 6).map((appt) => (
-            <div key={appt.id} className="rounded-[1.3rem] border border-white/10 bg-slate-950/60 p-4">
+            <div key={appt.id} className="rounded-[1.3rem] border border-zinc-200 bg-zinc-50 p-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <p className="font-black text-white">{appt.customerName || appt.name || "Appointment"}</p>
-                  <p className="text-sm text-slate-400">
+                  <p className="font-black text-zinc-900">{appt.customerName || appt.name || "Appointment"}</p>
+                  <p className="text-sm text-zinc-500">
                     {appt.service || "No service"} · {formatDateTime(appt.startTime || appt.date || appt.createdAt)}
                   </p>
-                  {appt.phone && <p className="mt-1 text-sm text-slate-500">{appt.phone}</p>}
+                  {appt.phone && <p className="mt-1 text-sm text-zinc-500">{appt.phone}</p>}
                 </div>
                 <Pill tone={statusClass(appt.status)}>{appt.status || "scheduled"}</Pill>
               </div>
-              {appt.notes && <p className="mt-3 text-sm leading-6 text-slate-400">{appt.notes}</p>}
+              {appt.notes && <p className="mt-3 text-sm leading-6 text-zinc-500">{appt.notes}</p>}
             </div>
           ))
         )}
