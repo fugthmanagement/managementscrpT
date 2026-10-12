@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import Link from "next/link";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import {
@@ -398,6 +398,8 @@ export default function DashboardPage() {
   const [busy, setBusy] = useState("");
 
   const [workspace, setWorkspace] = useState(DEFAULT_WORKSPACE);
+  const accountNumberAttempts=useRef(new Set());
+  const [lastCreatedAccountNumber,setLastCreatedAccountNumber]=useState("");
   const [settingsForm, setSettingsForm] = useState(DEFAULT_WORKSPACE);
 
   const [calls, setCalls] = useState([]);
@@ -484,6 +486,21 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!isAdmin && adminMode) setAdminMode(false);
   }, [isAdmin, adminMode]);
+  // Existing customer accounts receive the same permanent FUGTH number once
+  // the server credentials are available. Retries happen on a later login.
+  useEffect(()=>{
+    if(!user?.uid || workspace.id!==user.uid || workspace.accountNumber || accountNumberAttempts.current.has(user.uid))return;
+    accountNumberAttempts.current.add(user.uid);
+    let active=true;
+    (async()=>{try{
+      const token=await auth.currentUser?.getIdToken();
+      if(!token)return;
+      const response=await fetch("/api/account-number",{method:"POST",headers:{Authorization:`Bearer ${token}`},cache:"no-store"});
+      if(!response.ok && active) console.warn("FUGTH account number assignment pending.");
+    }catch{if(active)console.warn("FUGTH account number service temporarily unavailable.");}})();
+    return()=>{active=false;};
+  },[user?.uid,workspace.id,workspace.accountNumber]);
+
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -971,8 +988,9 @@ export default function DashboardPage() {
       if (!response.ok) throw new Error(data.error || "Create account API failed.");
 
       setLastCreatedSite(data.siteReady ? (data.siteUrl || "") : "");
+      setLastCreatedAccountNumber(data.accountNumber||"");
       setDevForm(prev=>({...prev,uid:data.uid||prev.uid}));
-      setNotice(data.siteReady?"Client account created with a FUGTH site preview.":"Account created, but the site preview needs Firebase configuration.");
+      setNotice(data.siteReady?`Client #${data.accountNumber||"pending"} created with a FUGTH website preview.`:`Client #${data.accountNumber||"pending"} created, but the website preview needs Firebase configuration.`);
     } catch (error) {
       setNotice(error.message);
     } finally {
@@ -1103,7 +1121,7 @@ export default function DashboardPage() {
               {toolsOpen&&<nav aria-label="Advanced tools" className="mt-1 space-y-1">{toolsNav.map(item=><button key={item.id} type="button" onClick={()=>{setActiveTab(item.id);setSidebarOpen(false)}} className={cx("flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold",activeTab===item.id?"bg-zinc-950 text-white":"text-zinc-600 hover:bg-zinc-100")}><Icon name={item.icon} className="h-[18px] w-[18px]"/>{item.label}</button>)}</nav>}
             </div>
           </div>
-          <div className="mt-4 border-t border-zinc-200 pt-4"><p className="truncate px-2 text-sm font-black text-zinc-900">{workspace.businessName||"My business"}</p><p className="mt-1 truncate px-2 text-xs text-zinc-500">{user.email}</p><button type="button" onClick={()=>signOut(auth)} className="mt-3 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-zinc-600 hover:bg-zinc-100"><Icon name="logout" className="h-4 w-4"/>Sign out</button></div>
+          <div className="mt-4 border-t border-zinc-200 pt-4"><p className="truncate px-2 text-sm font-black text-zinc-900">{workspace.businessName||"My business"}</p><p className="mt-1 truncate px-2 text-xs text-zinc-500">{user.email}</p><p className="mt-2 px-2 text-[11px] font-semibold text-zinc-500">FUGTH account · {workspace.accountNumber||"Assignment pending"}</p><button type="button" onClick={()=>signOut(auth)} className="mt-3 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-zinc-600 hover:bg-zinc-100"><Icon name="logout" className="h-4 w-4"/>Sign out</button></div>
         </aside>
 
         <section className="flex min-w-0 flex-1 flex-col">
@@ -1655,6 +1673,10 @@ export default function DashboardPage() {
             )}
             {activeTab === "settings" && !adminMode && (
               <Panel title="Business settings" subtitle="Business details, hours, and assistant instructions. Configure your phone in Phone setup.">
+                <div className="mb-5 flex items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-[#f7f7f4] p-4">
+                  <span className="text-xs font-semibold text-zinc-500">Your FUGTH account number</span>
+                  <span className="font-mono text-lg font-black tracking-[.12em] text-zinc-950">{workspace.accountNumber||"Pending"}</span>
+                </div>
               <div className="mb-5 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-zinc-200 bg-zinc-50 p-4">
                 <div><p className="text-xs font-black uppercase tracking-widest text-zinc-500">Your subscription</p><p className="mt-2 text-sm font-bold">{workspace.billingActive?String(workspace.planTier||"").toUpperCase()+" · "+String(workspace.planStatus||"active"):"No verified active subscription"}</p><p className="mt-1 text-xs text-zinc-600">{workspace.billingCurrentPeriodEnd?"Billing period ends "+formatDateTime(workspace.billingCurrentPeriodEnd):"Monthly billing dates appear after verified Stripe payment."}</p></div>
                 <Link href="/plans" className="rounded-lg bg-zinc-950 px-4 py-2.5 text-xs font-black text-white">View subscriptions →</Link>
@@ -1761,6 +1783,7 @@ export default function DashboardPage() {
                       <GhostButton onClick={devGenerateSite} disabled={busy === "devSite" || !devForm.businessName.trim()}>
                         {busy === "devSite" ? "Generating..." : "Generate prospect site"}
                       </GhostButton>
+                      {lastCreatedAccountNumber && <span className="rounded-xl bg-zinc-100 px-4 py-3 font-mono text-sm font-black text-zinc-900">FUGTH #{lastCreatedAccountNumber}</span>}
                       {lastCreatedSite && <a href={lastCreatedSite} target="_blank" rel="noopener noreferrer" className="rounded-xl border border-zinc-300 bg-white px-5 py-3 text-sm font-black text-zinc-950">Open created client site ↗</a>}
                     </div>
                   </form>
