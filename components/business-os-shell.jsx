@@ -65,7 +65,6 @@ const NAV_ITEMS = [
   { id: "knowledge", label: "AI training", icon: "book" },
   { id: "advisor", label: "Business advisor", icon: "advisor" },
   { id: "settings", label: "Business settings", icon: "settings" },
-  { id: "dev_ops", label: "Administration", icon: "shield" },
 ];
 const EVERYDAY_NAV = ["overview","calls","leads","appointments","phones","integrations"];
 const TOOLS_NAV = ["campaigns","knowledge","advisor","settings"];
@@ -388,7 +387,7 @@ export default function DashboardPage() {
   useEffect(() => { if (typeof window !== "undefined" && new URLSearchParams(window.location.search).has("integration")) setActiveTab("integrations"); }, []);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
-  const [clientPreview, setClientPreview] = useState(false);
+  const [adminMode, setAdminMode] = useState(false);
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState("");
 
@@ -475,8 +474,8 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
-    if ((!isAdmin || clientPreview) && activeTab === "dev_ops") setActiveTab("overview");
-  }, [isAdmin, clientPreview, activeTab]);
+    if (!isAdmin && adminMode) setAdminMode(false);
+  }, [isAdmin, adminMode]);
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -1062,7 +1061,6 @@ export default function DashboardPage() {
             <div><button type="button" aria-expanded={toolsOpen} onClick={()=>setToolsOpen(!toolsOpen)} className="flex w-full items-center justify-between rounded-xl px-3 py-3 text-left text-xs font-black uppercase tracking-[.14em] text-zinc-500 hover:bg-zinc-100"><span>More tools</span><span>{toolsOpen?"−":"+"}</span></button>
               {toolsOpen&&<nav aria-label="Advanced tools" className="mt-1 space-y-1">{toolsNav.map(item=><button key={item.id} type="button" onClick={()=>{setActiveTab(item.id);setSidebarOpen(false)}} className={cx("flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold",activeTab===item.id?"bg-zinc-950 text-white":"text-zinc-600 hover:bg-zinc-100")}><Icon name={item.icon} className="h-[18px] w-[18px]"/>{item.label}</button>)}</nav>}
             </div>
-            {isAdmin&&!clientPreview&&<nav aria-label="Administrator navigation" className="border-t border-zinc-200 pt-5"><p className="mb-2 px-3 text-[10px] font-black uppercase tracking-[.17em] text-zinc-400">Founder only</p><button type="button" onClick={()=>{setActiveTab("dev_ops");setSidebarOpen(false)}} className={cx("flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-black",activeTab==="dev_ops"?"bg-zinc-950 text-white":"text-zinc-700 hover:bg-zinc-100")}><Icon name="shield" className="h-[18px] w-[18px]"/>Administration</button></nav>}
           </div>
           <div className="mt-4 border-t border-zinc-200 pt-4"><p className="truncate px-2 text-sm font-black text-zinc-900">{workspace.businessName||"My business"}</p><p className="mt-1 truncate px-2 text-xs text-zinc-500">{user.email}</p><button type="button" onClick={()=>signOut(auth)} className="mt-3 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-zinc-600 hover:bg-zinc-100"><Icon name="logout" className="h-4 w-4"/>Sign out</button></div>
         </aside>
@@ -1070,10 +1068,9 @@ export default function DashboardPage() {
         <section className="flex min-w-0 flex-1 flex-col">
           <header className="sticky top-0 z-20 border-b border-zinc-200 bg-white/95 px-4 py-4 shadow-sm backdrop-blur sm:px-6 lg:px-8">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex min-w-0 items-center gap-3"><button type="button" aria-label="Open navigation" onClick={()=>setSidebarOpen(true)} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-zinc-200 text-zinc-800 lg:hidden"><span className="text-xl">☰</span></button><div><p className="text-[10px] font-bold uppercase tracking-[.15em] text-zinc-500">{clientPreview?"Customer layout preview":"Fugth workspace"}</p><h1 className="mt-1 text-xl font-black tracking-tight text-zinc-950 sm:text-2xl">{currentNav?.label||"Overview"}</h1></div></div>
-              <div className="flex items-center gap-2">{isAdmin&&<button type="button" onClick={()=>{setClientPreview(!clientPreview);setActiveTab("overview");setSidebarOpen(false)}} className="rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-xs font-black text-zinc-700 hover:bg-zinc-100">{clientPreview?"Exit customer layout":"View customer layout"}</button>}<span className="hidden rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs font-semibold text-zinc-500 sm:block">{workspace.businessName||"Business"}</span></div>
+              <div className="flex min-w-0 items-center gap-3"><button type="button" aria-label="Open navigation" onClick={()=>setSidebarOpen(true)} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-zinc-200 text-zinc-800 lg:hidden"><span className="text-xl">☰</span></button><div><p className="text-[10px] font-bold uppercase tracking-[.15em] text-zinc-500">{"Fugth workspace"}</p><h1 className="mt-1 text-xl font-black tracking-tight text-zinc-950 sm:text-2xl">{currentNav?.label||"Overview"}</h1></div></div>
+              <div className="flex items-center gap-2"><span className="hidden rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs font-semibold text-zinc-500 sm:block">{workspace.businessName||"Business"}</span></div>
             </div>
-            {clientPreview&&<p role="note" className="mt-3 rounded-xl border border-zinc-300 bg-zinc-100 px-4 py-2 text-xs font-medium text-zinc-700">Customer layout preview. You are still signed in as an administrator; the data shown belongs to your own workspace.</p>}
             {notice&&<div className="mt-3 rounded-xl border border-zinc-300 bg-zinc-100 px-4 py-3 text-sm text-zinc-800">{notice}</div>}
           </header>
 
@@ -1591,7 +1588,18 @@ export default function DashboardPage() {
               </section>
             )}
 
-            {activeTab === "settings" && (
+            {activeTab === "settings" && isAdmin && (
+              <section className="rounded-2xl border border-zinc-200 bg-white p-5 sm:p-6">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div><p className="text-[11px] font-black uppercase tracking-widest text-zinc-500">Founder workspace access</p><p className="mt-2 text-sm text-zinc-600">The customer dashboard looks exactly the same for every account. Founder-only controls stay here in Settings.</p></div>
+                  <div className="inline-flex rounded-xl border border-zinc-200 bg-zinc-100 p-1" role="group" aria-label="Settings mode">
+                    <button type="button" aria-pressed={!adminMode} onClick={()=>setAdminMode(false)} className={cx("rounded-lg px-4 py-2.5 text-xs font-black",!adminMode?"bg-zinc-950 text-white":"text-zinc-700")}>Normal</button>
+                    <button type="button" aria-pressed={adminMode} onClick={()=>setAdminMode(true)} className={cx("rounded-lg px-4 py-2.5 text-xs font-black",adminMode?"bg-zinc-950 text-white":"text-zinc-700")}>Administration</button>
+                  </div>
+                </div>
+              </section>
+            )}
+            {activeTab === "settings" && !adminMode && (
               <Panel title="Business settings" subtitle="Business details, hours, and assistant instructions. Configure your phone in Phone setup.">
                 <form onSubmit={saveWorkspace} className="space-y-5">
                   <div className="grid gap-4 md:grid-cols-2">
@@ -1633,15 +1641,15 @@ export default function DashboardPage() {
                     <PrimaryButton type="submit" disabled={busy === "settings"}>
                       Save Workspace
                     </PrimaryButton>
-                    <Link href="/#pricing" className="rounded-2xl border border-zinc-200 px-5 py-3 text-center text-sm font-bold text-zinc-700 hover:bg-zinc-100">
-                      View Pricing
+                    <Link href="/plans" className="rounded-2xl border border-zinc-200 px-5 py-3 text-center text-sm font-bold text-zinc-700 hover:bg-zinc-100">
+                      Subscription plans
                     </Link>
                   </div>
                 </form>
               </Panel>
             )}
 
-            {activeTab === "dev_ops" && isAdmin && !clientPreview && (
+            {activeTab === "settings" && isAdmin && adminMode && (
               <section className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
                 <details className="rounded-2xl border border-zinc-200 bg-white p-5 xl:col-span-2"><summary className="cursor-pointer text-base font-black text-zinc-950">Account management <span className="ml-2 text-xs font-medium text-zinc-500">Create accounts and update clients</span></summary><div className="mt-5">                <Panel title="Developer Operations" subtitle="Admin-only tools for client creation, account updates, demos, and support.">
                   <form onSubmit={devCreateAccount} className="space-y-4">
