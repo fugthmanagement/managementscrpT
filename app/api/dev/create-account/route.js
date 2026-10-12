@@ -1,3 +1,4 @@
+import { randomBytes } from "crypto";
 import { NextResponse } from 'next/server';
 import admin from 'firebase-admin';
 
@@ -32,24 +33,26 @@ export async function POST(req) {
     }
 
     const adminEmail = (verified.email || '').toLowerCase();
-    if (!ADMIN_EMAILS.includes(adminEmail)) {
+    if (!verified.email_verified || !ADMIN_EMAILS.includes(adminEmail)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
     const body = await req.json();
-    const { email, password, displayName } = body;
+    const { email, password } = body;
+    const displayName = body.displayName || body.businessName || '';
     if (!email) return NextResponse.json({ error: 'Missing email' }, { status: 400 });
 
     // Allow creating an account with no plan (planTier === 'none')
-    let planTier = body.planTier ?? 'none';
-    let planStatus = body.planStatus ?? (planTier === 'none' ? 'inactive' : 'trial');
+    let planTier = body.planTier ?? body.plan ?? 'none';
+    let planStatus = body.planStatus ?? body.status ?? (planTier === 'none' ? 'inactive' : 'trial');
+    const businessPhone = body.phone ?? '';
     const fugthNumber = body.fugthNumber ?? '';
     const stripeCustomerId = body.stripeCustomerId ?? null;
 
     // Create or update user
     let userRecord;
     try {
-      userRecord = await admin.auth().createUser({ email, password: password || Math.random().toString(36).slice(2, 10), displayName: displayName || '' });
+      userRecord = await admin.auth().createUser({ email, password: password || randomBytes(24).toString('base64url'), displayName: displayName || '' });
     } catch (err) {
       if (err.code === 'auth/email-already-exists') {
         userRecord = await admin.auth().getUserByEmail(email);
@@ -85,7 +88,7 @@ export async function POST(req) {
       displayName: displayName || '',
       planTier,
       planStatus,
-      fugthNumber: fugthNumber || '',
+      fugthNumber: '',
       stripeCustomerId: stripeCustomerId || null,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       createdBy: verified.uid
