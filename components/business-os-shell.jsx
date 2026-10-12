@@ -43,8 +43,8 @@ const DEFAULT_WORKSPACE = {
   serviceArea: "",
   hours: "Mon-Fri 9 AM - 5 PM",
   bookingLink: "",
-  plan: "Starter",
-  status: "active",
+  plan: "",
+  status: "",
   vapiNumber: "",
   vapiAssistantId: "",
   vapiLinked: false,
@@ -458,7 +458,7 @@ export default function DashboardPage() {
     status: "active",
   });
 
-  const isAdmin = ADMIN_EMAILS.includes(normalize(user?.email));
+  const isAdmin = Boolean(user?.emailVerified) && ADMIN_EMAILS.includes(normalize(user?.email));
   const primaryNav = NAV_ITEMS.filter(item => EVERYDAY_NAV.includes(item.id));
   const toolsNav = NAV_ITEMS.filter(item => TOOLS_NAV.includes(item.id));
   const currentNav = NAV_ITEMS.find(item => item.id === activeTab);
@@ -676,34 +676,6 @@ export default function DashboardPage() {
       );
 
       setNotice("Workspace saved.");
-    } catch (error) {
-      setNotice(error.message);
-    } finally {
-      setBusy("");
-    }
-  }
-
-  async function linkVapiNumber() {
-    if (!user?.uid) return;
-
-    setBusy("vapi");
-    setNotice("");
-
-    try {
-      await setDoc(
-        doc(db, "users", user.uid),
-        sanitizeForFirestore({
-          vapiNumber: settingsForm.vapiNumber || workspace.vapiNumber || "",
-          vapiAssistantId: settingsForm.vapiAssistantId || workspace.vapiAssistantId || "",
-          vapiLinked: Boolean(settingsForm.vapiNumber || workspace.vapiNumber),
-          needsVapiLink: false,
-          vapiLinkedAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        }),
-        { merge: true }
-      );
-
-      setNotice("Vapi number linked to this workspace.");
     } catch (error) {
       setNotice(error.message);
     } finally {
@@ -1124,15 +1096,15 @@ export default function DashboardPage() {
                         <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">AI Number</p>
                         <p className="mt-2 text-lg font-black text-zinc-900">{workspace.vapiNumber || "Not linked"}</p>
                         <p className="mt-2 text-sm text-zinc-500">
-                          {workspace.vapiLinked ? "Ready for inbound calls." : "Add your Vapi number in Settings."}
+                          {workspace.vapiLinked ? "Check call routing with a live test first." : "Open Phone setup to request your AI line."}
                         </p>
                       </div>
 
                       <div className="rounded-[1.5rem] border border-zinc-200 bg-zinc-50 p-4">
                         <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">Plan Usage</p>
-                        <p className="mt-2 text-lg font-black text-zinc-900">{workspace.plan || "Starter"}</p>
+                        <p className="mt-2 text-lg font-black text-zinc-900">{workspace.planTier || workspace.plan || "No active plan"}</p>
                         <p className="mt-2 text-sm text-zinc-500">
-                          {metrics.totalCalls}/{PLAN_LIMITS[workspace.plan]?.calls || 100} calls tracked.
+                          {metrics.totalCalls} call records shown. Plan limits depend on billing.
                         </p>
                       </div>
 
