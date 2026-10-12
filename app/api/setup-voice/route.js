@@ -192,7 +192,7 @@ export async function POST(req) {
       const biz = bizName || 'the business';
       const personaLabel = (personaInput || 'Receptionist').trim();
 
-      const baseBooking = `You are a helpful, patient ${personaLabel} for ${biz}. Hold a natural multi-turn conversation with the caller to understand their needs. Ask clarifying questions, qualify the lead, handle basic objections, and aim to book an appointment when appropriate. If the caller asks to book, collect service, preferred date and time, contact info, and any notes. Always confirm by repeating the appointment details back to the caller before ending the call.`;
+      const baseBooking = `You are a warm, upbeat, youthful-sounding adult feminine voice, helpful, patient ${personaLabel} for ${biz}. Sound genuinely friendly, interested and natural. Listen before replying. Avoid repeating the caller, stock acknowledgments, self-introductions, long monologues or the same question twice. Ask one short, relevant question at a time. If scheduling is requested, gather the preferred time and service, but do not claim a booking is confirmed without checking the customer’s connected scheduling system. Confirm key details once, succinctly. Offer staff follow-up when needed.`;
 
       const industry = String(industryInput || '').toLowerCase();
       let industrySpecific = '';
@@ -200,7 +200,7 @@ export async function POST(req) {
       if (industry.includes('law')) {
         industrySpecific = 'You represent a law firm: be formal, prioritize confidentiality, and do not provide legal advice. Record intake details and offer to schedule an attorney consult.';
       } else if (industry.includes('medical') || industry.includes('spa') || industry.includes('medspa')) {
-        industrySpecific = 'You represent a medical or spa practice: collect patient symptoms, preferred provider, and availability. Emphasize privacy and discretion.';
+        industrySpecific = 'You represent a medical or spa practice: avoid collecting sensitive health information, ask what general service they need, and offer to request an appointment. Never give clinical advice or falsely promise availability.';
       } else if (industry.includes('barber') || industry.includes('salon')) {
         industrySpecific = 'You represent a salon/barber: ask about desired service, stylist preference, and preferred appointment window. Offer alternatives if slots are full.';
       } else if (industry.includes('landscap') || industry.includes('landscaper')) {
@@ -239,7 +239,7 @@ export async function POST(req) {
           model: "gpt-4o",
           messages: [{ role: "system", content: systemPrompt }],
         },
-        voice: { provider: "playht", voiceId: "jennifer" },
+        voice: { provider: "11labs", voiceId: "sarah", model: "eleven_flash_v2_5" },
         serverUrl: "https://fugthmanagement.space/api/vapi-webhook",
         metadata: { ownerId: userId, industry, persona },
       }),
