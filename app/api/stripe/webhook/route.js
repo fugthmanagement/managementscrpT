@@ -93,9 +93,7 @@ export async function POST(req) {
     await db.runTransaction(async tx=>{
       const seen=await tx.get(eventRef);
       if(seen.exists)return;
-      const profile=await tx.get(userRef);
-      if (!profile.exists) throw new Error("Customer Firebase profile is not initialized.");
-      tx.set(userRef,data,{merge:true});
+      tx.set(userRef,{...data,email:subscription.metadata?.email||""},{merge:true});
       tx.create(eventRef,{type:event.type,subscriptionId:subscription.id,uid,recordedAt:new Date().toISOString()});
     });
     return NextResponse.json({received:true});
