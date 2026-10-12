@@ -17,6 +17,7 @@ import {
   updateDoc,
 } from "firebase/firestore";
 import { auth, db } from "../lib/firebase";
+import IntegrationsHub from "./integrations-hub";
 async function authHeaders() { const token = await auth.currentUser?.getIdToken(); if (!token) throw new Error("Sign in required"); return { "Content-Type": "application/json", Authorization: `Bearer ${token}` }; }
 
 const ADMIN_EMAILS = [
@@ -57,6 +58,7 @@ const NAV_ITEMS = [
   { id: "leads", label: "Leads CRM", icon: "leads" },
   { id: "campaigns", label: "Cold Calling", icon: "bolt" },
   { id: "appointments", label: "Appointments", icon: "calendar" },
+  { id: "integrations", label: "Integrations", icon: "integrations" },
   { id: "advisor", label: "AI Advisor", icon: "advisor" },
   { id: "knowledge", label: "Trainer", icon: "book" },
   { id: "settings", label: "Settings", icon: "settings" },
@@ -139,6 +141,10 @@ function Icon({ name, className = "h-5 w-5" }) {
         <path d="M8 14h3M14 14h2M8 18h2" />
       </svg>
     );
+  }
+
+  if (name === "integrations") {
+    return (<svg {...common}><circle cx="7" cy="7" r="3"/><circle cx="17" cy="17" r="3"/><path d="M10 7h7v7M7 10v7h7"/></svg>);
   }
 
   if (name === "advisor") {
@@ -376,6 +382,7 @@ export default function DashboardPage() {
   const [user, setUser] = useState(null);
 
   const [activeTab, setActiveTab] = useState("overview");
+  useEffect(() => { if (typeof window !== "undefined" && new URLSearchParams(window.location.search).has("integration")) setActiveTab("integrations"); }, []);
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState("");
 
@@ -1261,6 +1268,8 @@ export default function DashboardPage() {
                 </section>
               </>
             )}
+
+            {activeTab === "integrations" && <IntegrationsHub />}
 
             {activeTab === "calls" && (
               <Panel
