@@ -18,6 +18,7 @@ import {
 } from "firebase/firestore";
 import { auth, db } from "../lib/firebase";
 import PhoneSetup from "./phone-setup";
+import SiteStudio from "./site-studio";
 async function adminHeaders() { const token = await auth?.currentUser?.getIdToken(); if (!token) throw new Error("Sign in again to use founder tools."); return { "Content-Type": "application/json", Authorization: `Bearer ${token}` }; }
 import IntegrationsHub from "./integrations-hub";
 import VapiConsole from "./vapi-console";
@@ -64,10 +65,11 @@ const NAV_ITEMS = [
   { id: "campaigns", label: "Campaigns", icon: "bolt" },
   { id: "knowledge", label: "AI training", icon: "book" },
   { id: "advisor", label: "Business advisor", icon: "advisor" },
+  { id: "site_studio", label: "Site Studio", icon: "site_studio" },
   { id: "settings", label: "Business settings", icon: "settings" },
 ];
 const EVERYDAY_NAV = ["overview","calls","leads","appointments","phones","integrations"];
-const TOOLS_NAV = ["campaigns","knowledge","advisor","settings"];
+const TOOLS_NAV = ["campaigns","knowledge","advisor","site_studio","settings"];
 
 const LEAD_STAGES = [
   "new",
@@ -148,6 +150,8 @@ function Icon({ name, className = "h-5 w-5" }) {
   }
 
   if (name === "integrations") { return (<svg {...common}><circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="M9 6h9v9M6 9v9h9"/></svg>); }
+
+  if (name === "site_studio") { return (<svg {...common}><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M8 4v6"/><path d="m9 15 2 2 4-4"/></svg>); }
 
   if (name === "advisor") {
     return (
@@ -449,6 +453,7 @@ export default function DashboardPage() {
     },
   ]);
 
+  const [lastCreatedSite, setLastCreatedSite] = useState("");
   const [devForm, setDevForm] = useState({
     email: "",
     businessName: "",
@@ -963,7 +968,9 @@ export default function DashboardPage() {
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Create account API failed.");
 
-      setNotice("Developer account action completed.");
+      setLastCreatedSite(data.siteReady ? (data.siteUrl || "") : "");
+      setDevForm(prev=>({...prev,uid:data.uid||prev.uid}));
+      setNotice(data.siteReady?"Client account created with a FUGTH site preview.":"Account created, but the site preview needs Firebase configuration.");
     } catch (error) {
       setNotice(error.message);
     } finally {
@@ -1185,6 +1192,7 @@ export default function DashboardPage() {
 
             {activeTab === "phones" && <PhoneSetup user={user} workspace={workspace} />}
             {activeTab === "integrations" && <IntegrationsHub />}
+            {activeTab === "site_studio" && <SiteStudio user={user} workspace={workspace} />}
 
             {activeTab === "calls" && (
               <Panel
@@ -1727,6 +1735,7 @@ export default function DashboardPage() {
                       <GhostButton onClick={devUpdateAccount} disabled={busy === "devUpdate"}>
                         Update Account
                       </GhostButton>
+                      {lastCreatedSite && <a href={lastCreatedSite} target="_blank" rel="noopener noreferrer" className="rounded-xl border border-zinc-300 bg-white px-5 py-3 text-sm font-black text-zinc-950">Open created client site ↗</a>}
                     </div>
                   </form>
                 </Panel>
