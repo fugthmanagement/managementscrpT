@@ -397,6 +397,7 @@ export default function DashboardPage() {
   const [settingsForm, setSettingsForm] = useState(DEFAULT_WORKSPACE);
 
   const [calls, setCalls] = useState([]);
+  const [demoCalls, setDemoCalls] = useState([]);
   const [leads, setLeads] = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [campaigns, setCampaigns] = useState([]);
@@ -539,6 +540,7 @@ export default function DashboardPage() {
     };
 
     const unsubCalls = listen("calls", setCalls);
+    const unsubDemoCalls = listen("demoCalls", setDemoCalls);
     const unsubLeads = listen("leads", setLeads);
     const unsubAppointments = listen("appointments", setAppointments);
     const unsubCampaigns = listen("campaigns", setCampaigns);
@@ -547,6 +549,7 @@ export default function DashboardPage() {
     return () => {
       unsubWorkspace();
       unsubCalls();
+      unsubDemoCalls();
       unsubLeads();
       unsubAppointments();
       unsubCampaigns();
@@ -1092,6 +1095,12 @@ export default function DashboardPage() {
                 subtitle="Inbound, outbound, missed calls, recordings, summaries, and call outcomes."
                 action={<GhostButton onClick={() => setActiveTab("overview")}>Try live FUGTH demo</GhostButton>}
               >
+                <section className="mb-6 rounded-2xl border border-zinc-200 bg-[#f8f8f6] p-5">
+                  <div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="text-lg font-black text-zinc-950">Your FUGTH voice previews</h3><p className="mt-1 text-xs text-zinc-500">Short test-call summaries, saved to your own account.</p></div><span className="text-xs font-bold text-zinc-500">{demoCalls.length} previews</span></div>
+                  {demoCalls.length===0?<p className="mt-4 text-sm text-zinc-500">Try the live voice preview on Overview to see your first call here.</p>:<div className="mt-4 grid gap-3 sm:grid-cols-2">{demoCalls.slice(0,6).map(item=>(
+                    <article key={item.id} className="rounded-xl border border-zinc-200 bg-white p-4"><div className="flex justify-between gap-2"><strong className="text-sm text-zinc-900">{item.intent||"Voice preview"}</strong><span className="text-xs text-zinc-500">{item.status||"Pending"}</span></div><p className="mt-2 text-xs capitalize text-zinc-500">{item.industry||"General"} · {item.role||"Receptionist"} · {item.duration??"Up to 15"}s</p><p className="mt-3 text-sm leading-6 text-zinc-700">{item.summary||"Waiting for call analysis."}</p></article>
+                  ))}</div>}
+                </section>
                 <div className="grid gap-4 md:grid-cols-3">
                   <StatCard label="Total Calls" value={metrics.totalCalls} icon="calls" />
                   <StatCard label="Missed" value={metrics.missedCalls} icon="calls" tone={metrics.missedCalls ? "rose" : "emerald"} />
