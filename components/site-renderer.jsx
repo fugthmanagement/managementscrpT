@@ -26,7 +26,7 @@ function Professional({site}){
 
 export default function SiteRenderer({data}) {
  const site={...siteFields(data),visibility:data?.visibility};
- return <div className="w-full">
+ return <div className="fugth-generated-site w-full">
  {site.theme==="bold"?<Bold site={site}/>:site.theme==="warm"?<Warm site={site}/>:site.theme==="professional"?<Professional site={site}/>:<Editorial site={site}/>}
  {site.showGallery && site.galleryImageIds.length>0 && <section aria-label="Our industry photo gallery" className="border-y border-zinc-200 bg-[#f6f6f3] px-5 py-14 sm:px-10">
    <div className="mx-auto max-w-7xl"><div className="mb-7 flex flex-wrap items-end justify-between gap-3"><div><p className="text-[11px] font-bold uppercase tracking-[.18em] text-zinc-500">VISUAL GALLERY</p><h2 className="mt-3 text-2xl font-semibold tracking-tight text-zinc-950 sm:text-3xl">A look at the industry.</h2></div><span className="text-xs text-zinc-500">Illustrative stock photography</span></div>
