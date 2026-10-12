@@ -145,6 +145,9 @@ function formatDuration(duration) {
 
 export async function POST(req) {
   try {
+    const secret = process.env.VAPI_WEBHOOK_SECRET;
+    const token = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
+    if (!secret || !token || secret !== token) return NextResponse.json({ error: "Webhook authorization failed." }, { status: 401 });
     const payload = await req.json();
     const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
 

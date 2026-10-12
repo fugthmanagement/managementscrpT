@@ -17,6 +17,7 @@ import {
   updateDoc,
 } from "firebase/firestore";
 import { auth, db } from "../lib/firebase";
+async function authHeaders() { const token = await auth.currentUser?.getIdToken(); if (!token) throw new Error("Sign in required"); return { "Content-Type": "application/json", Authorization: `Bearer ${token}` }; }
 
 const ADMIN_EMAILS = [
   "fugthmanagement@gmail.com",
@@ -475,6 +476,8 @@ export default function DashboardPage() {
         if (!snap.exists()) {
           const starterWorkspace = {
             ...DEFAULT_WORKSPACE,
+            plan: undefined,
+            status: undefined,
             email: user.email || "",
             ownerName: user.displayName || "",
             createdAt: serverTimestamp(),
@@ -658,6 +661,14 @@ export default function DashboardPage() {
         doc(db, "users", user.uid),
         sanitizeForFirestore({
           ...settingsForm,
+          plan: undefined,
+          status: undefined,
+          planTier: undefined,
+          planStatus: undefined,
+          billingActive: undefined,
+          stripeCustomerId: undefined,
+          stripeSubscriptionId: undefined,
+          billingEmail: undefined,
           updatedAt: serverTimestamp(),
         }),
         { merge: true }
@@ -914,7 +925,7 @@ export default function DashboardPage() {
     try {
       const response = await fetch("/api/advisor", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await authHeaders(),
         body: JSON.stringify({
           question,
           workspace,
@@ -955,7 +966,7 @@ export default function DashboardPage() {
     try {
       const response = await fetch("/api/dev/create-account", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await authHeaders(),
         body: JSON.stringify(devForm),
       });
 
@@ -979,7 +990,7 @@ export default function DashboardPage() {
     try {
       const response = await fetch("/api/dev/update-account", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await authHeaders(),
         body: JSON.stringify(devForm),
       });
 
@@ -1145,7 +1156,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="mt-4 flex gap-2 overflow-x-auto pb-1 lg:hidden">
+            <div className="mt-4 flex gap-2 overflow-x-auto overscroll-x-contain pb-2 lg:hidden">
               {visibleNav.map((item) => (
                 <button
                   key={item.id}

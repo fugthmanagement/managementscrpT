@@ -1,3 +1,4 @@
+import { authenticatedUser, errorResponse } from "../../../../lib/server/auth";
 import { NextResponse } from "next/server";
 import { getDocument, getFirestoreAccessToken, normalizeEmailKey, patchDocument } from "../../../../lib/server/firestore-admin";
 
@@ -6,7 +7,10 @@ export const dynamic = "force-dynamic";
 
 export async function POST(req) {
   try {
+    const user = await authenticatedUser(req);
+    if (!user) return errorResponse(401, "Sign in required.");
     const { userId, email } = await req.json();
+    if (user.uid !== userId || user.email?.toLowerCase() !== String(email || "").trim().toLowerCase()) return errorResponse(403, "Identity mismatch.");
     const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
 
     if (!projectId || !userId || !email) {

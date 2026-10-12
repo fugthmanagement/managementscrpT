@@ -13,7 +13,7 @@ export async function POST(req) {
       return NextResponse.json({ error: "Project id is missing." }, { status: 500 });
     }
 
-    if (!subject?.trim() || !message?.trim()) {
+    if (!subject?.trim() || !message?.trim() || subject.length > 200 || message.length > 4000) {
       return NextResponse.json({ error: "Subject and message are required." }, { status: 400 });
     }
 
