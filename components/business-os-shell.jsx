@@ -1076,6 +1076,18 @@ export default function DashboardPage() {
 
           <div className="mx-auto w-full max-w-[1320px] flex-1 space-y-6 px-4 py-6 sm:px-6 lg:px-8">
             {activeTab === "overview" && (
+              <section className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-zinc-200 bg-white p-5 sm:p-6">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[.16em] text-zinc-500">Subscription</p>
+                  <p className="mt-2 text-lg font-black text-zinc-950">{workspace.billingActive ? String(workspace.planTier||"").toUpperCase()+" · Active" : "Subscription not activated"}</p>
+                  <p className="mt-1 text-xs leading-6 text-zinc-500">
+                    {workspace.billingActive ? (workspace.billingCancelAtPeriodEnd?"Access ends ":"Next renewal ")+formatDateTime(workspace.billingCurrentPeriodEnd) : "Select a plan to activate voice services. Payment activation is verified by Stripe."}
+                  </p>
+                </div>
+                <Link href="/plans" className="rounded-xl bg-zinc-950 px-4 py-3 text-xs font-black text-white">{workspace.billingActive?"Review plans":"Choose your plan"} →</Link>
+              </section>
+            )}
+            {activeTab === "overview" && (
               <>
                 <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                   <StatCard label="Total Leads" value={metrics.totalLeads} note={`${metrics.hotLeads} hot/follow-up`} icon="leads" />
@@ -1601,6 +1613,10 @@ export default function DashboardPage() {
             )}
             {activeTab === "settings" && !adminMode && (
               <Panel title="Business settings" subtitle="Business details, hours, and assistant instructions. Configure your phone in Phone setup.">
+              <div className="mb-5 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-zinc-200 bg-zinc-50 p-4">
+                <div><p className="text-xs font-black uppercase tracking-widest text-zinc-500">Your subscription</p><p className="mt-2 text-sm font-bold">{workspace.billingActive?String(workspace.planTier||"").toUpperCase()+" · "+String(workspace.planStatus||"active"):"No verified active subscription"}</p><p className="mt-1 text-xs text-zinc-600">{workspace.billingCurrentPeriodEnd?"Billing period ends "+formatDateTime(workspace.billingCurrentPeriodEnd):"Monthly billing dates appear after verified Stripe payment."}</p></div>
+                <Link href="/plans" className="rounded-lg bg-zinc-950 px-4 py-2.5 text-xs font-black text-white">View subscriptions →</Link>
+              </div>
                 <form onSubmit={saveWorkspace} className="space-y-5">
                   <div className="grid gap-4 md:grid-cols-2">
                     <Field label="Business Name">
