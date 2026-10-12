@@ -1069,108 +1069,35 @@ export default function DashboardPage() {
   return (
     <main className="fugth-dashboard min-h-screen bg-[#f6f6f4] text-[#202020]">
       <div className="relative flex min-h-screen">
-        <aside className="hidden w-72 shrink-0 border-r border-zinc-200 bg-white p-5 backdrop-blur-xl lg:flex lg:flex-col">
-          <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-zinc-900 to-zinc-800 font-black text-white">
-              FG
-            </div>
-            <div>
-              <p className="text-sm font-black text-zinc-900">Fugth Management</p>
-              <p className="text-xs text-zinc-500">Voice Ops Platform</p>
-            </div>
+        {sidebarOpen && <button type="button" aria-label="Close navigation" onClick={() => setSidebarOpen(false)} className="fixed inset-0 z-40 bg-black/40 lg:hidden" />}
+        <aside className={cx("fixed inset-y-0 left-0 z-50 flex h-screen w-[270px] shrink-0 flex-col border-r border-zinc-200 bg-white px-4 pb-5 pt-5 shadow-xl transition-transform duration-200 lg:sticky lg:top-0 lg:z-10 lg:w-[246px] lg:translate-x-0 lg:shadow-none",sidebarOpen?"translate-x-0":"-translate-x-full")}>
+          <div className="flex items-center justify-between gap-3 px-3">
+            <Link href="/" className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-zinc-950 text-lg font-black text-white">F</span><span><strong className="block text-sm tracking-tight text-zinc-950">Fugth Management</strong><small className="block text-[10px] font-bold uppercase tracking-[.14em] text-zinc-500">Business workspace</small></span></Link>
+            <button type="button" onClick={()=>setSidebarOpen(false)} aria-label="Close menu" className="rounded-lg border border-zinc-200 p-2 lg:hidden">×</button>
           </div>
-
-          <nav className="mt-8 space-y-2">
-            {visibleNav.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => setActiveTab(item.id)}
-                className={cx(
-                  "flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-bold transition",
-                  activeTab === item.id
-                    ? "bg-zinc-950 text-white shadow-lg shadow-zinc-500/10"
-                    : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900"
-                )}
-              >
-                <Icon name={item.icon} />
-                {item.label}
-              </button>
-            ))}
-          </nav>
-
-          <div className="mt-auto rounded-[1.5rem] border border-zinc-200 bg-zinc-50 p-4">
-            <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">Workspace</p>
-            <p className="mt-2 font-black text-zinc-900">{workspace.businessName}</p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Pill tone={statusClass(workspace.status)}>{workspace.status || "active"}</Pill>
-              <Pill tone="border-cyan-400/30 bg-cyan-400/10 text-cyan-200">{workspace.plan || "Starter"}</Pill>
+          <div className="mt-8 flex-1 space-y-6 overflow-y-auto pr-1">
+            <nav aria-label="Business navigation"><p className="mb-2 px-3 text-[10px] font-black uppercase tracking-[.17em] text-zinc-400">Daily workspace</p><div className="space-y-1">
+              {primaryNav.map(item=><button key={item.id} type="button" onClick={()=>{setActiveTab(item.id);setSidebarOpen(false)}} className={cx("flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-bold transition",activeTab===item.id?"bg-zinc-950 text-white":"text-zinc-600 hover:bg-zinc-100 hover:text-zinc-950")}><Icon name={item.icon} className="h-[18px] w-[18px]"/><span>{item.label}</span></button>)}
+            </div></nav>
+            <div><button type="button" aria-expanded={toolsOpen} onClick={()=>setToolsOpen(!toolsOpen)} className="flex w-full items-center justify-between rounded-xl px-3 py-3 text-left text-xs font-black uppercase tracking-[.14em] text-zinc-500 hover:bg-zinc-100"><span>More tools</span><span>{toolsOpen?"−":"+"}</span></button>
+              {toolsOpen&&<nav aria-label="Advanced tools" className="mt-1 space-y-1">{toolsNav.map(item=><button key={item.id} type="button" onClick={()=>{setActiveTab(item.id);setSidebarOpen(false)}} className={cx("flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold",activeTab===item.id?"bg-zinc-950 text-white":"text-zinc-600 hover:bg-zinc-100")}><Icon name={item.icon} className="h-[18px] w-[18px]"/>{item.label}</button>)}</nav>}
             </div>
-            <button
-              onClick={() => signOut(auth)}
-              className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl border border-zinc-200 px-4 py-2 text-sm font-bold text-zinc-700 hover:bg-zinc-100"
-            >
-              <Icon name="logout" className="h-4 w-4" />
-              Sign out
-            </button>
+            {isAdmin&&!clientPreview&&<nav aria-label="Administrator navigation" className="border-t border-zinc-200 pt-5"><p className="mb-2 px-3 text-[10px] font-black uppercase tracking-[.17em] text-zinc-400">Founder only</p><button type="button" onClick={()=>{setActiveTab("dev_ops");setSidebarOpen(false)}} className={cx("flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-black",activeTab==="dev_ops"?"bg-zinc-950 text-white":"text-zinc-700 hover:bg-zinc-100")}><Icon name="shield" className="h-[18px] w-[18px]"/>Administration</button></nav>}
           </div>
+          <div className="mt-4 border-t border-zinc-200 pt-4"><p className="truncate px-2 text-sm font-black text-zinc-900">{workspace.businessName||"My business"}</p><p className="mt-1 truncate px-2 text-xs text-zinc-500">{user.email}</p><button type="button" onClick={()=>signOut(auth)} className="mt-3 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-zinc-600 hover:bg-zinc-100"><Icon name="logout" className="h-4 w-4"/>Sign out</button></div>
         </aside>
 
         <section className="flex min-w-0 flex-1 flex-col">
-          <header className="sticky top-0 z-20 border-b border-zinc-200 bg-white px-4 py-4 backdrop-blur-xl sm:px-6 lg:px-8">
-            <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-              <div>
-                <div className="flex items-center gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-zinc-100 font-black text-emerald-200">
-                    {initials(workspace.businessName || user.email)}
-                  </div>
-                  <div>
-                    <h1 className="text-xl font-black text-zinc-900 sm:text-2xl">
-                      {workspace.businessName || "Fugth Command Center"}
-                    </h1>
-                    <p className="text-sm text-zinc-500">
-                      {user.email} {isAdmin ? "· Developer Admin" : "· Client Workspace"}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2">
-                <Pill tone={workspace.vapiLinked || workspace.vapiNumber ? statusClass("active") : statusClass("pending")}>
-                  {workspace.vapiLinked || workspace.vapiNumber ? "Voice number linked" : "Needs Vapi link"}
-                </Pill>
-                <GhostButton onClick={createTestCall} disabled={busy === "testCall"}>
-                  Add demo call
-                </GhostButton>
-                <PrimaryButton onClick={() => setActiveTab("leads")}>Add lead</PrimaryButton>
-              </div>
+          <header className="sticky top-0 z-20 border-b border-zinc-200 bg-white/95 px-4 py-4 shadow-sm backdrop-blur sm:px-6 lg:px-8">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-3"><button type="button" aria-label="Open navigation" onClick={()=>setSidebarOpen(true)} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-zinc-200 text-zinc-800 lg:hidden"><span className="text-xl">☰</span></button><div><p className="text-[10px] font-bold uppercase tracking-[.15em] text-zinc-500">{clientPreview?"Customer layout preview":"Fugth workspace"}</p><h1 className="mt-1 text-xl font-black tracking-tight text-zinc-950 sm:text-2xl">{currentNav?.label||"Overview"}</h1></div></div>
+              <div className="flex items-center gap-2">{isAdmin&&<button type="button" onClick={()=>{setClientPreview(!clientPreview);setActiveTab("overview");setSidebarOpen(false)}} className="rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-xs font-black text-zinc-700 hover:bg-zinc-100">{clientPreview?"Exit customer layout":"View customer layout"}</button>}<span className="hidden rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs font-semibold text-zinc-500 sm:block">{workspace.businessName||"Business"}</span></div>
             </div>
-
-            <div className="mt-4 flex gap-2 overflow-x-auto pb-1 lg:hidden">
-              {visibleNav.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => setActiveTab(item.id)}
-                  className={cx(
-                    "flex shrink-0 items-center gap-2 rounded-2xl px-4 py-2 text-xs font-bold",
-                    activeTab === item.id
-                      ? "bg-zinc-950 text-white"
-                      : "border border-zinc-200 bg-zinc-50 text-zinc-700"
-                  )}
-                >
-                  <Icon name={item.icon} className="h-4 w-4" />
-                  {item.label}
-                </button>
-              ))}
-            </div>
-
-            {notice && (
-              <div className="mt-4 rounded-2xl border border-emerald-400/20 bg-zinc-950/10 px-4 py-3 text-sm text-emerald-100">
-                {notice}
-              </div>
-            )}
+            {clientPreview&&<p role="note" className="mt-3 rounded-xl border border-zinc-300 bg-zinc-100 px-4 py-2 text-xs font-medium text-zinc-700">Customer layout preview. You are still signed in as an administrator; the data shown belongs to your own workspace.</p>}
+            {notice&&<div className="mt-3 rounded-xl border border-zinc-300 bg-zinc-100 px-4 py-3 text-sm text-zinc-800">{notice}</div>}
           </header>
 
-          <div className="mx-auto w-full max-w-7xl flex-1 space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+          <div className="mx-auto w-full max-w-[1320px] flex-1 space-y-6 px-4 py-6 sm:px-6 lg:px-8">
             {activeTab === "overview" && (
               <>
                 <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -1314,6 +1241,7 @@ export default function DashboardPage() {
 
             {activeTab === "leads" && (
               <section className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+                <div className="xl:col-span-2 rounded-2xl border border-zinc-200 bg-white p-6"><p className="text-xs font-black uppercase tracking-[.14em] text-zinc-500">Founder access</p><h2 className="mt-2 text-2xl font-black text-zinc-900">Administration</h2><p className="mt-2 text-sm text-zinc-600">Account management and developer operations stay here, separate from the client workspace.</p></div>
                 <Panel title="Add Lead" subtitle="Save cold leads, inbound leads, Google Maps leads, and follow-up notes.">
                   <form onSubmit={addLead} className="space-y-4">
                     <Field label="Business Name">
