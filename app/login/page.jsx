@@ -33,7 +33,7 @@ export default function Login(){
         const created=await createUserWithEmailAndPassword(auth,e,password);
         // Keep the site preview separate from private customer profile data.
         // If publication rules are not yet deployed, Site Studio allows a retry.
-        try { if(db) await setDoc(doc(db,"publicSites",created.user.uid),buildStarterSite(created.user.uid,businessName||"Your business","general")); }
+        try { if(db) await setDoc(doc(db,"publicSites",created.user.uid),buildStarterSite(created.user.uid,businessName||"Your business",businessName)); }
         catch (siteError) { console.warn("Site preview will be initialized in FUGTH Site Studio."); }
       }
       const wantsDemo = new URLSearchParams(window.location.search).get("demo") === "1";
