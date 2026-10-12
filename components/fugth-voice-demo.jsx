@@ -28,7 +28,7 @@ const MODES=[
   {id:"website",title:"Follow up on my inquiry",sub:"Try a callback about a website request."},
   {id:"appointment",title:"Help with an appointment",sub:"Experience a scheduling conversation."}
 ];
-async function authorization(){const token=await auth.currentUser?.getIdToken(true);if(!token)throw Error("Sign in before testing your FUGTH voice agent.");return {Authorization:`Bearer ${token}`,"Content-Type":"application/json"};}
+async function authorization(){const token=await auth.currentUser?.getIdToken();if(!token)throw Error("Sign in before testing your FUGTH voice agent.");return {Authorization:`Bearer ${token}`,"Content-Type":"application/json"};}
 const formatWait=t=>{const s=Math.max(0,Math.ceil((t-Date.now())/1000));return `${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;};
 export default function FugthVoiceDemo({user,workspace,compact=false}){
   const [role,setRole]=useState("receptionist");
@@ -58,7 +58,7 @@ export default function FugthVoiceDemo({user,workspace,compact=false}){
     try{
       const r=await fetch("/api/demo-call",{
         method:"POST",headers:await authorization(),
-        body:JSON.stringify({phone,consent,role,industry,scenario,businessName:String(workspace?.businessName||"").slice(0,60)}),cache:"no-store"
+        body:JSON.stringify({phone,consent,role,industry,scenario,businessName:String(workspace?.businessName==="Fugth Management OS"?"":workspace?.businessName||"").slice(0,60)}),cache:"no-store"
       });
       const data=await r.json();
       if(data.nextAvailableAt)setCooldown(data.nextAvailableAt);
