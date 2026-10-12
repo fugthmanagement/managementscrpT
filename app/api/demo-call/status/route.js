@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { authenticatedUser } from "../../../../../lib/server/auth";
-import { demoDb,demoReady,intentFromText } from "../../../../../lib/server/demo";
+import { authenticatedUser } from "../../../../lib/server/auth";
+import { demoDb,demoReady,intentFromText } from "../../../../lib/server/demo";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
 export async function GET(req) {
