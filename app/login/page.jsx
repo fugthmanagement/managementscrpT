@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { useState } from "react";
 import { auth, db } from "../../lib/firebase";
-import { doc,setDoc } from "firebase/firestore";
-import { buildStarterSite } from "../../lib/site-presets";
+import { doc,setDoc,serverTimestamp } from "firebase/firestore";
+import { buildStarterSite,detectIndustry } from "../../lib/site-presets";
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 
 const tiers = [
@@ -33,7 +33,17 @@ export default function Login(){
         const created=await createUserWithEmailAndPassword(auth,e,password);
         // Keep the site preview separate from private customer profile data.
         // If publication rules are not yet deployed, Site Studio allows a retry.
-        try { if(db) await setDoc(doc(db,"publicSites",created.user.uid),buildStarterSite(created.user.uid,businessName||"Your business",businessName)); }
+        if (db) {
+          try {
+            await setDoc(doc(db,"users",created.user.uid),{
+              businessName:businessName.trim(),
+              businessType:detectIndustry(businessName),
+              email:e,
+              createdAt:serverTimestamp(),
+              updatedAt:serverTimestamp()
+            },{merge:true});
+          } catch { console.warn("Customer workspace will initialize when the dashboard is opened."); }
+          try { await setDoc(doc(db,"publicSites",created.user.uid),buildStarterSite(created.user.uid,businessName||"Your business",businessName)); }
         catch (siteError) { console.warn("Site preview will be initialized in FUGTH Site Studio."); }
       }
       const wantsDemo = new URLSearchParams(window.location.search).get("demo") === "1";
