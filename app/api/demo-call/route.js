@@ -37,6 +37,11 @@ export async function POST(req) {
     content=prepareDemo(await req.json());
   }catch{return NextResponse.json({error:"Invalid demo request."},{status:400});}
   if(content.error)return NextResponse.json({error:content.error},{status:400});
+  // Do not let a web form place unsolicited automated calls to arbitrary recipients.
+  // Firebase Phone Authentication provides an ownership-verified number.
+  if (!user.phone_number || content.to !== user.phone_number) {
+    return NextResponse.json({error:"Verify this phone number on your FUGTH account before requesting an automated voice demo."},{status:403});
+  }
   const now=Date.now(),day=new Date().toISOString().slice(0,10),uid=user.uid;
   const id=randomUUID();
   const db=demoDb(),userRef=db.doc(`demoLimits/accounts_${uid}`),phoneRef=db.doc(`demoLimits/phones_${phoneHash(content.to)}`);
