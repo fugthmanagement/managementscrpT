@@ -37,13 +37,14 @@ export async function POST(req) {
     }
 
     const body = await req.json();
-    const { email, password, displayName } = body;
+    const { email, password } = body;
+    const displayName = body.displayName || body.businessName || "";
     if (!email) return NextResponse.json({ error: 'Missing email' }, { status: 400 });
 
     // Allow creating an account with no plan (planTier === 'none')
-    let planTier = body.planTier ?? 'none';
-    let planStatus = body.planStatus ?? (planTier === 'none' ? 'inactive' : 'trial');
-    const fugthNumber = body.fugthNumber ?? '';
+    let planTier = body.planTier ?? body.plan ?? 'none';
+    let planStatus = body.planStatus ?? body.status ?? (planTier === 'none' ? 'inactive' : 'trial');
+    const fugthNumber = body.fugthNumber ?? body.phone ?? '';
     const stripeCustomerId = body.stripeCustomerId ?? null;
 
     // Create or update user
