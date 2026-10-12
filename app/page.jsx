@@ -1,9 +1,9 @@
 import Link from "next/link";
 const industries=["Dental & medical offices","Law firms","HVAC & contractors","Salons & personal care","Auto repair shops","Real estate teams","Small business services"];
 const plans=[
-  {name:"Starter",price:"$49",note:"For local teams beginning with AI call coverage.",items:["Receptionist workspace","Call records and leads","Business training"]},
-  {name:"Growth",price:"$149",note:"For teams with more callers and a busy schedule.",items:["Starter features","Expanded voice capacity","Scheduling workspace"],highlight:true},
-  {name:"Elite",price:"$499",note:"For larger operations and tailored onboarding.",items:["Growth features","Higher agent capacity","Implementation support"]},
+  {name:"Starter",price:"$49",note:"FUGTH Voice coverage for independent businesses taking their first step into automated reception.",items:["FUGTH receptionist workspace","Call history and lead inbox","Business training"]},
+  {name:"Growth",price:"$149",note:"For busy teams managing inquiries, appointments and everyday customer follow-up.",items:["Starter features","Expanded voice capacity","Scheduling workspace"],highlight:true},
+  {name:"Elite",price:"$499",note:"For growing operations needing a tailored FUGTH implementation and support.",items:["Growth features","Higher agent capacity","Implementation support"]},
 ];
 const steps=[["01","Tell Fugth about your business","Set business hours, services, service area and how you want callers greeted."],["02","Connect your phone workflow","Use a dedicated AI line with immediate or unanswered-call forwarding, where supported."],["03","Review and follow up","Your dashboard organizes conversation records and new opportunities as events arrive."]];
 function CallSample(){return <div className="overflow-hidden rounded-[1.6rem] border border-zinc-200 bg-white shadow-[0_28px_90px_#00000014]">
