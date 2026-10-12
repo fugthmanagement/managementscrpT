@@ -1,3 +1,4 @@
+import { authenticatedUser, isFounder } from "../../../../lib/server/auth";
 import { NextResponse } from 'next/server';
 
 function normalizeToE164(num) {
