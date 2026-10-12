@@ -52,8 +52,14 @@ service cloud.firestore {
         request.resource.data.showServices is bool &&
         request.resource.data.showGallery is bool &&
         request.resource.data.heroImageId is string &&
-        request.resource.data.heroImageId.matches("^fg-[a-z]+-[a-z]+$") &&
+        request.resource.data.heroImageId.matches("^fg-" + request.resource.data.industry + "-[a-z]+$") &&
         request.resource.data.galleryImageIds is list && request.resource.data.galleryImageIds.size() <= 2 &&
+        (request.resource.data.galleryImageIds.size() < 1 ||
+          (request.resource.data.galleryImageIds[0] is string &&
+           request.resource.data.galleryImageIds[0].matches("^fg-" + request.resource.data.industry + "-[a-z]+$"))) &&
+        (request.resource.data.galleryImageIds.size() < 2 ||
+          (request.resource.data.galleryImageIds[1] is string &&
+           request.resource.data.galleryImageIds[1].matches("^fg-" + request.resource.data.industry + "-[a-z]+$"))) &&
         request.resource.data.theme in ['editorial','bold','warm','professional'] &&
         request.resource.data.industry in ['general','roofing','dental','clinic','salon','legal','hvac','automotive','realestate','restaurant','landscaping','contractor'];
       }
