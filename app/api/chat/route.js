@@ -1,8 +1,12 @@
+import { authenticatedUser } from "../../../lib/server/auth";
 import { NextResponse } from 'next/server';
 
 export async function POST(req) {
   try {
+    const user = await authenticatedUser(req);
+    if (!user) return NextResponse.json({ error: "Sign in required." }, { status: 401 });
     const { prompt } = await req.json();
+    if (typeof prompt !== "string" || prompt.length > 3500) return NextResponse.json({ error: "Invalid prompt." }, { status: 400 });
     const apiKey = process.env.GEMINI_API_KEY;
 
     if (!apiKey) {
