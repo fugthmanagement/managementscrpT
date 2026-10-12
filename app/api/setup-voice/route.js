@@ -238,7 +238,7 @@ export async function POST(req) {
           messages: [{ role: "system", content: systemPrompt }],
         },
         voice: { provider: "playht", voiceId: "jennifer" },
-        serverUrl: "https://fugthmanagement.space/api/vapi-webhook",
+        server: { url: "https://www.fugthmanagement.space/api/vapi-webhook", credentialId: webhookCredentialId },
         metadata: { ownerId: userId, industry, persona },
       }),
     });
