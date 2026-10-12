@@ -25,7 +25,7 @@ export async function POST(req) {
       return NextResponse.json({ error: "Valid planKey and Stripe price id are required." }, { status: 400 });
     }
 
-    const origin = req.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const origin = process.env.NEXT_PUBLIC_APP_URL || "https://www.fugthmanagement.space";
     const successUrl = `${origin}/dashboard?checkout=success&plan=${encodeURIComponent(planKey)}`;
     const cancelUrl = `${origin}/dashboard?checkout=cancelled`;
 
