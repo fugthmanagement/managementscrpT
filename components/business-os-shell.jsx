@@ -18,6 +18,8 @@ import {
 } from "firebase/firestore";
 import { auth, db } from "../lib/firebase";
 import PhoneSetup from "./phone-setup";
+import IntegrationsHub from "./integrations-hub";
+import VapiConsole from "./vapi-console";
 
 const ADMIN_EMAILS = [
   "fugthmanagement@gmail.com",
@@ -57,13 +59,14 @@ const NAV_ITEMS = [
   { id: "leads", label: "Leads", icon: "leads" },
   { id: "appointments", label: "Appointments", icon: "calendar" },
   { id: "phones", label: "Phone setup", icon: "calls" },
+  { id: "integrations", label: "Connections", icon: "integrations" },
   { id: "campaigns", label: "Campaigns", icon: "bolt" },
   { id: "knowledge", label: "AI training", icon: "book" },
   { id: "advisor", label: "Business advisor", icon: "advisor" },
   { id: "settings", label: "Business settings", icon: "settings" },
   { id: "dev_ops", label: "Administration", icon: "shield" },
 ];
-const EVERYDAY_NAV = ["overview","calls","leads","appointments","phones"];
+const EVERYDAY_NAV = ["overview","calls","leads","appointments","phones","integrations"];
 const TOOLS_NAV = ["campaigns","knowledge","advisor","settings"];
 
 const LEAD_STAGES = [
@@ -143,6 +146,8 @@ function Icon({ name, className = "h-5 w-5" }) {
       </svg>
     );
   }
+
+  if (name === "integrations") { return (<svg {...common}><circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="M9 6h9v9M6 9v9h9"/></svg>); }
 
   if (name === "advisor") {
     return (
@@ -379,6 +384,7 @@ export default function DashboardPage() {
   const [user, setUser] = useState(null);
 
   const [activeTab, setActiveTab] = useState("overview");
+  useEffect(() => { if (typeof window !== "undefined" && new URLSearchParams(window.location.search).has("integration")) setActiveTab("integrations"); }, []);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [clientPreview, setClientPreview] = useState(false);
@@ -1179,6 +1185,7 @@ export default function DashboardPage() {
             )}
 
             {activeTab === "phones" && <PhoneSetup user={user} workspace={workspace} />}
+            {activeTab === "integrations" && <IntegrationsHub />}
 
             {activeTab === "calls" && (
               <Panel
@@ -1662,7 +1669,7 @@ export default function DashboardPage() {
 
             {activeTab === "dev_ops" && isAdmin && !clientPreview && (
               <section className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
-                <Panel title="Developer Operations" subtitle="Admin-only tools for client creation, account updates, demos, and support.">
+                <details className="rounded-2xl border border-zinc-200 bg-white p-5 xl:col-span-2"><summary className="cursor-pointer text-base font-black text-zinc-950">Account management <span className="ml-2 text-xs font-medium text-zinc-500">Create accounts and update clients</span></summary><div className="mt-5">                <Panel title="Developer Operations" subtitle="Admin-only tools for client creation, account updates, demos, and support.">
                   <form onSubmit={devCreateAccount} className="space-y-4">
                     <Field label="Client Email">
                       <input className={inputClass} value={devForm.email} onChange={(e) => setDevForm({ ...devForm, email: e.target.value })} placeholder="client@email.com" />
@@ -1710,7 +1717,9 @@ export default function DashboardPage() {
                   </form>
                 </Panel>
 
-                <Panel title="Admin Snapshot" subtitle="Fast control center for founder testing.">
+                </div></details>
+                <details className="rounded-2xl border border-zinc-200 bg-white p-5 xl:col-span-2"><summary className="cursor-pointer text-base font-black text-zinc-950">Vapi infrastructure <span className="ml-2 text-xs font-medium text-zinc-500">Assistants, phone numbers and recent call states</span></summary><div className="mt-5"><VapiConsole /></div></details>
+                <details className="rounded-2xl border border-zinc-200 bg-white p-5 xl:col-span-2"><summary className="cursor-pointer text-base font-black text-zinc-950">Founder diagnostics <span className="ml-2 text-xs font-medium text-zinc-500">Internal test checklist</span></summary><div className="mt-5">                <Panel title="Admin Snapshot" subtitle="Fast control center for founder testing.">
                   <div className="grid gap-4 sm:grid-cols-2">
                     <StatCard label="Workspace Leads" value={metrics.totalLeads} icon="leads" />
                     <StatCard label="Workspace Calls" value={metrics.totalCalls} icon="calls" />
@@ -1729,21 +1738,9 @@ export default function DashboardPage() {
                     </div>
                   </div>
 
-                  <div className="mt-6 rounded-[1.5rem] border border-emerald-400/20 bg-zinc-950/10 p-5">
-                    <p className="font-black text-emerald-100">Dev API Paths Expected</p>
-                    <p className="mt-2 text-sm leading-6 text-emerald-50/80">
-                      This dashboard will reuse your existing Vercel backend if these routes exist:
-                      <br />
-                      <span className="font-mono">/api/dev/create-account</span>
-                      <br />
-                      <span className="font-mono">/api/dev/update-account</span>
-                      <br />
-                      <span className="font-mono">/api/advisor</span>
-                      <br />
-                      <span className="font-mono">/api/vapi/book-appointment</span>
-                    </p>
-                  </div>
+
                 </Panel>
+                </div></details>
               </section>
             )}
           </div>
