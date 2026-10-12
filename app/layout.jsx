@@ -2,12 +2,12 @@ import './globals.css';
 
 export const metadata = {
   metadataBase: new URL("https://www.fugthmanagement.space"),
-  title: "Fugth Management | Make Every Hello Count",
+  title: "Fugth Management | AI Receptionist for Business",
   description: "An AI receptionist and connected business command center to help service businesses answer calls, capture leads, and organize their next steps.",
   alternates: { canonical: "/" },
   openGraph: {
-    title: "Fugth Management — Make Every Hello Count",
-    description: "Give every incoming customer a better hello with voice AI and one connected business workspace.",
+    title: "Fugth Management — Never Miss the Call That Matters",
+    description: "AI receptionist services for customer calls, lead intake and a clear business workspace.",
     url: "https://www.fugthmanagement.space",
     siteName: "Fugth Management", type: "website",
   },
