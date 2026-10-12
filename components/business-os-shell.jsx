@@ -661,6 +661,14 @@ export default function DashboardPage() {
         doc(db, "users", user.uid),
         sanitizeForFirestore({
           ...settingsForm,
+          plan: undefined,
+          status: undefined,
+          planTier: undefined,
+          planStatus: undefined,
+          billingActive: undefined,
+          stripeCustomerId: undefined,
+          stripeSubscriptionId: undefined,
+          billingEmail: undefined,
           updatedAt: serverTimestamp(),
         }),
         { merge: true }
