@@ -489,6 +489,12 @@ export default function DashboardPage() {
         if (!snap.exists()) {
           const starterWorkspace = {
             ...DEFAULT_WORKSPACE,
+            plan: undefined,
+            status: undefined,
+            vapiNumber: undefined,
+            vapiAssistantId: undefined,
+            vapiLinked: undefined,
+            needsVapiLink: undefined,
             email: user.email || "",
             ownerName: user.displayName || "",
             createdAt: serverTimestamp(),
@@ -671,7 +677,16 @@ export default function DashboardPage() {
       await setDoc(
         doc(db, "users", user.uid),
         sanitizeForFirestore({
-          ...settingsForm,
+          businessName: settingsForm.businessName || "",
+          ownerName: settingsForm.ownerName || "",
+          businessType: settingsForm.businessType || "",
+          phone: settingsForm.phone || "",
+          website: settingsForm.website || "",
+          serviceArea: settingsForm.serviceArea || "",
+          hours: settingsForm.hours || "",
+          bookingLink: settingsForm.bookingLink || "",
+          primaryGoal: settingsForm.primaryGoal || "",
+          aiScript: settingsForm.aiScript || "",
           updatedAt: serverTimestamp(),
         }),
         { merge: true }

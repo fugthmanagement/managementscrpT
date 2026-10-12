@@ -1,6 +1,6 @@
 import Stripe from "stripe";
 import { NextResponse } from "next/server";
-import { authenticatedUser } from "../../../../lib/server/auth";
+import { authenticatedUser, firebaseAdmin } from "../../../../lib/server/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,6 +25,16 @@ export async function POST(req) {
     const priceId = priceMap[planKey];
     if (!priceId) return NextResponse.json({ error: "Select an available subscription plan." }, { status: 400 });
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {apiVersion:"2024-06-20"});
+    const existing = await firebaseAdmin().firestore().doc("users/"+user.uid).get();
+    if (existing.data()?.billingActive) return NextResponse.json({
+      error: "This account already has an active subscription. Contact support before changing plans."
+    }, { status: 409 });
+    const price = await stripe.prices.retrieve(priceId);
+    const expectedAmounts = { starter:4900, growth:14900, elite:49900 };
+    if (!price.active || price.currency !== "usd" || price.unit_amount !== expectedAmounts[planKey] ||
+        price.recurring?.interval !== "month" || price.recurring?.interval_count !== 1) {
+      return NextResponse.json({ error: "Subscription pricing is being verified. Please contact support." }, { status: 503 });
+    }
     const session = await stripe.checkout.sessions.create({
       ui_mode: "embedded",
       mode: "subscription",
