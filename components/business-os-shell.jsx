@@ -18,6 +18,7 @@ import {
 } from "firebase/firestore";
 import { auth, db } from "../lib/firebase";
 import PhoneSetup from "./phone-setup";
+async function adminHeaders() { const token = await auth?.currentUser?.getIdToken(); if (!token) throw new Error("Sign in again to use founder tools."); return { "Content-Type": "application/json", Authorization: `Bearer ${token}` }; }
 import IntegrationsHub from "./integrations-hub";
 import VapiConsole from "./vapi-console";
 
@@ -939,7 +940,7 @@ export default function DashboardPage() {
     try {
       const response = await fetch("/api/dev/create-account", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await adminHeaders(),
         body: JSON.stringify(devForm),
       });
 
@@ -963,7 +964,7 @@ export default function DashboardPage() {
     try {
       const response = await fetch("/api/dev/update-account", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await adminHeaders(),
         body: JSON.stringify(devForm),
       });
 
