@@ -2,6 +2,7 @@
 import Link from "next/link";
 import {useState} from "react";
 import {SITE_THEMES,SITE_INDUSTRIES,getIndustry} from "../../../lib/site-presets";
+import SitePhoto from "../../../components/site-photo";
 const classes={editorial:"bg-[#faf9f5] text-[#1d1d1d]",bold:"bg-[#b45e39] text-white",warm:"bg-[#e4c9b5] text-[#50362f]",professional:"bg-[#edf5f6] text-[#1b3642]"};
 export default function Showcase(){
   const [theme,setTheme]=useState("editorial");
@@ -17,8 +18,9 @@ export default function Showcase(){
         {theme==="bold"&&<div className="relative z-10"><p className="text-sm font-extrabold tracking-widest">{data.eyebrow}</p><h2 className="mt-12 max-w-3xl text-5xl font-black uppercase leading-[.92] tracking-[-.08em] sm:text-7xl">{data.headline}</h2><p className="mt-8 max-w-xl text-lg leading-8">{data.lead}</p><span aria-hidden="true" className="absolute -right-12 top-0 -z-10 text-[15rem] font-black leading-none opacity-15">F.</span></div>}
         {theme==="warm"&&<div className="relative z-10"><div className="absolute -right-20 -top-32 -z-10 h-80 w-80 rounded-full border-[45px] border-white/30"/><p className="font-serif text-3xl italic">Welcome in.</p><h2 className="mt-16 max-w-3xl font-serif text-5xl leading-[1.02] tracking-[-.06em] sm:text-7xl">{data.headline}</h2><p className="mt-8 max-w-xl text-lg leading-8">{data.lead}</p></div>}
         {theme==="professional"&&<div className="grid items-center gap-8 lg:grid-cols-[1.1fr_.9fr]"><div><p className="text-xs font-black uppercase tracking-[.17em]">{data.eyebrow}</p><h2 className="mt-10 text-5xl font-black tracking-[-.075em] sm:text-7xl">{data.headline}</h2><p className="mt-7 text-lg leading-8">{data.lead}</p></div><div className="rounded-[1.6rem] bg-white p-8"><p className="text-sm font-bold">SERVICES</p>{data.services.map((service,i)=><p key={service} className="border-b border-zinc-200 py-5 text-lg font-semibold">0{i+1} — {service}</p>)}</div></div>}
+        <SitePhoto industry={industry} slot="showcase-hero" className="mt-8 aspect-[16/9] w-full rounded-2xl sm:aspect-[21/9]" priority />
         {theme!=="professional"&&<div className="mt-10 grid gap-3 border-t border-current/20 pt-8 sm:grid-cols-3">{data.services.map((service,i)=><div key={service}><small className="opacity-60">0{i+1}</small><p className="mt-3 text-lg font-bold">{service}</p></div>)}</div>}
-        <p className="mt-16 text-[11px] font-bold uppercase tracking-[.2em] opacity-60">FUGTH DESIGN SAMPLE · NOT A LIVE BUSINESS WEBSITE</p>
+        <p className="mt-16 text-[11px] font-bold uppercase tracking-[.2em] opacity-60">FUGTH DESIGN SAMPLE · ILLUSTRATIVE INDUSTRY PHOTO</p>
       </section><div className="mt-6 flex flex-wrap gap-4"><Link href="/login" className="rounded-xl bg-zinc-950 px-6 py-4 text-sm font-black text-white">Make my own site →</Link><Link href="/" className="rounded-xl border border-zinc-300 px-6 py-4 text-sm font-black">Back to FUGTH</Link></div>
     </div>
   </main>;
