@@ -1,5 +1,6 @@
 import { randomBytes } from "crypto";
 import { buildStarterSite } from "../../../../lib/site-presets";
+import { allocateFugthAccountNumber } from "../../../../lib/server/account-number";
 import { NextResponse } from 'next/server';
 import admin from 'firebase-admin';
 
@@ -82,6 +83,10 @@ export async function POST(req) {
       stripeCustomerId: stripeCustomerId || null
     }, { merge: true });
 
+    // Server-issued permanent public reference; never derived from the Firebase UID.
+    const assigned = await allocateFugthAccountNumber(db,uid);
+    const accountNumber=assigned.number;
+
     // Add an entry to devAccounts for admin tracking
     await db.collection('devAccounts').add({
       uid,
@@ -108,7 +113,7 @@ export async function POST(req) {
         console.error("Client site preview generation failed",siteError?.code||"unknown");
       }
     }
-    return NextResponse.json({ success: true, uid, email, siteReady, siteUrl:`/sites/${uid}` });
+    return NextResponse.json({ success: true, uid, accountNumber, email, siteReady, siteUrl:`/sites/${uid}` });
   } catch (err) {
     console.error('Create-account error', err);
     return NextResponse.json({ error: err.message || 'Server error' }, { status: 500 });
