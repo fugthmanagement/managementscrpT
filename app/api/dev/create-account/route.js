@@ -55,6 +55,7 @@ export async function POST(req) {
     let userRecord;
     try {
       userRecord = await admin.auth().createUser({ email, password: password || randomBytes(24).toString('base64url'), displayName: displayName || '' });
+      newlyCreated=true;
     } catch (err) {
       if (err.code === 'auth/email-already-exists') {
         userRecord = await admin.auth().getUserByEmail(email);
@@ -113,7 +114,18 @@ export async function POST(req) {
         console.error("Client site preview generation failed",siteError?.code||"unknown");
       }
     }
-    return NextResponse.json({ success: true, uid, accountNumber, email, siteReady, siteUrl:`/sites/${uid}` });
+    // Account owners must establish their own password. We do not email people
+    // automatically without a configured mail sender. Show the founder a
+    // single-use activation link only when a NEW account was created.
+    let activationLink=null;
+    if(newlyCreated && !password){
+      try { activationLink=await admin.auth().generatePasswordResetLink(email); }
+      catch { console.warn("Client activation link unavailable; normal Forgot Password still works."); }
+    }
+    return NextResponse.json({
+      success:true, uid, accountNumber, email, siteReady,siteUrl:`/sites/${uid}`,
+      activationLink, activationNeeded: newlyCreated&&!password
+    });
   } catch (err) {
     console.error('Create-account error', err);
     return NextResponse.json({ error: err.message || 'Server error' }, { status: 500 });
