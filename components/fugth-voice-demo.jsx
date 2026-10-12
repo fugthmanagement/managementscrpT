@@ -1,6 +1,7 @@
 "use client";
 import { useEffect,useState } from "react";
 import { auth } from "../lib/firebase";
+import VerifyDemoPhone from "./verify-demo-phone";
 import { sendEmailVerification } from "firebase/auth";
 
 const INDUSTRIES = [
@@ -42,6 +43,7 @@ export default function FugthVoiceDemo({user,workspace,compact=false}){
   const [cooldown,setCooldown]=useState(0);
   const [now,setNow]=useState(Date.now());
   const [emailSent,setEmailSent]=useState(false);
+  const [phoneVerified,setPhoneVerified]=useState(false);
   useEffect(()=>{let active=true;const check=async()=>{try{const r=await fetch("/api/demo-call",{headers:await authorization(),cache:"no-store"});const data=await r.json();if(active){setReadiness(data);setCooldown(data.cooldownUntil||0)}}catch{if(active)setReadiness({available:false,reason:"Voice demos are currently unavailable."});}};check();return()=>{active=false;};},[user?.uid]);
   useEffect(()=>{const timer=setInterval(()=>setNow(Date.now()),1000);return()=>clearInterval(timer);},[]);
   useEffect(()=>{
@@ -68,7 +70,10 @@ export default function FugthVoiceDemo({user,workspace,compact=false}){
     try{await sendEmailVerification(auth.currentUser);setEmailSent(true);}catch(e){setError(e.message||"Couldn't send verification email.");}
   }
   const waitTime=Math.max(0,cooldown-now);
-  const isReady=readiness?.available && waitTime===0 && !busy;
+  const inputDigits=phone.replace(/[^0-9]/g,"");
+  const inputE164=inputDigits.length===10?"+1"+inputDigits:inputDigits.length===11&&inputDigits.startsWith("1")?"+"+inputDigits:null;
+  const verifiedNumber=Boolean(inputE164 && (inputE164===user?.phoneNumber || (phoneVerified && inputE164===auth.currentUser?.phoneNumber)));
+  const isReady=readiness?.available && verifiedNumber && waitTime===0 && !busy;
   return <section className="overflow-hidden rounded-[1.65rem] border border-zinc-200 bg-white shadow-[0_14px_50px_#0000000c]">
     <div className="relative border-b border-zinc-200 bg-zinc-950 px-5 py-7 text-white sm:px-8 sm:py-9">
       <div className="absolute -right-16 -top-16 h-60 w-60 rounded-full border-[38px] border-white/5"/>
@@ -83,9 +88,10 @@ export default function FugthVoiceDemo({user,workspace,compact=false}){
       <div><p className="text-xs font-black uppercase tracking-[.14em] text-zinc-500">2. How should your agent sound?</p><div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">{ROLES.map(x=><button type="button" key={x.id} onClick={()=>setRole(x.id)} aria-pressed={role===x.id} className={`rounded-xl border p-4 text-left ${role===x.id?"border-zinc-950 bg-zinc-950 text-white":"border-zinc-200 bg-zinc-50 text-zinc-900"}`}><strong className="block text-sm">{x.label}</strong><span className={`mt-2 block text-[11px] leading-5 ${role===x.id?"text-zinc-300":"text-zinc-500"}`}>{x.example}</span></button>)}</div><p className="mt-2 text-xs text-zinc-500">A warm, upbeat feminine voice. Natural and attentive, without repeating every sentence.</p></div>
       <div><p className="text-xs font-black uppercase tracking-[.14em] text-zinc-500">3. Pick the situation</p><div className="mt-3 grid gap-2 sm:grid-cols-2">{MODES.map(x=><button type="button" key={x.id} onClick={()=>setScenario(x.id)} aria-pressed={scenario===x.id} className={`rounded-xl border p-4 text-left ${scenario===x.id?"border-zinc-950 bg-zinc-100":"border-zinc-200 bg-white"}`}><span className="flex items-center gap-2 text-sm font-black"><span aria-hidden="true">{scenario===x.id?"◉":"○"}</span>{x.title}</span><span className="mt-2 block pl-6 text-xs leading-5 text-zinc-500">{x.sub}</span></button>)}</div><p className="mt-2 text-xs text-zinc-500">All scenarios are simulations. A FUGTH agent calls your phone so you can experience the conversation.</p></div>
       <div className="grid gap-5 rounded-2xl border border-zinc-200 bg-[#f8f8f6] p-5 sm:grid-cols-[1fr_auto] sm:items-end sm:p-6">
-        <div><label htmlFor="fugth-demo-number" className="text-xs font-black uppercase tracking-[.14em] text-zinc-600">4. Your phone number</label><input id="fugth-demo-number" type="tel" inputMode="tel" autoComplete="tel" placeholder="(305) 555-0123" required value={phone} onChange={e=>setPhone(e.target.value)} className="mt-3 w-full rounded-xl border border-zinc-300 bg-white px-4 py-3.5 text-base text-zinc-950 outline-none focus:border-zinc-950 sm:max-w-sm"/><label className="mt-4 flex max-w-xl cursor-pointer items-start gap-3 text-xs leading-6 text-zinc-600"><input type="checkbox" required checked={consent} onChange={e=>setConsent(e.target.checked)} className="mt-1 accent-zinc-950"/><span>This is my own verified number. I consent to a single FUGTH automated demonstration call of up to 15 seconds, including call summary processing.</span></label></div>
+        <div><label htmlFor="fugth-demo-number" className="text-xs font-black uppercase tracking-[.14em] text-zinc-600">4. Your phone number</label><input id="fugth-demo-number" type="tel" inputMode="tel" autoComplete="tel" placeholder="(305) 555-0123" required value={phone} onChange={e=>{setPhone(e.target.value);setPhoneVerified(false);}} className="mt-3 w-full rounded-xl border border-zinc-300 bg-white px-4 py-3.5 text-base text-zinc-950 outline-none focus:border-zinc-950 sm:max-w-sm"/><label className="mt-4 flex max-w-xl cursor-pointer items-start gap-3 text-xs leading-6 text-zinc-600"><input type="checkbox" required checked={consent} onChange={e=>setConsent(e.target.checked)} className="mt-1 accent-zinc-950"/><span>This is my own verified number. I consent to a single FUGTH automated demonstration call of up to 15 seconds, including call summary processing.</span></label></div>
         <button disabled={!isReady||!consent||!phone} className="min-w-[190px] rounded-xl bg-zinc-950 px-6 py-4 text-sm font-black text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-40">{busy?"Requesting call...":waitTime>0?`Try again in ${formatWait(cooldown)}`:"Call me now ↗"}</button>
       </div>
+      {inputE164 && <VerifyDemoPhone user={auth.currentUser||user} number={phone} onVerified={()=>{setPhoneVerified(true);setError("");}} />}
       {readiness && !readiness.available && <div className="rounded-xl border border-zinc-200 bg-zinc-100 p-4 text-sm leading-6 text-zinc-700">
         {readiness.needsEmailVerification?<><strong>Verify your email to unlock a voice preview.</strong> {emailSent?"Verification email sent. Check your inbox, then refresh this page.":<button type="button" onClick={verifyEmail} className="font-black underline">Send verification email</button>}</>:(readiness.reason||"FUGTH live demos are being configured.")}
       </div>}
