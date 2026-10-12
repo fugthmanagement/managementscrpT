@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
-import { authenticatedUser } from "../../../../lib/server/auth";
+import { authenticatedUser } from "../../../lib/server/auth";
 import {
   prepareDemo,demoAssistant,demoDb,demoReady,phoneHash,
   DEMO_COOLDOWN_MS,DEMO_DAILY_ACCOUNT_LIMIT,DEMO_DAILY_PHONE_LIMIT,DEMO_GLOBAL_DAILY_LIMIT,
-} from "../../../../lib/server/demo";
+} from "../../../lib/server/demo";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
 
