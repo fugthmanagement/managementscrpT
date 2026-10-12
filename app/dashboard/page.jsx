@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
-import { BusinessOSShell } from "../../components/business-os-shell";
+import BusinessOSShell from "../../components/business-os-shell";
 import { auth } from "../../lib/firebase";
 
 export default function Dashboard() {
