@@ -183,3 +183,21 @@ body { margin: 0; background: #090d15; color: #fff; }
 .fugth-phone-preview [class*="lg:px-"] { padding-left:1.25rem!important; padding-right:1.25rem!important; }
 .fugth-phone-preview .min-h-\[570px\],
 .fugth-phone-preview .min-h-\[560px\] { min-height:0!important; }
+
+/* Generated customer sites: subtle modern polish, image stability and responsive rhythm. */
+.fugth-generated-site { -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility; }
+.fugth-generated-site figure { margin:0; }
+.fugth-generated-site figure img { display:block; width:100%;height:100%;object-fit:cover;transition:transform .7s cubic-bezier(.22,1,.36,1); }
+@media (hover:hover) and (pointer:fine) {
+  .fugth-generated-site figure:hover img { transform:scale(1.025); }
+}
+.fugth-generated-site h1, .fugth-generated-site h2 { overflow-wrap:break-word; }
+.fugth-generated-site a { transition:background .18s ease,border-color .18s ease,color .18s ease; }
+@media (max-width:640px) {
+  .fugth-generated-site h1 { font-size:clamp(2.65rem,11.5vw,4rem); }
+  .fugth-generated-site figure img { min-height:180px; }
+  .fugth-generated-site [class*="tracking-"] { overflow-wrap:anywhere; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .fugth-generated-site figure img,.fugth-generated-site a { transition:none!important; }
+}
