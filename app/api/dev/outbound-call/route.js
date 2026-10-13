@@ -1,3 +1,4 @@
+import {authenticatedUser,isFounder} from "../../../../lib/server/auth";
 import { NextResponse } from 'next/server';
 
 function normalizeToE164(num) {
@@ -40,6 +41,9 @@ const INDUSTRY_PROMPTS = {
 };
 
 export async function POST(req) {
+  const user=await authenticatedUser(req);
+  if(!user)return NextResponse.json({error:"Sign in required."},{status:401});
+  if(!isFounder(user))return NextResponse.json({error:"Authorized FUGTH administration only."},{status:403});
   try {
     const body = await req.json();
     const {
@@ -85,7 +89,7 @@ export async function POST(req) {
 
     // Build standard high-compatibility Vapi payload
     const vapiPayload = {
-      maxDurationSeconds: 400,
+      maxDurationSeconds: 90,
       phoneNumberId: vapiNumberId ? vapiNumberId.trim() : undefined,
       customer: {
         number: to
