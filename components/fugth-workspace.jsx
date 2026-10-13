@@ -1,13 +1,14 @@
 "use client";
 import {useEffect,useMemo,useState} from "react";
 import Link from "next/link";
-import {onAuthStateChanged,signOut} from "firebase/auth";
+import {onAuthStateChanged,signOut,sendEmailVerification,reload} from "firebase/auth";
 import {addDoc,collection,doc,onSnapshot,query,orderBy,limit,serverTimestamp,setDoc} from "firebase/firestore";
 import {auth,db} from "../lib/firebase";
 import SiteStudio from "./site-studio";
 import PhoneSetup from "./phone-setup";
 import IntegrationsHub from "./integrations-hub";
 import FounderSites from "./founder-sites";
+import ReceptionistPreview from "./receptionist-preview";
 
 const MENU=[
  {id:"home",label:"Home",icon:"home"},
@@ -46,7 +47,7 @@ const freshDate=v=>{if(!v)return "Recent";try{const d=v?.toDate?.()||new Date(v?
 export default function FugthWorkspace(){
  const [user,setUser]=useState(null),[ready,setReady]=useState(false);
  const [page,setPage]=useState("home"),[menuOpen,setMenuOpen]=useState(false);
- const [founder,setFounder]=useState(false),[capabilitiesReady,setCapabilitiesReady]=useState(false);
+ const [founder,setFounder]=useState(false),[capabilitiesReady,setCapabilitiesReady]=useState(false),[founderVerificationNeeded,setFounderVerificationNeeded]=useState(false);
  const [workspace,setWorkspace]=useState({}),[calls,setCalls]=useState([]),[leads,setLeads]=useState([]),[appointments,setAppointments]=useState([]);
  const [error,setError]=useState(""),[notice,setNotice]=useState(""),[busy,setBusy]=useState("");
  const [customerView,setCustomerView]=useState("leads");
@@ -67,7 +68,7 @@ export default function FugthWorkspace(){
        const token=await current.getIdToken();
        const res=await fetch("/api/me/access",{headers:{Authorization:"Bearer "+token},cache:"no-store"});
        const data=await res.json().catch(()=>({}));
-       setFounder(Boolean(res.ok&&data.isFounder));setCapabilitiesReady(true);
+       setFounder(Boolean(res.ok&&data.isFounder));setFounderVerificationNeeded(Boolean(res.ok&&data.needsFounderVerification));setCapabilitiesReady(true);
      }catch{setFounder(false);setCapabilitiesReady(true);}
    });
  },[]);
@@ -80,13 +81,29 @@ export default function FugthWorkspace(){
      setProfile({businessName:data.businessName||"",businessType:data.businessType||"",serviceArea:data.serviceArea||"",hours:data.hours||"",phone:data.phone||""});
    },errors);
    const watch=(name,setter)=>onSnapshot(query(collection(db,"users",uid,name),orderBy("createdAt","desc"),limit(60)),snap=>setter(snap.docs.map(d=>({id:d.id,...d.data()}))),errors);
-   const off2=watch("calls",setCalls),off3=watch("leads",setLeads),off4=watch("appointments",setAppointments);
+   const off2=watch("calls",records=>setCalls(records.filter(c=>c.source!=="preview_quota"))),off3=watch("leads",setLeads),off4=watch("appointments",setAppointments);
    return()=>{unsub1();off2();off3();off4();};
  },[user?.uid]);
  useEffect(()=>{const q=new URLSearchParams(window.location.search);if(q.has("integration")){setPage("settings");setSettingsSection("connections");}},[]);
  const tabs=founder?[...MENU,{id:"admin",label:"Administration",icon:"admin"}]:MENU;
  const changePage=id=>{setPage(id);setMenuOpen(false);setNotice("");setError("");};
  async function logOut(){try{await signOut(auth);window.location.replace("/login");}catch{setError("Could not log out. Please retry.");}}
+ async function verifyFounder(){
+   setBusy("verifyFounder");setError("");setNotice("");
+   try{
+     if(!auth.currentUser)throw Error("Please sign in again.");
+     await reload(auth.currentUser);
+     if(!auth.currentUser.emailVerified){
+       await sendEmailVerification(auth.currentUser);
+       setNotice("Verification email sent. Open the link in your inbox, then come back and refresh the page to unlock Administration.");
+     }else{
+       await auth.currentUser.getIdToken(true);
+       window.location.reload();
+     }
+   }catch(e){setError("We couldn't send or check your verification email. Please retry.");}
+   finally{setBusy("");}
+ }
+
  async function saveLead(e){e.preventDefault();setBusy("lead");setError("");
    try{if(!lead.phone.trim()&&!lead.contactName.trim())throw Error("Enter a customer name or phone number.");
      await addDoc(collection(db,"users",user.uid,"leads"),{...lead,status:"new",source:"manual",createdAt:serverTimestamp(),updatedAt:serverTimestamp()});
@@ -128,16 +145,17 @@ export default function FugthWorkspace(){
    <div className="flex min-w-0 flex-1 flex-col">
     <header className="sticky top-0 z-30 flex min-h-[79px] items-center justify-between gap-2 border-b border-[#e9ebe5] bg-[#f8f9f6]/95 px-4 backdrop-blur-lg sm:px-8 lg:px-10">
      <div className="flex min-w-0 items-center gap-3"><button type="button" className="grid h-10 w-10 place-items-center rounded-xl border border-[#e0e4da] bg-white lg:hidden" aria-label="Open menu" onClick={()=>setMenuOpen(true)}><Symbol name="menu"/></button><p className="truncate text-[15px] font-semibold tracking-[-.03em]">{tabs.find(t=>t.id===page)?.label||"Home"}</p></div>
-     <div className="flex shrink-0 items-center gap-2"><button type="button" onClick={()=>navigate("website")} className="rounded-xl border border-[#dbe0d6] bg-white px-3.5 py-2.5 text-[12px] font-semibold text-[#3a4937] hover:bg-[#f0f3ec]">My website <span aria-hidden="true">↗</span></button><button type="button" onClick={logOut} className="rounded-xl bg-[#27322a] px-3.5 py-2.5 text-[12px] font-semibold text-white hover:bg-[#435345]">Log out</button></div>
+     <div className="flex shrink-0 items-center gap-2">{founder&&<button type="button" onClick={()=>navigate("admin")} className="rounded-xl border border-[#b5c9b3] bg-[#e9f0e5] px-3.5 py-2.5 text-[12px] font-bold text-[#31513a] hover:bg-[#dae9d6]">Administration</button>}<button type="button" onClick={()=>navigate("website")} className="rounded-xl border border-[#dbe0d6] bg-white px-3.5 py-2.5 text-[12px] font-semibold text-[#3a4937] hover:bg-[#f0f3ec]">My website <span aria-hidden="true">↗</span></button><button type="button" onClick={logOut} className="rounded-xl bg-[#27322a] px-3.5 py-2.5 text-[12px] font-semibold text-white hover:bg-[#435345]">Log out</button></div>
     </header>
     <div className="mx-auto w-full max-w-[1500px] flex-1 px-4 pb-16 pt-8 sm:px-8 sm:pt-10 lg:px-10">
+     {founderVerificationNeeded&&<div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[#e6d5a8] bg-[#fffaf0] p-5"><div><p className="text-sm font-bold text-[#6e5430]">Finish verifying your FUGTH team account</p><p className="mt-1 text-xs leading-6 text-[#927c56]">Administration is private to approved team emails. Verify your email to unlock it; normal customer accounts won't see these tools.</p></div><button type="button" disabled={busy==="verifyFounder"} onClick={verifyFounder} className="rounded-xl bg-[#574a34] px-4 py-3 text-xs font-bold text-white disabled:opacity-50">{busy==="verifyFounder"?"Checking…":"Verify my email"}</button></div>}
      {(notice||error)&&<div role="status" className={`mb-6 rounded-2xl border px-5 py-4 text-sm ${error?"border-[#ead5cc] bg-[#fff7f1] text-[#824e34]":"border-[#d9e4d5] bg-[#f0f6ed] text-[#38573c]"}`}>{error||notice}</div>}
      {page==="home"&&<div className="space-y-8">
        <section className="rounded-[26px] border border-[#e2e6dd] bg-[#eaf0e7] px-6 py-9 sm:px-10 sm:py-12"><div className="flex flex-wrap items-start justify-between gap-7"><div><p className="text-[11px] font-semibold uppercase tracking-[.21em] text-[#7a8a76]">YOUR SPACE TO GROW</p><h1 className="mt-4 max-w-[700px] text-[clamp(2.4rem,5.4vw,4.8rem)] font-semibold leading-[1.02] tracking-[-.08em] text-[#283429]">Good to see you<span className="font-serif font-normal italic"> again.</span></h1><p className="mt-5 max-w-lg text-sm leading-7 text-[#657561]">Your calls, customers and business website, in one simple place.</p></div><span className="rounded-full border border-[#c9d5c5] bg-[#f8faf7] px-4 py-2 text-[11px] font-semibold text-[#566b53]">{plan}</span></div><div className="mt-9 flex flex-wrap gap-3"><button type="button" onClick={()=>navigate("calls")} className="inline-flex items-center gap-2 rounded-xl bg-[#27382b] px-5 py-3.5 text-sm font-semibold text-white">See your calls <Symbol name="arrow" size={15}/></button><button type="button" onClick={()=>navigate("website")} className="rounded-xl border border-[#bfcbbb] bg-white px-5 py-3.5 text-sm font-semibold text-[#293c2b]">Edit your website</button></div></section>
        <div className="grid gap-4 md:grid-cols-3">{[{title:"Calls",value:calls.length,sub:"Recent calls in your inbox",target:"calls"},{title:"Customers",value:leads.length,sub:"Saved customer leads",target:"customers"},{title:"Appointments",value:appointments.length,sub:"Recent saved appointments",target:"customers"}].map(item=><button key={item.title} type="button" onClick={()=>navigate(item.target)} className={`${panel} p-6 text-left transition hover:border-[#becbb5] hover:shadow-[0_10px_35px_rgba(41,53,36,.04)]`}><p className="text-sm text-[#868b80]">{item.title}</p><p className="mt-5 text-4xl font-semibold tracking-[-.07em] text-[#293429]">{item.value}</p><p className="mt-2 text-xs text-[#a0a59a]">{item.sub}</p></button>)}</div>
        <section className={`${panel} p-6 sm:p-8`}><div className="mb-5 flex items-center justify-between gap-4"><h3 className="text-lg font-semibold">What happened recently</h3><button type="button" onClick={()=>navigate("calls")} className="text-xs font-semibold text-[#53684e]">View all calls →</button></div>{calls.length?calls.slice(0,4).map(c=><ListRecord key={c.id} title={c.callerName||c.customerName||c.from||c.phoneNumber||"Customer call"} detail={[c.summary||c.transcriptSummary||"Call recorded",freshDate(c.createdAt)].join(" · ")} meta={c.status||c.intent||"Call"}/>):<Empty title="Your calls will appear here" description="Once your phone line is connected, you'll see your recent call records and follow-up information."/>}</section>
       </div>}
-     {page==="calls"&&<div><SectionHeading eyebrow="CONVERSATIONS" title="Your call inbox" description="See what customers called about, and which conversations need a follow-up." action={<button type="button" onClick={()=>{setPage("settings");setSettingsSection("phone");}} className="rounded-xl border border-[#d8ddd3] bg-white px-4 py-3 text-xs font-semibold">Phone setup ↗</button>}/><section className={`${panel} px-5 py-2 sm:px-8`}>{calls.length?calls.map(c=><ListRecord key={c.id} title={c.callerName||c.customerName||c.from||c.phoneNumber||"Customer call"} detail={c.summary||c.transcriptSummary||c.phone||"Call record · "+freshDate(c.createdAt)} meta={c.status||c.intent||"Recorded"}/>):<Empty title="No calls recorded yet" description="When your FUGTH phone is connected, customer conversations will show here. No sample calls are added to your actual records." action={<button onClick={()=>{setPage("settings");setSettingsSection("phone");}} className="rounded-xl bg-[#28362b] px-5 py-3 text-sm font-semibold text-white">Set up your phone</button>}/>}</section></div>}
+     {page==="calls"&&<div><SectionHeading eyebrow="RECEPTIONIST & CALLS" title="Your phone, handled beautifully." description="See what customers called about, and which conversations need a follow-up." action={<button type="button" onClick={()=>{setPage("settings");setSettingsSection("phone");}} className="rounded-xl border border-[#d8ddd3] bg-white px-4 py-3 text-xs font-semibold">Phone setup ↗</button>}/><ReceptionistPreview user={user} workspace={workspace} onGoPhoneSetup={()=>{setPage("settings");setSettingsSection("phone");}}/><section className={`${panel} mt-7 px-5 py-2 sm:px-8`}>{calls.length?calls.map(c=><ListRecord key={c.id} title={c.callerName||c.customerName||c.from||c.phoneNumber||"Customer call"} detail={c.summary||c.transcriptSummary||c.phone||"Call record · "+freshDate(c.createdAt)} meta={c.status||c.intent||"Recorded"}/>):<Empty title="No calls recorded yet" description="When your FUGTH phone is connected, customer conversations will show here. No sample calls are added to your actual records." action={<button onClick={()=>{setPage("settings");setSettingsSection("phone");}} className="rounded-xl bg-[#28362b] px-5 py-3 text-sm font-semibold text-white">Set up your phone</button>}/>}</section></div>}
      {page==="customers"&&<div><SectionHeading eyebrow="PEOPLE & BOOKINGS" title="Keep every connection." description="One place for customer details and appointments—without a complicated CRM."/>
        <div className="mb-6 inline-flex gap-1 rounded-xl border border-[#e0e5db] bg-white p-1"><button type="button" onClick={()=>setCustomerView("leads")} className={`rounded-lg px-4 py-2.5 text-xs font-semibold ${customerView==="leads"?"bg-[#29372d] text-white":"text-[#7d8779]"}`}>Customers</button><button type="button" onClick={()=>setCustomerView("appointments")} className={`rounded-lg px-4 py-2.5 text-xs font-semibold ${customerView==="appointments"?"bg-[#29372d] text-white":"text-[#7d8779]"}`}>Appointments</button></div>
        {customerView==="leads"?<section className={`${panel} p-5 sm:p-7`}><div className="mb-5 flex items-center justify-between gap-4"><h3 className="text-lg font-semibold">Customer list</h3><button type="button" onClick={()=>setShowLeadForm(!showLeadForm)} className="inline-flex items-center gap-2 rounded-xl bg-[#27382b] px-4 py-3 text-xs font-semibold text-white"><Symbol name="plus" size={15}/> Add customer</button></div>
