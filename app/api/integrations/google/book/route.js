@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { authenticatedUser } from "../../../../../lib/server/auth";
+import { authenticatedUser,firebaseAdmin } from "../../../../../lib/server/auth";
 import { accessGoogleCalendar } from "../../../../../lib/server/google-calendar";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -38,7 +38,20 @@ export async function POST(req) {
     });
     if (!response.ok) return NextResponse.json({ error: "Google Calendar did not accept the event." }, { status: 502 });
     const event = await response.json();
-    return NextResponse.json({ created: true, eventId: event.id, eventUrl: event.htmlLink || null });
+    // Store a minimal pointer in the owner's FUGTH appointment list only after
+    // Google accepted the calendar event. No guests or private descriptions copied.
+    let workspaceSynced=false;
+    try {
+      const eventId=String(event.id||"").replace(/[^a-z0-9_-]/gi,"").slice(0,120);
+      if(eventId){
+        await firebaseAdmin().firestore().doc(`users/${user.uid}/appointments/google_${eventId}`).set({
+          customerName:"Calendar appointment",service:title,startTime:begin.toISOString(),endTime:finish.toISOString(),
+          status:"scheduled",source:"google_calendar",externalEventId:event.id,createdAt:new Date().toISOString()
+        },{merge:true});
+        workspaceSynced=true;
+      }
+    }catch(e){console.error("FUGTH calendar import failed; event exists in Google",e?.code||"unknown");}
+    return NextResponse.json({ created: true, workspaceSynced, eventId: event.id, eventUrl: event.htmlLink || null });
   } catch {
     return NextResponse.json({ error: "Could not create calendar appointment. Check the connection and try again." }, { status: 500 });
   }

@@ -30,7 +30,8 @@ export async function GET(req) {
     };
     if (!credentials.refresh_token) return back("authorization-error");
     await ref.set({
-      provider: "google_calendar",
+      provider: "google_workspace",
+      scopes: result.scope || existing.data()?.scopes || "",
       secret: encrypt(credentials),
       connectedAt: existing.data()?.connectedAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),

@@ -1,4 +1,6 @@
 import { randomBytes } from "crypto";
+import { buildStarterSite } from "../../../../lib/site-presets";
+import { allocateFugthAccountNumber } from "../../../../lib/server/account-number";
 import { NextResponse } from 'next/server';
 import admin from 'firebase-admin';
 
@@ -53,6 +55,7 @@ export async function POST(req) {
     let userRecord;
     try {
       userRecord = await admin.auth().createUser({ email, password: password || randomBytes(24).toString('base64url'), displayName: displayName || '' });
+      newlyCreated=true;
     } catch (err) {
       if (err.code === 'auth/email-already-exists') {
         userRecord = await admin.auth().getUserByEmail(email);
@@ -81,6 +84,10 @@ export async function POST(req) {
       stripeCustomerId: stripeCustomerId || null
     }, { merge: true });
 
+    // Server-issued permanent public reference; never derived from the Firebase UID.
+    const assigned = await allocateFugthAccountNumber(db,uid);
+    const accountNumber=assigned.number;
+
     // Add an entry to devAccounts for admin tracking
     await db.collection('devAccounts').add({
       uid,
@@ -94,7 +101,31 @@ export async function POST(req) {
       createdBy: verified.uid
     });
 
-    return NextResponse.json({ success: true, uid, email });
+    // Generate a separate, safe-to-share business preview. Existing custom sites are
+    // deliberately left unchanged if an existing client account is reopened.
+    let siteReady=true;
+    try {
+      await db.doc(`publicSites/${uid}`).create(
+        buildStarterSite(uid,body.businessName || displayName || "Your business",body.businessType||body.industry||"general")
+      );
+    } catch (siteError) {
+      if (siteError.code!==6 && siteError.code!=="already-exists") {
+        siteReady=false;
+        console.error("Client site preview generation failed",siteError?.code||"unknown");
+      }
+    }
+    // Account owners must establish their own password. We do not email people
+    // automatically without a configured mail sender. Show the founder a
+    // single-use activation link only when a NEW account was created.
+    let activationLink=null;
+    if(newlyCreated && !password){
+      try { activationLink=await admin.auth().generatePasswordResetLink(email); }
+      catch { console.warn("Client activation link unavailable; normal Forgot Password still works."); }
+    }
+    return NextResponse.json({
+      success:true, uid, accountNumber, email, siteReady,siteUrl:`/sites/${uid}`,
+      activationLink, activationNeeded: newlyCreated&&!password
+    });
   } catch (err) {
     console.error('Create-account error', err);
     return NextResponse.json({ error: err.message || 'Server error' }, { status: 500 });

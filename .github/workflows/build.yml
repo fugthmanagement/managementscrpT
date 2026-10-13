@@ -1,0 +1,31 @@
+name: FUGTH Web Build
+on:
+  push:
+    branches:
+      - feature/fugth-site-studio-2026-10-12
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Test FUGTH account number allocation
+        run: node --experimental-default-type=module --test tests/account-number.test.mjs
+      - name: Build FUGTH website
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: fugthmanagement-89c84
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: fugthmanagement-89c84.firebaseapp.com
+          NEXT_PUBLIC_FIREBASE_API_KEY: build_placeholder_only
+        run: npm run build

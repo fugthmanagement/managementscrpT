@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import Link from "next/link";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import {
@@ -18,6 +18,9 @@ import {
 } from "firebase/firestore";
 import { auth, db } from "../lib/firebase";
 import PhoneSetup from "./phone-setup";
+import SiteStudio from "./site-studio";
+import FounderSites from "./founder-sites";
+import {SITE_INDUSTRIES} from "../lib/site-presets";
 async function adminHeaders() { const token = await auth?.currentUser?.getIdToken(); if (!token) throw new Error("Sign in again to use founder tools."); return { "Content-Type": "application/json", Authorization: `Bearer ${token}` }; }
 import IntegrationsHub from "./integrations-hub";
 import VapiConsole from "./vapi-console";
@@ -64,10 +67,11 @@ const NAV_ITEMS = [
   { id: "campaigns", label: "Campaigns", icon: "bolt" },
   { id: "knowledge", label: "AI training", icon: "book" },
   { id: "advisor", label: "Business advisor", icon: "advisor" },
+  { id: "site_studio", label: "Site Maker", icon: "site_studio" },
   { id: "settings", label: "Business settings", icon: "settings" },
 ];
-const EVERYDAY_NAV = ["overview","calls","leads","appointments","phones","integrations"];
-const TOOLS_NAV = ["campaigns","knowledge","advisor","settings"];
+const EVERYDAY_NAV = ["overview","calls","leads","appointments","phones","site_studio","integrations","settings"];
+const TOOLS_NAV = ["campaigns","knowledge","advisor"];
 
 const LEAD_STAGES = [
   "new",
@@ -148,6 +152,8 @@ function Icon({ name, className = "h-5 w-5" }) {
   }
 
   if (name === "integrations") { return (<svg {...common}><circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="M9 6h9v9M6 9v9h9"/></svg>); }
+
+  if (name === "site_studio") { return (<svg {...common}><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M8 4v6"/><path d="m9 15 2 2 4-4"/></svg>); }
 
   if (name === "advisor") {
     return (
@@ -393,6 +399,10 @@ export default function DashboardPage() {
   const [busy, setBusy] = useState("");
 
   const [workspace, setWorkspace] = useState(DEFAULT_WORKSPACE);
+  const accountNumberAttempts=useRef(new Set());
+  const [lastCreatedAccountNumber,setLastCreatedAccountNumber]=useState("");
+  const [lastClientActivationLink,setLastClientActivationLink]=useState("");
+  const [clientInviteNeeded,setClientInviteNeeded]=useState(false);
   const [settingsForm, setSettingsForm] = useState(DEFAULT_WORKSPACE);
 
   const [calls, setCalls] = useState([]);
@@ -449,9 +459,11 @@ export default function DashboardPage() {
     },
   ]);
 
+  const [lastCreatedSite, setLastCreatedSite] = useState("");
   const [devForm, setDevForm] = useState({
     email: "",
     businessName: "",
+    businessType: "general",
     phone: "",
     plan: "Starter",
     role: "client",
@@ -459,8 +471,8 @@ export default function DashboardPage() {
     status: "active",
   });
 
-  const isAdmin = ADMIN_EMAILS.includes(normalize(user?.email));
   const adminVerified = Boolean(user?.emailVerified);
+  const isAdmin = ADMIN_EMAILS.includes(normalize(user?.email)) && adminVerified;
   const primaryNav = NAV_ITEMS.filter(item => EVERYDAY_NAV.includes(item.id));
   const toolsNav = NAV_ITEMS.filter(item => TOOLS_NAV.includes(item.id));
   const currentNav = NAV_ITEMS.find(item => item.id === activeTab);
@@ -477,6 +489,30 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!isAdmin && adminMode) setAdminMode(false);
   }, [isAdmin, adminMode]);
+
+  async function logOut() {
+    try {
+      await signOut(auth);
+      window.location.assign("/login");
+    } catch {
+      setNotice("Unable to log out. Please try again.");
+    }
+  }
+  // Existing customer accounts receive the same permanent FUGTH number once
+  // the server credentials are available. Retries happen on a later login.
+  useEffect(()=>{
+    if(!user?.uid || workspace.id!==user.uid || workspace.accountNumber || accountNumberAttempts.current.has(user.uid))return;
+    accountNumberAttempts.current.add(user.uid);
+    let active=true;
+    (async()=>{try{
+      const token=await auth.currentUser?.getIdToken();
+      if(!token)return;
+      const response=await fetch("/api/account-number",{method:"POST",headers:{Authorization:`Bearer ${token}`},cache:"no-store"});
+      if(!response.ok && active) console.warn("FUGTH account number assignment pending.");
+    }catch{if(active)console.warn("FUGTH account number service temporarily unavailable.");}})();
+    return()=>{active=false;};
+  },[user?.uid,workspace.id,workspace.accountNumber]);
+
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -963,12 +999,33 @@ export default function DashboardPage() {
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Create account API failed.");
 
-      setNotice("Developer account action completed.");
+      setLastCreatedSite(data.siteReady ? (data.siteUrl || "") : "");
+      setLastCreatedAccountNumber(data.accountNumber||"");
+      setLastClientActivationLink(data.activationLink||"");
+      setClientInviteNeeded(Boolean(data.activationNeeded));
+      setDevForm(prev=>({...prev,uid:data.uid||prev.uid}));
+      setNotice(data.siteReady?`Client #${data.accountNumber||"pending"} created with a FUGTH website preview.`:`Client #${data.accountNumber||"pending"} created, but the website preview needs Firebase configuration.`);
     } catch (error) {
       setNotice(error.message);
     } finally {
       setBusy("");
     }
+  }
+
+  async function devGenerateSite() {
+    if(!isAdmin) return;
+    setBusy("devSite");
+    setNotice("");
+    try{
+      const response=await fetch("/api/dev/site",{
+        method:"POST",headers:await adminHeaders(),
+        body:JSON.stringify({businessName:devForm.businessName,businessType:devForm.businessType}),
+      });
+      const data=await response.json().catch(()=>({}));
+      if(!response.ok||!data.siteUrl)throw new Error(data.error||"Could not create prospect preview.");
+      setLastCreatedSite(data.siteUrl);
+      setNotice("FUGTH prospect website created. Open the link to show the client.");
+    }catch(error){setNotice(error.message);}finally{setBusy("");}
   }
 
   async function devUpdateAccount() {
@@ -1078,14 +1135,14 @@ export default function DashboardPage() {
               {toolsOpen&&<nav aria-label="Advanced tools" className="mt-1 space-y-1">{toolsNav.map(item=><button key={item.id} type="button" onClick={()=>{setActiveTab(item.id);setSidebarOpen(false)}} className={cx("flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold",activeTab===item.id?"bg-zinc-950 text-white":"text-zinc-600 hover:bg-zinc-100")}><Icon name={item.icon} className="h-[18px] w-[18px]"/>{item.label}</button>)}</nav>}
             </div>
           </div>
-          <div className="mt-4 border-t border-zinc-200 pt-4"><p className="truncate px-2 text-sm font-black text-zinc-900">{workspace.businessName||"My business"}</p><p className="mt-1 truncate px-2 text-xs text-zinc-500">{user.email}</p><button type="button" onClick={()=>signOut(auth)} className="mt-3 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-zinc-600 hover:bg-zinc-100"><Icon name="logout" className="h-4 w-4"/>Sign out</button></div>
+          <div className="mt-4 border-t border-zinc-200 pt-4"><p className="truncate px-2 text-sm font-black text-zinc-900">{workspace.businessName||"My business"}</p><p className="mt-1 truncate px-2 text-xs text-zinc-500">{user.email}</p><p className="mt-2 px-2 text-[11px] font-semibold text-zinc-500">FUGTH account · {workspace.accountNumber||"Assignment pending"}</p><button type="button" onClick={logOut} className="mt-3 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-zinc-600 hover:bg-zinc-100"><Icon name="logout" className="h-4 w-4"/>Log out</button></div>
         </aside>
 
         <section className="flex min-w-0 flex-1 flex-col">
           <header className="sticky top-0 z-20 border-b border-zinc-200 bg-white/95 px-4 py-4 shadow-sm backdrop-blur sm:px-6 lg:px-8">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex min-w-0 items-center gap-3"><button type="button" aria-label="Open navigation" onClick={()=>setSidebarOpen(true)} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-zinc-200 text-zinc-800 lg:hidden"><span className="text-xl">☰</span></button><div><p className="text-[10px] font-bold uppercase tracking-[.15em] text-zinc-500">{"Fugth workspace"}</p><h1 className="mt-1 text-xl font-black tracking-tight text-zinc-950 sm:text-2xl">{currentNav?.label||"Overview"}</h1></div></div>
-              <div className="flex items-center gap-2"><span className="hidden rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs font-semibold text-zinc-500 sm:block">{workspace.businessName||"Business"}</span></div>
+              <div className="flex items-center gap-2"><button type="button" onClick={()=>{setActiveTab("site_studio");setSidebarOpen(false);}} className="rounded-xl border border-zinc-300 bg-white px-3 py-2 text-xs font-black text-zinc-900 hover:bg-zinc-100">Site Maker ↗</button>{isAdmin&&<button type="button" onClick={()=>{setActiveTab("settings");setAdminMode(true);setSidebarOpen(false);}} className="rounded-xl border border-zinc-300 bg-[#f4f4f1] px-3 py-2 text-xs font-bold text-zinc-900 hover:bg-zinc-200">Admin tools</button>}<span className="hidden rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs font-semibold text-zinc-500 sm:block">{workspace.businessName||"Business"}</span><button type="button" onClick={logOut} className="rounded-xl border border-zinc-200 bg-zinc-950 px-3 py-2 text-xs font-black text-white hover:bg-zinc-800" aria-label="Log out of FUGTH">Log out</button></div>
             </div>
             {notice&&<div className="mt-3 rounded-xl border border-zinc-300 bg-zinc-100 px-4 py-3 text-sm text-zinc-800">{notice}</div>}
           </header>
@@ -1185,6 +1242,7 @@ export default function DashboardPage() {
 
             {activeTab === "phones" && <PhoneSetup user={user} workspace={workspace} />}
             {activeTab === "integrations" && <IntegrationsHub />}
+            {activeTab === "site_studio" && <SiteStudio user={user} workspace={workspace} />}
 
             {activeTab === "calls" && (
               <Panel
@@ -1247,7 +1305,7 @@ export default function DashboardPage() {
 
             {activeTab === "leads" && (
               <section className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
-                <div className="xl:col-span-2 rounded-2xl border border-zinc-200 bg-white p-6"><p className="text-xs font-black uppercase tracking-[.14em] text-zinc-500">Founder access</p><h2 className="mt-2 text-2xl font-black text-zinc-900">Administration</h2><p className="mt-2 text-sm text-zinc-600">Account management and developer operations stay here, separate from the client workspace.</p>{!adminVerified&&<p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-900">Verify this account\u0027s email in Firebase Authentication before using privileged account or calling operations.</p>}</div>
+                
                 <Panel title="Add Lead" subtitle="Save cold leads, inbound leads, Google Maps leads, and follow-up notes.">
                   <form onSubmit={addLead} className="space-y-4">
                     <Field label="Business Name">
@@ -1616,19 +1674,23 @@ export default function DashboardPage() {
               </section>
             )}
 
-            {activeTab === "settings" && isAdmin && (
+            {activeTab === "settings" && (
               <section className="rounded-2xl border border-zinc-200 bg-white p-5 sm:p-6">
                 <div className="flex flex-wrap items-center justify-between gap-4">
-                  <div><p className="text-[11px] font-black uppercase tracking-widest text-zinc-500">Founder workspace access</p><p className="mt-2 text-sm text-zinc-600">The customer dashboard looks exactly the same for every account. Founder-only controls stay here in Settings.</p></div>
+                  <div><p className="text-[11px] font-black uppercase tracking-widest text-zinc-500">Workspace view</p><p className="mt-2 text-sm text-zinc-600">Everyone uses the same FUGTH dashboard. Change your view here; administrative actions require a verified FUGTH team account.</p></div>
                   <div className="inline-flex rounded-xl border border-zinc-200 bg-zinc-100 p-1" role="group" aria-label="Settings mode">
                     <button type="button" aria-pressed={!adminMode} onClick={()=>setAdminMode(false)} className={cx("rounded-lg px-4 py-2.5 text-xs font-black",!adminMode?"bg-zinc-950 text-white":"text-zinc-700")}>Normal</button>
-                    <button type="button" aria-pressed={adminMode} onClick={()=>setAdminMode(true)} className={cx("rounded-lg px-4 py-2.5 text-xs font-black",adminMode?"bg-zinc-950 text-white":"text-zinc-700")}>Administration</button>
+                    <button type="button" aria-pressed={adminMode} aria-disabled={!isAdmin} onClick={()=>{if(isAdmin)setAdminMode(true);else setNotice("Admin mode is available only to authorized FUGTH team accounts. Your business features remain available in Normal mode.");}} className={cx("rounded-lg px-4 py-2.5 text-xs font-black",adminMode?"bg-zinc-950 text-white":"text-zinc-700 hover:bg-zinc-200")} title={!isAdmin?"Only verified FUGTH team accounts can open Admin mode":"Open administrative tools"}>Admin {!isAdmin&&<span className="ml-1 text-[10px]">🔒</span>}</button>
                   </div>
                 </div>
               </section>
             )}
             {activeTab === "settings" && !adminMode && (
               <Panel title="Business settings" subtitle="Business details, hours, and assistant instructions. Configure your phone in Phone setup.">
+                <div className="mb-5 flex items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-[#f7f7f4] p-4">
+                  <span className="text-xs font-semibold text-zinc-500">Your FUGTH account number</span>
+                  <span className="font-mono text-lg font-black tracking-[.12em] text-zinc-950">{workspace.accountNumber||"Pending"}</span>
+                </div>
               <div className="mb-5 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-zinc-200 bg-zinc-50 p-4">
                 <div><p className="text-xs font-black uppercase tracking-widest text-zinc-500">Your subscription</p><p className="mt-2 text-sm font-bold">{workspace.billingActive?String(workspace.planTier||"").toUpperCase()+" · "+String(workspace.planStatus||"active"):"No verified active subscription"}</p><p className="mt-1 text-xs text-zinc-600">{workspace.billingCurrentPeriodEnd?"Billing period ends "+formatDateTime(workspace.billingCurrentPeriodEnd):"Monthly billing dates appear after verified Stripe payment."}</p></div>
                 <Link href="/plans" className="rounded-lg bg-zinc-950 px-4 py-2.5 text-xs font-black text-white">View subscriptions →</Link>
@@ -1683,7 +1745,7 @@ export default function DashboardPage() {
 
             {activeTab === "settings" && isAdmin && adminMode && (
               <section className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
-                <details className="rounded-2xl border border-zinc-200 bg-white p-5 xl:col-span-2"><summary className="cursor-pointer text-base font-black text-zinc-950">Account management <span className="ml-2 text-xs font-medium text-zinc-500">Create accounts and update clients</span></summary><div className="mt-5">                <Panel title="Developer Operations" subtitle="Admin-only tools for client creation, account updates, demos, and support.">
+                <details className="rounded-2xl border border-zinc-200 bg-white p-5 xl:col-span-2"><summary className="cursor-pointer text-base font-black text-zinc-950">Account management <span className="ml-2 text-xs font-medium text-zinc-500">Create accounts and update clients</span></summary><div className="mt-5">                <Panel title="Quick client setup" subtitle="Create a customer account with an automatic website, or generate a prospect website without an account. No billing details are changed.">
                   <form onSubmit={devCreateAccount} className="space-y-4">
                     <Field label="Client Email">
                       <input className={inputClass} value={devForm.email} onChange={(e) => setDevForm({ ...devForm, email: e.target.value })} placeholder="client@email.com" />
@@ -1691,6 +1753,11 @@ export default function DashboardPage() {
 
                     <Field label="Business Name">
                       <input className={inputClass} value={devForm.businessName} onChange={(e) => setDevForm({ ...devForm, businessName: e.target.value })} placeholder="Client Business LLC" />
+                    </Field>
+                    <Field label="Industry / Site Template">
+                      <select className={inputClass} value={devForm.businessType} onChange={(e)=>setDevForm({...devForm,businessType:e.target.value})}>
+                        {SITE_INDUSTRIES.map(category=><option value={category.id} key={category.id}>{category.label}</option>)}
+                      </select>
                     </Field>
 
                     <div className="grid gap-4 sm:grid-cols-2">
@@ -1727,11 +1794,20 @@ export default function DashboardPage() {
                       <GhostButton onClick={devUpdateAccount} disabled={busy === "devUpdate"}>
                         Update Account
                       </GhostButton>
+                      <GhostButton onClick={devGenerateSite} disabled={busy === "devSite" || !devForm.businessName.trim()}>
+                        {busy === "devSite" ? "Generating..." : "Generate prospect site"}
+                      </GhostButton>
+                      {lastCreatedAccountNumber && <span className="rounded-xl bg-zinc-100 px-4 py-3 font-mono text-sm font-black text-zinc-900">FUGTH #{lastCreatedAccountNumber}</span>}
+                      {lastClientActivationLink && <button type="button" onClick={()=>navigator.clipboard?.writeText(lastClientActivationLink)} className="rounded-xl border border-zinc-300 bg-white px-4 py-3 text-sm font-black text-zinc-900">Copy secure account activation link</button>}
+                      {clientInviteNeeded && <p className="basis-full rounded-xl bg-amber-50 p-3 text-xs leading-6 text-amber-900">Share the private activation link only with this client. It has not been emailed automatically. If a link is unavailable, the client can open FUGTH Login → Forgot password to set their own password.</p>}
+
+                      {lastCreatedSite && <a href={lastCreatedSite} target="_blank" rel="noopener noreferrer" className="rounded-xl border border-zinc-300 bg-white px-5 py-3 text-sm font-black text-zinc-950">Open created client site ↗</a>}
                     </div>
                   </form>
                 </Panel>
 
                 </div></details>
+                <div className="xl:col-span-2"><FounderSites user={user}/></div>
                 <details className="rounded-2xl border border-zinc-200 bg-white p-5 xl:col-span-2"><summary className="cursor-pointer text-base font-black text-zinc-950">Vapi infrastructure <span className="ml-2 text-xs font-medium text-zinc-500">Assistants, phone numbers and recent call states</span></summary><div className="mt-5"><VapiConsole /></div></details>
                 <details className="rounded-2xl border border-zinc-200 bg-white p-5 xl:col-span-2"><summary className="cursor-pointer text-base font-black text-zinc-950">Founder diagnostics <span className="ml-2 text-xs font-medium text-zinc-500">Internal test checklist</span></summary><div className="mt-5">                <Panel title="Admin Snapshot" subtitle="Fast control center for founder testing.">
                   <div className="grid gap-4 sm:grid-cols-2">

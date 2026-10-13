@@ -9,7 +9,7 @@ export async function GET(req) {
   if (!integrationConfigured()) return NextResponse.json({ connected: false, configured: false });
   try {
     const snap = await integrationDoc(user.uid).get();
-    return NextResponse.json({ configured: true, connected: snap.exists, connectedAt: snap.data()?.connectedAt || null });
+    return NextResponse.json({ configured: true, connected: snap.exists, docsConnected: snap.exists && String(snap.data()?.scopes||"").split(" ").includes("https://www.googleapis.com/auth/drive.file"), connectedAt: snap.data()?.connectedAt || null });
   } catch { return NextResponse.json({ configured: false, connected: false, error: "Calendar service configuration is incomplete." }); }
 }
 export async function POST(req) {
