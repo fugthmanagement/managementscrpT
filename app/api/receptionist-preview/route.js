@@ -1,7 +1,7 @@
 import {NextResponse} from "next/server";
-import {authenticatedUser} from "../../../../lib/server/auth";
-import {fromFirestoreValue} from "../../../../lib/server/firestore-admin";
-import {demoBusiness,demoAssistant,DEMO_DURATION,DEMO_DAILY_LIMIT,usNumber} from "../../../../lib/server/voice-preview";
+import {authenticatedUser} from "../../../lib/server/auth";
+import {fromFirestoreValue} from "../../../lib/server/firestore-admin";
+import {demoBusiness,demoAssistant,DEMO_DURATION,DEMO_DAILY_LIMIT,usNumber} from "../../../lib/server/voice-preview";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
 
@@ -74,6 +74,20 @@ export async function GET(req){
  const user=await authenticated(req);
  if(!user)return response({error:"Please sign in to preview your receptionist."},401);
  if(!canUseDemo())return response({available:false,reason:"The calling experience is being configured."});
+ const params=new URL(req.url).searchParams;
+ const callId=params.get("callId");
+ if(callId){
+  if(!/^[0-9a-f-]{36}$/i.test(callId))return response({error:"Invalid call ID."},400);
+  try{
+   const r=await fetch("https://api.vapi.ai/call/"+encodeURIComponent(callId),{
+    headers:{Authorization:"Bearer "+voiceKey()},cache:"no-store",signal:AbortSignal.timeout(8000)
+   });
+   if(!r.ok)return response({error:"Call status not available."},503);
+   const call=await r.json();
+   if(call.metadata?.ownerId!==user.user.uid || call.metadata?.fugthPreview!==true)return response({error:"Call not found."},404);
+   return response({status:call.status||"queued",endedReason:call.endedReason||null,summary:call.analysis?.summary||null});
+  }catch{return response({error:"Call status unavailable right now."},503);}
+ }
  const profile=await businessFor(user.user,user.token).catch(()=>null);
  return response({available:true,business:profile,verifiedPhone:usNumber(user.user.phone_number)||null,
    maxDurationSeconds:DEMO_DURATION,dailyLimit:DEMO_DAILY_LIMIT,requiresPhoneVerification:true});
