@@ -1,5 +1,6 @@
 import { createSign } from "crypto";
 import { NextResponse } from "next/server";
+import {authenticatedUser,isFounder} from "../../../lib/server/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -165,6 +166,11 @@ export async function GET() {
 }
 
 export async function POST(req) {
+  // Provisioning assistants/phone numbers incurs real charges. Founder-only
+  // until the customer subscription and provisioning workflow is verified.
+  const operator=await authenticatedUser(req);
+  if(!operator)return NextResponse.json({error:"Sign in required."},{status:401});
+  if(!isFounder(operator))return NextResponse.json({error:"Phone provisioning is managed by the FUGTH team."},{status:403});
   try {
     const { userId, businessName, industry, assistantPersona } = await req.json();
     const privateKey = process.env.VOICE_PRIVATE_KEY || process.env.VAPI_PRIVATE_KEY;
