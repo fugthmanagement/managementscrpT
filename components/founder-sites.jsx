@@ -24,6 +24,19 @@ export default function FounderSites({user}){
   }catch(e){setError(e.message)}finally{setLoading(false);}
  }
  useEffect(()=>{load()},[]);
+ async function exportDesign(){
+   if(!selected)return;
+   setError("");
+   try{
+    const response=await fetch("/api/sites/"+encodeURIComponent(selected.uid),{headers:await headers(),cache:"no-store"});
+    const data=await response.json();
+    if(!response.ok)throw Error(data.error||"Could not retrieve this design.");
+    const file=new Blob([JSON.stringify({fugthAccountNumber:selected.accountNumber||null,uid:selected.uid,site:data.site},null,2)],{type:"application/json"});
+    const url=URL.createObjectURL(file),link=document.createElement("a");
+    link.href=url;link.download="fugth-site-"+(selected.accountNumber||selected.uid)+".json";link.click();
+    URL.revokeObjectURL(url);
+   }catch(e){setError(e.message);}
+ }
  const filtered=accounts.filter(a=>[a.businessName,a.accountNumber,a.email,a.industry].some(value=>String(value||"").toLowerCase().includes(search.toLowerCase())));
  return <section className="rounded-2xl border border-zinc-200 bg-white p-5 sm:p-7">
   <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-[10px] font-black uppercase tracking-[.16em] text-zinc-500">FOUNDER / CUSTOMER WEBSITES</p><h3 className="mt-2 text-2xl font-black text-zinc-950">Saved client designs</h3><p className="mt-2 max-w-2xl text-sm leading-7 text-zinc-600">Every customer uses the same FUGTH site system. Open an account to view its own saved layout, make a private draft, or publish changes after reviewing them together.</p></div><button type="button" disabled={loading} onClick={()=>load()} className="rounded-xl border border-zinc-200 px-4 py-3 text-xs font-bold">Refresh accounts</button></div>
@@ -34,7 +47,7 @@ export default function FounderSites({user}){
     <div className="min-w-0"><p className="truncate text-sm font-black text-zinc-950">{a.businessName}</p><p className="mt-1 break-all text-xs text-zinc-500">{a.email||"No email"} · {a.accountNumber||"Account number pending"}</p></div><span className="rounded-full bg-zinc-100 px-3 py-1.5 text-[10px] font-black uppercase text-zinc-600">{a.websiteStatus==="published"?"Live":a.hasDraft?"Draft saved":"Not published"}</span>
    </button>)}{!filtered.length&&!loading&&<p className="p-5 text-sm text-zinc-500">No matching accounts in the loaded pages.</p>}</div>
   {cursor&&<button type="button" disabled={loading} onClick={()=>load(cursor,true)} className="mt-3 rounded-xl bg-zinc-950 px-5 py-3 text-xs font-bold text-white">{loading?"Loading...":"Load more customer accounts"}</button>}
-  {selected&&<div className="mt-7 border-t border-zinc-200 pt-7"><div className="mb-5 flex flex-wrap items-center justify-between gap-4"><div><p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">EDIT SELECTED BUSINESS</p><p className="mt-2 text-xl font-black text-zinc-950">{selected.businessName} <span className="ml-2 font-mono text-sm font-bold text-zinc-500">{selected.accountNumber}</span></p></div><Link href={"/sites/"+encodeURIComponent(selected.uid)+"?edit=1"} target="_blank" rel="noopener noreferrer" className="rounded-xl bg-zinc-950 px-5 py-3 text-xs font-black text-white">Open their website ↗</Link></div>
+  {selected&&<div className="mt-7 border-t border-zinc-200 pt-7"><div className="mb-5 flex flex-wrap items-center justify-between gap-4"><div><p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">EDIT SELECTED BUSINESS</p><p className="mt-2 text-xl font-black text-zinc-950">{selected.businessName} <span className="ml-2 font-mono text-sm font-bold text-zinc-500">{selected.accountNumber}</span></p></div><Link href={"/sites/"+encodeURIComponent(selected.uid)+"?edit=1"} target="_blank" rel="noopener noreferrer" className="rounded-xl bg-zinc-950 px-5 py-3 text-xs font-black text-white">Open their website ↗</Link><button type="button" onClick={exportDesign} className="rounded-xl border border-zinc-200 px-4 py-3 text-xs font-black text-zinc-900">Export design JSON</button></div>
   <SiteStudio key={selected.uid} user={user} workspace={{businessName:selected.businessName,businessType:selected.industry}} targetUid={selected.uid}/>
   </div>}
  </section>;
