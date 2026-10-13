@@ -50,6 +50,7 @@ export default function SiteStudio({user,workspace,targetUid=null,compact=false}
     setSite(prev=>({...prev,industry:data.id,theme:data.theme,eyebrow:data.eyebrow,headline:data.headline,description:data.lead,services:data.services,heroImageId:getIndustryPhotos(data.id)[0]?.id||"",galleryImageIds:getIndustryPhotos(data.id).slice(1,3).map(photo=>photo.id),showGallery:true}));
   }
   async function save(action="save"){
+    if(action==="publish" && targetUid && targetUid!==user?.uid && !window.confirm("Publish these design changes to this customer\u0027s live website?"))return;
     setSaving(true);setError("");setNote("");
     try {
       const fields=siteFields(site||{});
@@ -137,7 +138,7 @@ export default function SiteStudio({user,workspace,targetUid=null,compact=false}
         <label className="text-xs font-bold text-zinc-700">Public business email<input type="email" className={classInput} maxLength={120} placeholder="Optional until publication" value={site.contactEmail||""} onChange={e=>update("contactEmail",e.target.value)}/></label>
         <label className="text-xs font-bold text-zinc-700">Public business number<input type="tel" className={classInput} maxLength={32} placeholder="Optional until publication" value={site.phone||""} onChange={e=>update("phone",e.target.value)}/></label>
       </div>
-      <div className="mt-7 flex flex-wrap gap-3"><button disabled={saving} onClick={()=>save("save")} className="rounded-xl bg-zinc-950 px-5 py-3.5 text-sm font-black text-white disabled:opacity-50">{saving?"Saving...":liveStatus==="published"?"Save draft":"Save draft"}</button><button disabled={saving} onClick={()=>save("publish")} className="rounded-xl border border-zinc-950 bg-white px-5 py-3.5 text-sm font-black text-zinc-950 disabled:opacity-50">Publish website ↗</button>{liveStatus==="published"&&<button disabled={saving} onClick={()=>save("unpublish")} className="rounded-xl border border-zinc-200 px-4 py-3 text-sm text-zinc-600">Unpublish</button>}</div>
+      <div className="mt-7 flex flex-wrap gap-3"><button disabled={saving} onClick={()=>save("save")} className="rounded-xl bg-zinc-950 px-5 py-3.5 text-sm font-black text-white disabled:opacity-50">{saving?"Saving...":liveStatus==="published"?"Save draft":"Save draft"}</button><button disabled={saving} onClick={()=>save("publish")} className="rounded-xl border border-zinc-950 bg-white px-5 py-3.5 text-sm font-black text-zinc-950 disabled:opacity-50">{targetUid&&targetUid!==user?.uid?"Publish to customer site ↗":"Publish website ↗"}</button>{liveStatus==="published"&&<button disabled={saving} onClick={()=>save("unpublish")} className="rounded-xl border border-zinc-200 px-4 py-3 text-sm text-zinc-600">Unpublish</button>}</div>
       <p className="mt-5 text-xs leading-6 text-zinc-500">One shared FUGTH website system serves every business. Your design is saved under this account; only publishing updates the customer-facing version. No custom deployment or domain is created.</p>
     </section>
 
