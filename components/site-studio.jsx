@@ -17,6 +17,7 @@ export default function SiteStudio({user,workspace,targetUid=null,compact=false}
   const [hadSite,setHadSite]=useState(false);
   const [device,setDevice]=useState("desktop");
   const [savedSignature,setSavedSignature]=useState("");
+  const [backendReady,setBackendReady]=useState(true);
   const uid=targetUid||user?.uid;
   const [liveStatus,setLiveStatus]=useState("preview");
   async function siteRequest(method="GET",body){
@@ -36,9 +37,9 @@ export default function SiteStudio({user,workspace,targetUid=null,compact=false}
         const data=await siteRequest();
         if(!mounted)return;
         const design=data.site||buildStarterSite(uid,workspace?.businessName||"Your business",workspace?.businessType);
-        setSite(design);setHadSite(Boolean(data.hasPublicSite));setLiveStatus(data.liveStatus||"preview");
+        setSite(design);setHadSite(Boolean(data.hasPublicSite));setLiveStatus(data.liveStatus||"preview");setBackendReady(true);
         setSavedSignature(JSON.stringify(siteFields(design)));
-      } catch(e){if(mounted)setError(e.message);}
+      } catch(e){if(mounted){setBackendReady(false);setSite(buildStarterSite(uid,workspace?.businessName||"Your business",workspace?.businessType));setSavedSignature("");setError("Design preview is available, but saving and publishing are unavailable until the secure FUGTH site connection is configured.");}}
       finally{if(mounted)setLoading(false);}
     }
     if(uid)load();else{setLoading(false);setError("Sign in to view a website.");}
@@ -50,6 +51,7 @@ export default function SiteStudio({user,workspace,targetUid=null,compact=false}
     setSite(prev=>({...prev,industry:data.id,theme:data.theme,eyebrow:data.eyebrow,headline:data.headline,description:data.lead,services:data.services,heroImageId:getIndustryPhotos(data.id)[0]?.id||"",galleryImageIds:getIndustryPhotos(data.id).slice(1,3).map(photo=>photo.id),showGallery:true}));
   }
   async function save(action="save"){
+    if(!backendReady){setError("This is a visual preview only. Secure saving is not connected yet.");return;}
     if(action==="publish" && targetUid && targetUid!==user?.uid && !window.confirm("Publish these design changes to this customer\u0027s live website?"))return;
     setSaving(true);setError("");setNote("");
     try {
@@ -62,7 +64,7 @@ export default function SiteStudio({user,workspace,targetUid=null,compact=false}
     }catch(e){setError(e.message);}
     finally{setSaving(false);}
   }
-  async function create(){setCreating(true);setError("");
+  async function create(){if(!backendReady){setError("The preview is ready to explore. Site activation requires a connected FUGTH database.");return;}setCreating(true);setError("");
     try{const result=await siteRequest("PUT",{action:"initialize"});setSite(result.site);setHadSite(true);setLiveStatus(result.status||"preview");setSavedSignature(JSON.stringify(siteFields(result.site)));setNote("Your shared FUGTH website design is ready.");}
     catch(e){setError(e.message);}finally{setCreating(false);}
   }
@@ -74,13 +76,14 @@ export default function SiteStudio({user,workspace,targetUid=null,compact=false}
     <section className="rounded-3xl border border-zinc-200 bg-zinc-950 px-6 py-8 text-white sm:px-9 sm:py-10">
       <div className="flex flex-wrap items-start justify-between gap-6"><div><p className="text-[10px] font-black uppercase tracking-[.2em] text-zinc-400">FUGTH SITE STUDIO</p><h2 className="mt-5 text-3xl font-black tracking-[-.055em] sm:text-4xl">One shared platform.<br/><em className="font-serif font-normal">Your own design.</em></h2><p className="mt-4 max-w-2xl text-sm leading-7 text-zinc-300">Each FUGTH account saves its own design on the same website system. Edit sections, photos, chat, and contact details, then publish when ready.</p></div><span className="rounded-full border border-white/25 px-3 py-2 text-xs font-bold">{liveStatus==="published"?"Published":hadSite?"Preview available":"Ready to generate"}</span></div>
       <div className="mt-7 flex flex-wrap gap-3">
-        {!hadSite?<button onClick={create} disabled={creating} className="rounded-xl bg-white px-5 py-3 text-sm font-black text-zinc-950 disabled:opacity-50">{creating?"Creating...":"Activate my site preview →"}</button>:<Link href={link} target="_blank" rel="noopener noreferrer" className="rounded-xl bg-white px-5 py-3 text-sm font-black text-zinc-950">Open website preview ↗</Link>}
+        {!hadSite?<button onClick={create} disabled={creating||!backendReady} className="rounded-xl bg-white px-5 py-3 text-sm font-black text-zinc-950 disabled:opacity-50">{creating?"Creating...":"Activate my site preview →"}</button>:<Link href={link} target="_blank" rel="noopener noreferrer" className="rounded-xl bg-white px-5 py-3 text-sm font-black text-zinc-950">Open website preview ↗</Link>}
         {hadSite&&<button type="button" onClick={()=>navigator.clipboard?.writeText(window.location.origin+link)} className="rounded-xl border border-white/30 px-5 py-3 text-sm font-bold text-white">Copy link</button>}
         <button type="button" onClick={()=>document.getElementById("fugth-site-preview")?.scrollIntoView({behavior:"smooth",block:"start"})} className="rounded-xl border border-white/30 px-5 py-3 text-sm font-bold text-white">See live preview ↓</button>
       </div>
       <p className="mt-5 break-all text-xs text-zinc-400">{hadSite?link:"The link will appear when you generate the site."}</p>
       {unsaved&&<p className="mt-2 text-xs font-semibold text-[#e9e2cf]">Unsaved changes — your preview below updates instantly. Save when you are ready.</p>}
     </section>
+    {!backendReady&&<div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900"><strong>Design preview only.</strong> You can explore layouts and photos, but your edits are not being saved. Your account and billing are unchanged.</div>}
     {(error||note)&&<p role="status" className={`rounded-xl border px-5 py-4 text-sm ${error?"border-red-200 bg-red-50 text-red-800":"border-zinc-200 bg-white text-zinc-800"}`}>{error||note}</p>}
     <div className="grid items-start gap-5 2xl:grid-cols-[minmax(0,.85fr)_minmax(0,1.15fr)]"><div className="min-w-0 space-y-5">
     <section className="rounded-3xl border border-zinc-200 bg-white p-5 sm:p-8">
@@ -138,7 +141,7 @@ export default function SiteStudio({user,workspace,targetUid=null,compact=false}
         <label className="text-xs font-bold text-zinc-700">Public business email<input type="email" className={classInput} maxLength={120} placeholder="Optional until publication" value={site.contactEmail||""} onChange={e=>update("contactEmail",e.target.value)}/></label>
         <label className="text-xs font-bold text-zinc-700">Public business number<input type="tel" className={classInput} maxLength={32} placeholder="Optional until publication" value={site.phone||""} onChange={e=>update("phone",e.target.value)}/></label>
       </div>
-      <div className="mt-7 flex flex-wrap gap-3"><button disabled={saving} onClick={()=>save("save")} className="rounded-xl bg-zinc-950 px-5 py-3.5 text-sm font-black text-white disabled:opacity-50">{saving?"Saving...":liveStatus==="published"?"Save draft":"Save draft"}</button><button disabled={saving} onClick={()=>save("publish")} className="rounded-xl border border-zinc-950 bg-white px-5 py-3.5 text-sm font-black text-zinc-950 disabled:opacity-50">{targetUid&&targetUid!==user?.uid?"Publish to customer site ↗":"Publish website ↗"}</button>{liveStatus==="published"&&<button disabled={saving} onClick={()=>save("unpublish")} className="rounded-xl border border-zinc-200 px-4 py-3 text-sm text-zinc-600">Unpublish</button>}</div>
+      <div className="mt-7 flex flex-wrap gap-3"><button disabled={saving||!backendReady} onClick={()=>save("save")} className="rounded-xl bg-zinc-950 px-5 py-3.5 text-sm font-black text-white disabled:opacity-50">{saving?"Saving...":liveStatus==="published"?"Save draft":"Save draft"}</button><button disabled={saving||!backendReady} onClick={()=>save("publish")} className="rounded-xl border border-zinc-950 bg-white px-5 py-3.5 text-sm font-black text-zinc-950 disabled:opacity-50">{targetUid&&targetUid!==user?.uid?"Publish to customer site ↗":"Publish website ↗"}</button>{liveStatus==="published"&&<button disabled={saving||!backendReady} onClick={()=>save("unpublish")} className="rounded-xl border border-zinc-200 px-4 py-3 text-sm text-zinc-600">Unpublish</button>}</div>
       <p className="mt-5 text-xs leading-6 text-zinc-500">One shared FUGTH website system serves every business. Your design is saved under this account; only publishing updates the customer-facing version. No custom deployment or domain is created.</p>
     </section>
 
