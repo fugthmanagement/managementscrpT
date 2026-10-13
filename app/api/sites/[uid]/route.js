@@ -49,7 +49,7 @@ export async function PUT(request,{params}){
    }
    if(action==="unpublish"){
     if(!pub.exists)throw Object.assign(new Error("No live website exists."),{status:404});
-    live={...pub.data(),visibility:"preview",updatedAt:new Date().toISOString()};
+    live={...pub.data(),visibility:"hidden",updatedAt:new Date().toISOString()};
     tx.set(pubRef,live);
     next=draft.exists?draft.data():live;
    } else {
