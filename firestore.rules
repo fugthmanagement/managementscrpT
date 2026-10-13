@@ -72,12 +72,10 @@ service cloud.firestore {
       allow get: if isOwner(uid) ||
         resource.data.visibility in ['preview','published'];
       allow list: if false;
-      allow create: if isOwner(uid) && hasSafeFields();
-      allow update: if isOwner(uid) &&
-        request.resource.data.ownerId == resource.data.ownerId &&
-        request.resource.data.createdAt == resource.data.createdAt &&
-        hasSafeFields();
-      allow delete: if isOwner(uid);
+      // Published site data and owner drafts are modified only by authenticated
+      // server APIs, which check ownership/founder role and record audit history.
+      // Never let a browser directly bypass Save Draft / Publish.
+      allow create, update, delete: if false;
     }
     match /{path=**} { allow read, write: if false; }
   }
