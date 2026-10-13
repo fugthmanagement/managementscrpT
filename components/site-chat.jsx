@@ -13,7 +13,7 @@ function reply(q,site){
  if(/name|who are you|business/.test(text))return "Welcome to "+site.name+". I'm here to help you find the details listed on this site.";
  return "I can help with services, hours, contact details, and appointment inquiries. Which would you like to know about?";
 }
-export default function SiteChat({site}){
+export default function SiteChat({site,preview=false}){
  const [open,setOpen]=useState(false);
  const [text,setText]=useState("");
  const [messages,setMessages]=useState([]);
@@ -23,7 +23,7 @@ export default function SiteChat({site}){
   setMessages(old=>[...old.slice(-8),{from:"visitor",text:query},{from:"bot",text:reply(query,site)}]);
   setText("");
  }
- return <div className="fixed bottom-4 right-4 z-[60] w-[min(380px,calc(100vw-2rem))] sm:bottom-6 sm:right-6" data-fugth-chat="business-assistant">
+ return <div className={preview?"absolute bottom-3 right-3 z-[35] w-[calc(100%-1.5rem)] max-w-[350px]":"fixed bottom-4 right-4 z-[60] w-[min(380px,calc(100vw-2rem))] sm:bottom-6 sm:right-6"} data-fugth-chat="business-assistant">
   {open&&<section aria-label="Business website chat" className="mb-3 flex max-h-[min(580px,75vh)] flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-[0_16px_70px_rgba(0,0,0,.18)]">
    <header className="flex items-center justify-between bg-zinc-950 px-5 py-4 text-white"><div><p className="text-sm font-semibold">Ask {site.name}</p><p className="mt-1 text-[11px] text-zinc-300">FUGTH website assistant</p></div><button type="button" onClick={()=>setOpen(false)} className="rounded-lg border border-white/20 px-3 py-2 text-sm" aria-label="Close chat">×</button></header>
    <div className="min-h-[180px] flex-1 space-y-3 overflow-y-auto bg-[#fafaf8] p-4" role="log" aria-live="polite">
