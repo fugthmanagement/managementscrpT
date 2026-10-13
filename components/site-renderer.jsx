@@ -25,15 +25,15 @@ function Professional({site}){
  return <div className="bg-white text-[#192c37]"><div className="mx-auto max-w-7xl px-6 sm:px-10"><header className="flex items-center justify-between border-b border-[#d9e2e5] py-8"><b className="text-xl font-black tracking-tight">{site.name}</b><span className="rounded-full bg-[#edf4f6] px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-[#355d72]">CLIENT INFORMATION</span></header><div className="grid min-h-[570px] items-center gap-14 py-16 lg:grid-cols-[1.05fr_.95fr]"><div className={site.showHero===false?"hidden":""}><p className="text-xs font-extrabold uppercase tracking-[.2em] text-[#527484]">{site.eyebrow}</p><h1 className="mt-8 text-5xl font-black leading-[1.07] tracking-[-.07em] sm:text-7xl">{site.headline}</h1><p className={site.showAbout===false?"hidden":"mt-8 max-w-xl text-lg leading-8 text-[#58727d]"}>{site.description}</p><div className="mt-9">{site.showContact!==false&&<Contact site={site}/>}</div></div><div className="space-y-5">{site.showHero!==false&&<SitePhoto industry={site.industry} imageId={site.heroImageId} slot="professional-hero" priority className="aspect-[4/3] w-full rounded-[2rem]"/>}<div className={site.showServices===false ? "hidden" : "relative rounded-[2rem] bg-[#eff5f6] p-8 sm:p-11"}><div className="absolute right-8 top-8 grid h-12 w-12 place-items-center rounded-xl bg-[#355d72] font-bold text-white">F</div><p className="mt-20 text-xs font-extrabold uppercase tracking-widest text-[#56798b]">HOW WE HELP</p><div className="mt-7 divide-y divide-[#ccdade]">{site.services.map((x,i)=><div className="flex items-center gap-4 py-5" key={i}><span className="text-sm font-black text-[#7b9ba7]">0{i+1}</span><span className="text-xl font-bold">{x}</span></div>)}</div></div></div></div></div></div>;
 }
 
-export default function SiteRenderer({data}) {
+export default function SiteRenderer({data,preview=false}) {
  const site={...siteFields(data),visibility:data?.visibility};
- return <div className="fugth-generated-site w-full">
+ return <div className="fugth-generated-site relative w-full">
  {site.theme==="bold"?<Bold site={site}/>:site.theme==="warm"?<Warm site={site}/>:site.theme==="professional"?<Professional site={site}/>:<Editorial site={site}/>}
  {site.showGallery && site.galleryImageIds.length>0 && <section aria-label="Our industry photo gallery" className="border-y border-zinc-200 bg-[#f6f6f3] px-5 py-14 sm:px-10">
    <div className="mx-auto max-w-7xl"><div className="mb-7 flex flex-wrap items-end justify-between gap-3"><div><p className="text-[11px] font-bold uppercase tracking-[.18em] text-zinc-500">VISUAL GALLERY</p><h2 className="mt-3 text-2xl font-semibold tracking-tight text-zinc-950 sm:text-3xl">A look at the industry.</h2></div><span className="text-xs text-zinc-500">Illustrative stock photography</span></div>
    <div className="grid gap-4 sm:grid-cols-2">{site.galleryImageIds.map((id,i)=><SitePhoto key={id+"-"+i} industry={site.industry} imageId={id} slot={"gallery-"+i} className="aspect-[4/3] w-full rounded-xl sm:aspect-[5/3]"/>)}</div>
    </div></section>}
- <SiteChat site={site}/>
+ <SiteChat site={site} preview={preview}/>
  <footer className="border-t border-zinc-200 bg-white px-6 py-7 text-center text-xs text-zinc-500">
  {(site.serviceArea||site.businessHours)&&<div className="mx-auto mb-3 flex max-w-4xl flex-wrap justify-center gap-x-6 gap-y-2 text-sm text-zinc-600">{site.serviceArea&&<span>Serving {site.serviceArea}</span>}{site.businessHours&&<span>{site.businessHours}</span>}</div>}
  Website crafted with <Link href="/" className="font-black text-zinc-950">FUGTH</Link> · {getIndustry(site.industry).label}</footer>
