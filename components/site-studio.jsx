@@ -36,7 +36,7 @@ export default function SiteStudio({user,workspace,targetUid=null,compact=false}
         const data=await siteRequest();
         if(!mounted)return;
         const design=data.site||buildStarterSite(uid,workspace?.businessName||"Your business",workspace?.businessType);
-        setSite(design);setHadSite(true);setLiveStatus(data.liveStatus||"preview");
+        setSite(design);setHadSite(Boolean(data.hasPublicSite));setLiveStatus(data.liveStatus||"preview");
         setSavedSignature(JSON.stringify(siteFields(design)));
       } catch(e){if(mounted)setError(e.message);}
       finally{if(mounted)setLoading(false);}
@@ -74,7 +74,7 @@ export default function SiteStudio({user,workspace,targetUid=null,compact=false}
     <section className="rounded-3xl border border-zinc-200 bg-zinc-950 px-6 py-8 text-white sm:px-9 sm:py-10">
       <div className="flex flex-wrap items-start justify-between gap-6"><div><p className="text-[10px] font-black uppercase tracking-[.2em] text-zinc-400">FUGTH SITE STUDIO</p><h2 className="mt-5 text-3xl font-black tracking-[-.055em] sm:text-4xl">One shared platform.<br/><em className="font-serif font-normal">Your own design.</em></h2><p className="mt-4 max-w-2xl text-sm leading-7 text-zinc-300">Each FUGTH account saves its own design on the same website system. Edit sections, photos, chat, and contact details, then publish when ready.</p></div><span className="rounded-full border border-white/25 px-3 py-2 text-xs font-bold">{liveStatus==="published"?"Published":hadSite?"Preview available":"Ready to generate"}</span></div>
       <div className="mt-7 flex flex-wrap gap-3">
-        {!hadSite?<button onClick={create} disabled={creating} className="rounded-xl bg-white px-5 py-3 text-sm font-black text-zinc-950 disabled:opacity-50">{creating?"Creating...":"Generate my site →"}</button>:<Link href={link} target="_blank" rel="noopener noreferrer" className="rounded-xl bg-white px-5 py-3 text-sm font-black text-zinc-950">Open website preview ↗</Link>}
+        {!hadSite?<button onClick={create} disabled={creating} className="rounded-xl bg-white px-5 py-3 text-sm font-black text-zinc-950 disabled:opacity-50">{creating?"Creating...":"Activate my site preview →"}</button>:<Link href={link} target="_blank" rel="noopener noreferrer" className="rounded-xl bg-white px-5 py-3 text-sm font-black text-zinc-950">Open website preview ↗</Link>}
         {hadSite&&<button type="button" onClick={()=>navigator.clipboard?.writeText(window.location.origin+link)} className="rounded-xl border border-white/30 px-5 py-3 text-sm font-bold text-white">Copy link</button>}
         <button type="button" onClick={()=>document.getElementById("fugth-site-preview")?.scrollIntoView({behavior:"smooth",block:"start"})} className="rounded-xl border border-white/30 px-5 py-3 text-sm font-bold text-white">See live preview ↓</button>
       </div>
