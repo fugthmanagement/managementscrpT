@@ -50,7 +50,7 @@ async function quota(user,token,to){
  const today=new Date().toISOString().slice(0,10).replaceAll("-","");
  for(let slot=1;slot<=DEMO_DAILY_LIMIT;slot++){
   const id=slotName(today,slot);
-  const existing=await readDoc("users/"+encodeURIComponent(user.uid)+"/demoAttempts/"+id,token);
+  const existing=await readDoc("users/"+encodeURIComponent(user.uid)+"/calls/"+id,token);
   if(existing){
    const elapsed=Date.now()-Date.parse(existing.createdAt||"");
    if(Number.isFinite(elapsed)&&elapsed<15*60*1000)
@@ -59,7 +59,7 @@ async function quota(user,token,to){
   }
   const path=dbRoot()+"/users/"+encodeURIComponent(user.uid)+"/demoAttempts?documentId="+encodeURIComponent(id);
   const fields={
-    ownerId:{stringValue:user.uid},kind:{stringValue:"voice_preview"},
+    ownerId:{stringValue:user.uid},kind:{stringValue:"voice_preview"},source:{stringValue:"preview_quota"},
     phone:{stringValue:to},createdAt:{stringValue:new Date().toISOString()}
   };
   const r=await fetch(path,{method:"POST",headers:{Authorization:"Bearer "+token,"Content-Type":"application/json"},
