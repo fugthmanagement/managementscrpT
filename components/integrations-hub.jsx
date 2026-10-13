@@ -56,7 +56,7 @@ export default function IntegrationsHub(){
     e.preventDefault();setBusy("booking");setMessage("");
     try{
       const payload={title:event.title,startTime:new Date(event.startTime).toISOString(),endTime:new Date(event.endTime).toISOString()};
-      const r=await fetch("/api/integrations/google/book",{method:"POST",headers:await secureHeaders(),body:JSON.stringify(payload)});const data=await r.json();if(!r.ok)throw Error(data.error||"Calendar event could not be created.");setMessage("Appointment created in your connected calendar.");
+      const r=await fetch("/api/integrations/google/book",{method:"POST",headers:await secureHeaders(),body:JSON.stringify(payload)});const data=await r.json();if(!r.ok)throw Error(data.error||"Calendar event could not be created.");setMessage(data.workspaceSynced?"Appointment saved in both Google Calendar and your FUGTH appointments.":"Appointment saved in Google Calendar, but the FUGTH appointment list could not be updated. Check your calendar before retrying.");
     }catch(e){setMessage(e.message);}finally{setBusy("");}
   }
   async function loadDocuments(){
