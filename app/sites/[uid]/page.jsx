@@ -32,7 +32,7 @@ export default function SitePage({params}) {
    try{
     const token=await user.getIdToken();
     const result=await fetch("/api/sites/"+encodeURIComponent(uid),{headers:{Authorization:"Bearer "+token},cache:"no-store"});
-    if(active)setCanEdit(result.ok);
+    if(active){setCanEdit(result.ok);if(result.ok && new URLSearchParams(window.location.search).get("edit")==="1")setEditing(true);}
    }catch{if(active)setCanEdit(false);}
   });
   return()=>{active=false;off();};
