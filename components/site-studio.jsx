@@ -1,14 +1,13 @@
 "use client";
 import { useEffect,useState } from "react";
 import Link from "next/link";
-import { doc,getDoc,runTransaction,setDoc } from "firebase/firestore";
-import {db} from "../lib/firebase";
+import {auth} from "../lib/firebase";
 import {buildStarterSite,SITE_THEMES,SITE_INDUSTRIES,getIndustry,siteFields} from "../lib/site-presets";
 import SiteRenderer from "./site-renderer";
 import {getIndustryPhotos} from "../lib/site-images";
 
 const classInput="mt-2 block w-full rounded-xl border border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-900 outline-none focus:border-zinc-900";
-export default function SiteStudio({user,workspace}){
+export default function SiteStudio({user,workspace,targetUid=null,compact=false}){
   const [loading,setLoading]=useState(true);
   const [creating,setCreating]=useState(false);
   const [saving,setSaving]=useState(false);
@@ -18,61 +17,61 @@ export default function SiteStudio({user,workspace}){
   const [hadSite,setHadSite]=useState(false);
   const [device,setDevice]=useState("desktop");
   const [savedSignature,setSavedSignature]=useState("");
-  const uid=user?.uid;
+  const uid=targetUid||user?.uid;
+  const [liveStatus,setLiveStatus]=useState("preview");
+  async function siteRequest(method="GET",body){
+    const token=await auth.currentUser?.getIdToken();
+    if(!token)throw Error("Sign in to edit your FUGTH website.");
+    const response=await fetch("/api/sites/"+encodeURIComponent(uid),{
+      method,headers:{Authorization:`Bearer ${token}`,"Content-Type":"application/json"},body:body?JSON.stringify(body):undefined,cache:"no-store"
+    });
+    const data=await response.json();
+    if(!response.ok)throw Error(data.error||"Could not connect to your saved website.");
+    return data;
+  }
   const link=uid?`/sites/${encodeURIComponent(uid)}`:"";
-  useEffect(()=>{let mounted=true;async function open(){
-    if(!uid||!db){if(mounted){setLoading(false);setError("Connect your FUGTH account to create a site.");}return;}
-    try{
-      const snap=await getDoc(doc(db,"publicSites",uid));
-      if(!mounted)return;
-      if(snap.exists()){setSite(snap.data());setHadSite(true);setSavedSignature(JSON.stringify({...siteFields(snap.data()),visibility:snap.data().visibility}));}
-      else{setSite(buildStarterSite(uid,workspace?.businessName&&workspace.businessName!=="Fugth Management OS"?workspace.businessName:user?.displayName||"Your business",workspace?.businessType));setHadSite(false);}
-    }catch(e){if(mounted)setError("Site database access is unavailable. Check the FUGTH site rules and try again.");}
-    finally{if(mounted)setLoading(false);}
-  }open();return()=>{mounted=false};},[uid]);
+  useEffect(()=>{let mounted=true;setLoading(true);setError("");
+    async function load(){
+      try {
+        const data=await siteRequest();
+        if(!mounted)return;
+        const design=data.site||buildStarterSite(uid,workspace?.businessName||"Your business",workspace?.businessType);
+        setSite(design);setHadSite(true);setLiveStatus(data.liveStatus||"preview");
+        setSavedSignature(JSON.stringify(siteFields(design)));
+      } catch(e){if(mounted)setError(e.message);}
+      finally{if(mounted)setLoading(false);}
+    }
+    if(uid)load();else{setLoading(false);setError("Sign in to view a website.");}
+    return()=>{mounted=false};
+  },[uid]);
   const update=(field,value)=>setSite(s=>({...s,[field]:value}));
   function changeIndustry(id){
     const data=getIndustry(id);
     setSite(prev=>({...prev,industry:data.id,theme:data.theme,eyebrow:data.eyebrow,headline:data.headline,description:data.lead,services:data.services,heroImageId:getIndustryPhotos(data.id)[0]?.id||"",galleryImageIds:getIndustryPhotos(data.id).slice(1,3).map(photo=>photo.id),showGallery:true}));
   }
-  async function save(publish=false){
+  async function save(action="save"){
     setSaving(true);setError("");setNote("");
-    try{
-      if(!db||!uid||!site)throw Error("Please sign in again.");
-      const fields=siteFields(site);
-      if(publish&&!fields.phone&&!fields.contactEmail)throw Error("Add a business contact number or email before publishing.");
-      if(fields.contactEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fields.contactEmail))throw Error("Enter a valid public business email.");
-      if(fields.phone && !/^[+0-9() .-]{7,32}$/.test(fields.phone))throw Error("Enter a valid public business phone number.");
-      const visibility=publish?"published":site.visibility==="published"?"published":site.visibility==="hidden"?"hidden":"preview";
-      const record={...fields,ownerId:uid,version:1,visibility,createdAt:site.createdAt||new Date().toISOString(),updatedAt:new Date().toISOString()};
-      await setDoc(doc(db,"publicSites",uid),record);
-      setSite(record);setHadSite(true);
-      setSavedSignature(JSON.stringify({...siteFields(record),visibility:record.visibility}));
-      setNote(visibility==="published"?"Your changes are published on your FUGTH site.":"Your site preview has been saved.");
-    }catch(e){setError(e.message||"Could not save your site.");}
+    try {
+      const fields=siteFields(site||{});
+      if(action==="publish"&&!fields.phone&&!fields.contactEmail)throw Error("Provide a business email or number before publishing.");
+      const result=await siteRequest("PUT",{action,site:fields});
+      setSite(result.site||site);setHadSite(true);setLiveStatus(result.status||"preview");
+      setSavedSignature(JSON.stringify(siteFields(result.site||site)));
+      setNote(action==="publish"?"Your changes are now live.":action==="unpublish"?"The site is back in preview mode.":"Design saved privately. Publish when ready.");
+    }catch(e){setError(e.message);}
     finally{setSaving(false);}
   }
-  async function create(){
-    setCreating(true);setError("");setNote("");
-    try{
-      if(!db||!uid)throw Error("Please sign in to create a site.");
-      const ref=doc(db,"publicSites",uid);
-      const base=buildStarterSite(uid,site?.name||workspace?.businessName||"Your business",site?.industry||workspace?.businessType||"");
-      await runTransaction(db,async tx=>{const existing=await tx.get(ref);if(!existing.exists())tx.set(ref,base);});
-      const snap=await getDoc(ref);
-      setSite(snap.data());setHadSite(true);
-      setSavedSignature(JSON.stringify({...siteFields(snap.data()),visibility:snap.data().visibility}));
-      setNote("Your site has been generated! Pick a design, add details, and share the preview.");
-    }catch(e){setError("Could not generate your site. Your Firebase site permissions may need updating.");}
-    finally{setCreating(false);}
+  async function create(){setCreating(true);setError("");
+    try{const result=await siteRequest("PUT",{action:"initialize"});setSite(result.site);setHadSite(true);setLiveStatus(result.status||"preview");setSavedSignature(JSON.stringify(siteFields(result.site)));setNote("Your shared FUGTH website design is ready.");}
+    catch(e){setError(e.message);}finally{setCreating(false);}
   }
   if(loading)return <section className="rounded-2xl border border-zinc-200 bg-white p-8 text-sm text-zinc-500">Loading FUGTH Site Studio...</section>;
   if(!site)return <section className="rounded-2xl border border-zinc-200 bg-white p-8 text-sm text-zinc-600">{error||"Unable to load site data."}</section>;
   const theme=SITE_THEMES.find(t=>t.id===site.theme)||SITE_THEMES[0];
-  const unsaved=hadSite && JSON.stringify({...siteFields(site),visibility:site.visibility})!==savedSignature;
+  const unsaved=hadSite && JSON.stringify(siteFields(site))!==savedSignature;
   return <div className="space-y-5">
     <section className="rounded-3xl border border-zinc-200 bg-zinc-950 px-6 py-8 text-white sm:px-9 sm:py-10">
-      <div className="flex flex-wrap items-start justify-between gap-6"><div><p className="text-[10px] font-black uppercase tracking-[.2em] text-zinc-400">FUGTH SITE STUDIO</p><h2 className="mt-5 text-3xl font-black tracking-[-.055em] sm:text-4xl">Your business.<br/><em className="font-serif font-normal">Your own look.</em></h2><p className="mt-4 max-w-2xl text-sm leading-7 text-zinc-300">Generate a polished mobile-friendly business site, choose an industry layout, update a few details, and share a preview in seconds.</p></div><span className="rounded-full border border-white/25 px-3 py-2 text-xs font-bold">{site.visibility==="published"?"Published":hadSite?"Preview available":"Ready to generate"}</span></div>
+      <div className="flex flex-wrap items-start justify-between gap-6"><div><p className="text-[10px] font-black uppercase tracking-[.2em] text-zinc-400">FUGTH SITE STUDIO</p><h2 className="mt-5 text-3xl font-black tracking-[-.055em] sm:text-4xl">Your business.<br/><em className="font-serif font-normal">Your own look.</em></h2><p className="mt-4 max-w-2xl text-sm leading-7 text-zinc-300">Generate a polished mobile-friendly business site, choose an industry layout, update a few details, and share a preview in seconds.</p></div><span className="rounded-full border border-white/25 px-3 py-2 text-xs font-bold">{liveStatus==="published"?"Published":hadSite?"Preview available":"Ready to generate"}</span></div>
       <div className="mt-7 flex flex-wrap gap-3">
         {!hadSite?<button onClick={create} disabled={creating} className="rounded-xl bg-white px-5 py-3 text-sm font-black text-zinc-950 disabled:opacity-50">{creating?"Creating...":"Generate my site →"}</button>:<Link href={link} target="_blank" rel="noopener noreferrer" className="rounded-xl bg-white px-5 py-3 text-sm font-black text-zinc-950">Open website preview ↗</Link>}
         {hadSite&&<button type="button" onClick={()=>navigator.clipboard?.writeText(window.location.origin+link)} className="rounded-xl border border-white/30 px-5 py-3 text-sm font-bold text-white">Copy link</button>}
@@ -95,7 +94,22 @@ export default function SiteStudio({user,workspace}){
     </section>
     
     <section className="rounded-3xl border border-zinc-200 bg-white p-5 sm:p-8">
-      <p className="text-[10px] font-black uppercase tracking-[.18em] text-zinc-500">02 / PHOTOGRAPHY LIBRARY</p>
+      <p className="text-[10px] font-black uppercase tracking-[.18em] text-zinc-500">02 / PAGE SECTIONS</p>
+      <h3 className="mt-3 text-xl font-black text-zinc-950">Choose what visitors see.</h3>
+      <p className="mt-2 text-xs leading-6 text-zinc-500">Switch sections on or off. These changes appear immediately in the preview and are saved to this business account.</p>
+      <div className="mt-5 grid gap-2 sm:grid-cols-2">{[
+        ["showHero","Main introduction"],["showAbout","About your business"],["showServices","Services"],["showGallery","Photo gallery"],
+        ["showContact","Contact details"],["showChatbot","Website chat"]
+      ].map(([key,label])=><label key={key} className="flex cursor-pointer items-center gap-3 rounded-xl border border-zinc-200 p-3 text-xs font-bold text-zinc-900">
+        <input type="checkbox" checked={site[key]!==false} onChange={e=>update(key,e.target.checked)} className="h-4 w-4 accent-zinc-950"/>{label}
+      </label>)}</div>
+      {site.showChatbot!==false&&<label className="mt-5 block text-xs font-bold text-zinc-700">Chat greeting
+        <input className={classInput} maxLength={160} value={site.chatbotGreeting||""} onChange={e=>update("chatbotGreeting",e.target.value)} placeholder="Hi! How can we help you?"/>
+      </label>}
+      <p className="mt-3 text-xs text-zinc-500">The basic website assistant answers common business questions from this site's saved information. It does not book appointments or access customer records.</p>
+    </section>
+    <section className="rounded-3xl border border-zinc-200 bg-white p-5 sm:p-8">
+      <p className="text-[10px] font-black uppercase tracking-[.18em] text-zinc-500">03 / PHOTOGRAPHY LIBRARY</p>
       <h3 className="mt-3 text-2xl font-black tracking-tight text-zinc-900">Pictures that fit the business.</h3>
       <p className="mt-3 text-sm leading-7 text-zinc-600">Choose from curated images for this industry. Every picture has a FUGTH image ID, descriptive alt text, searchable tags and original source credit. Sample images are illustrative—not actual photographs of this business.</p>
       <div className="mt-5 grid gap-3 sm:grid-cols-2">{getIndustryPhotos(site.industry).map(photo=><button key={photo.id} type="button" aria-pressed={site.heroImageId===photo.id} onClick={()=>setSite(old=>({...old,heroImageId:photo.id,galleryImageIds:getIndustryPhotos(old.industry).filter(item=>item.id!==photo.id).slice(0,2).map(item=>item.id)}))} className={`overflow-hidden rounded-2xl border p-2 text-left ${site.heroImageId===photo.id?"border-zinc-950 ring-2 ring-zinc-950":"border-zinc-200 hover:border-zinc-400"}`}>
@@ -106,7 +120,7 @@ export default function SiteStudio({user,workspace}){
       {site.showGallery!==false&&<p className="mt-3 text-xs leading-6 text-zinc-500">Secondary industry photos appear automatically when available. They are chosen by ID and cannot be replaced with unverified external links.</p>}
     </section>
 <section className="rounded-3xl border border-zinc-200 bg-white p-5 sm:p-8">
-      <p className="text-[10px] font-black uppercase tracking-[.18em] text-zinc-500">03 / YOUR BUSINESS</p><h3 className="mt-3 text-2xl font-black">Quick details</h3>
+      <p className="text-[10px] font-black uppercase tracking-[.18em] text-zinc-500">04 / YOUR BUSINESS</p><h3 className="mt-3 text-2xl font-black">Quick details</h3>
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
         <label className="text-xs font-bold text-zinc-700">Business name<input className={classInput} maxLength={80} value={site.name||""} onChange={e=>update("name",e.target.value)}/></label>
         <label className="text-xs font-bold text-zinc-700">Business type<select className={classInput} value={site.industry||"general"} onChange={e=>changeIndustry(e.target.value)}>{SITE_INDUSTRIES.map(i=><option key={i.id} value={i.id}>{i.label}</option>)}</select></label>
@@ -121,8 +135,8 @@ export default function SiteStudio({user,workspace}){
         <label className="text-xs font-bold text-zinc-700">Public business email<input type="email" className={classInput} maxLength={120} placeholder="Optional until publication" value={site.contactEmail||""} onChange={e=>update("contactEmail",e.target.value)}/></label>
         <label className="text-xs font-bold text-zinc-700">Public business number<input type="tel" className={classInput} maxLength={32} placeholder="Optional until publication" value={site.phone||""} onChange={e=>update("phone",e.target.value)}/></label>
       </div>
-      <div className="mt-7 flex flex-wrap gap-3"><button disabled={saving} onClick={()=>save(false)} className="rounded-xl bg-zinc-950 px-5 py-3.5 text-sm font-black text-white disabled:opacity-50">{saving?"Saving...":site.visibility==="published"?"Save changes":"Save preview"}</button><button disabled={saving} onClick={()=>save(true)} className="rounded-xl border border-zinc-950 bg-white px-5 py-3.5 text-sm font-black text-zinc-950 disabled:opacity-50">Publish website ↗</button>{site.visibility==="published"&&<button disabled={saving} onClick={async()=>{setSaving(true);setError("");try{const updated={...site,visibility:"preview",updatedAt:new Date().toISOString()};await setDoc(doc(db,"publicSites",uid),updated);setSite(updated);setSavedSignature(JSON.stringify({...siteFields(updated),visibility:"preview"}));setNote("Your site is now a labeled preview.");}catch(e){setError(e.message||"Could not unpublish website.");}finally{setSaving(false);}}} className="rounded-xl border border-zinc-200 px-4 py-3 text-sm text-zinc-600">Unpublish</button>}</div>
-      <p className="mt-5 text-xs leading-6 text-zinc-500">A preview link is shareable with anyone who has the link and clearly labeled as a draft. No private account details are copied. Publishing removes the preview badge and makes the business contact information visible; it does not create a custom domain.</p>
+      <div className="mt-7 flex flex-wrap gap-3"><button disabled={saving} onClick={()=>save("save")} className="rounded-xl bg-zinc-950 px-5 py-3.5 text-sm font-black text-white disabled:opacity-50">{saving?"Saving...":liveStatus==="published"?"Save draft":"Save draft"}</button><button disabled={saving} onClick={()=>save("publish")} className="rounded-xl border border-zinc-950 bg-white px-5 py-3.5 text-sm font-black text-zinc-950 disabled:opacity-50">Publish website ↗</button>{liveStatus==="published"&&<button disabled={saving} onClick={()=>save("unpublish")} className="rounded-xl border border-zinc-200 px-4 py-3 text-sm text-zinc-600">Unpublish</button>}</div>
+      <p className="mt-5 text-xs leading-6 text-zinc-500">One shared FUGTH website system serves every business. Your design is saved under this account; only publishing updates the customer-facing version. No custom deployment or domain is created.</p>
     </section>
 
     </div>
@@ -138,11 +152,11 @@ export default function SiteStudio({user,workspace}){
         <div className={`mx-auto overflow-hidden rounded-xl bg-white shadow-xl ${device==="phone"?"w-full max-w-[390px]":"w-full"}`}>
           <div className="flex items-center justify-between gap-2 border-b border-zinc-200 bg-white px-3 py-2 text-[10px] text-zinc-500"><span className="flex gap-1"><i className="h-2 w-2 rounded-full bg-zinc-300"/><i className="h-2 w-2 rounded-full bg-zinc-300"/><i className="h-2 w-2 rounded-full bg-zinc-300"/></span><span className="max-w-[75%] truncate">fugthmanagement.space{link}</span></div>
           <div className={device==="phone"?"fugth-phone-preview":""}>
-            <SiteRenderer data={{...site,visibility:site.visibility==="published"?"published":"preview"}}/>
+            <SiteRenderer data={{...site,visibility:"preview"}}/>
           </div>
         </div>
       </div>
-      <p className="px-1 text-xs leading-6 text-zinc-500">This is your working design preview. Save your changes to update the shareable website link.</p>
+      <p className="px-1 text-xs leading-6 text-zinc-500">Your draft changes display here immediately. Saving does not change the public website until you choose Publish.</p>
     </aside>
   </div>
   </div>;
