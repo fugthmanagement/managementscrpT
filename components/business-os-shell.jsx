@@ -67,11 +67,11 @@ const NAV_ITEMS = [
   { id: "campaigns", label: "Campaigns", icon: "bolt" },
   { id: "knowledge", label: "AI training", icon: "book" },
   { id: "advisor", label: "Business advisor", icon: "advisor" },
-  { id: "site_studio", label: "Site Studio", icon: "site_studio" },
+  { id: "site_studio", label: "Site Maker", icon: "site_studio" },
   { id: "settings", label: "Business settings", icon: "settings" },
 ];
-const EVERYDAY_NAV = ["overview","calls","leads","appointments","phones","integrations"];
-const TOOLS_NAV = ["campaigns","knowledge","advisor","site_studio","settings"];
+const EVERYDAY_NAV = ["overview","calls","leads","appointments","phones","site_studio","integrations","settings"];
+const TOOLS_NAV = ["campaigns","knowledge","advisor"];
 
 const LEAD_STAGES = [
   "new",
@@ -471,8 +471,8 @@ export default function DashboardPage() {
     status: "active",
   });
 
-  const isAdmin = ADMIN_EMAILS.includes(normalize(user?.email));
   const adminVerified = Boolean(user?.emailVerified);
+  const isAdmin = ADMIN_EMAILS.includes(normalize(user?.email)) && adminVerified;
   const primaryNav = NAV_ITEMS.filter(item => EVERYDAY_NAV.includes(item.id));
   const toolsNav = NAV_ITEMS.filter(item => TOOLS_NAV.includes(item.id));
   const currentNav = NAV_ITEMS.find(item => item.id === activeTab);
@@ -489,6 +489,15 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!isAdmin && adminMode) setAdminMode(false);
   }, [isAdmin, adminMode]);
+
+  async function logOut() {
+    try {
+      await signOut(auth);
+      window.location.assign("/login");
+    } catch {
+      setNotice("Unable to log out. Please try again.");
+    }
+  }
   // Existing customer accounts receive the same permanent FUGTH number once
   // the server credentials are available. Retries happen on a later login.
   useEffect(()=>{
@@ -1126,14 +1135,14 @@ export default function DashboardPage() {
               {toolsOpen&&<nav aria-label="Advanced tools" className="mt-1 space-y-1">{toolsNav.map(item=><button key={item.id} type="button" onClick={()=>{setActiveTab(item.id);setSidebarOpen(false)}} className={cx("flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold",activeTab===item.id?"bg-zinc-950 text-white":"text-zinc-600 hover:bg-zinc-100")}><Icon name={item.icon} className="h-[18px] w-[18px]"/>{item.label}</button>)}</nav>}
             </div>
           </div>
-          <div className="mt-4 border-t border-zinc-200 pt-4"><p className="truncate px-2 text-sm font-black text-zinc-900">{workspace.businessName||"My business"}</p><p className="mt-1 truncate px-2 text-xs text-zinc-500">{user.email}</p><p className="mt-2 px-2 text-[11px] font-semibold text-zinc-500">FUGTH account · {workspace.accountNumber||"Assignment pending"}</p><button type="button" onClick={()=>signOut(auth)} className="mt-3 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-zinc-600 hover:bg-zinc-100"><Icon name="logout" className="h-4 w-4"/>Sign out</button></div>
+          <div className="mt-4 border-t border-zinc-200 pt-4"><p className="truncate px-2 text-sm font-black text-zinc-900">{workspace.businessName||"My business"}</p><p className="mt-1 truncate px-2 text-xs text-zinc-500">{user.email}</p><p className="mt-2 px-2 text-[11px] font-semibold text-zinc-500">FUGTH account · {workspace.accountNumber||"Assignment pending"}</p><button type="button" onClick={logOut} className="mt-3 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-zinc-600 hover:bg-zinc-100"><Icon name="logout" className="h-4 w-4"/>Log out</button></div>
         </aside>
 
         <section className="flex min-w-0 flex-1 flex-col">
           <header className="sticky top-0 z-20 border-b border-zinc-200 bg-white/95 px-4 py-4 shadow-sm backdrop-blur sm:px-6 lg:px-8">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex min-w-0 items-center gap-3"><button type="button" aria-label="Open navigation" onClick={()=>setSidebarOpen(true)} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-zinc-200 text-zinc-800 lg:hidden"><span className="text-xl">☰</span></button><div><p className="text-[10px] font-bold uppercase tracking-[.15em] text-zinc-500">{"Fugth workspace"}</p><h1 className="mt-1 text-xl font-black tracking-tight text-zinc-950 sm:text-2xl">{currentNav?.label||"Overview"}</h1></div></div>
-              <div className="flex items-center gap-2"><button type="button" onClick={()=>{setActiveTab("site_studio");setToolsOpen(true);setSidebarOpen(false);}} className="rounded-xl border border-zinc-300 bg-white px-3 py-2 text-xs font-black text-zinc-900 hover:bg-zinc-100">My website ↗</button><span className="hidden rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs font-semibold text-zinc-500 sm:block">{workspace.businessName||"Business"}</span></div>
+              <div className="flex items-center gap-2"><button type="button" onClick={()=>{setActiveTab("site_studio");setSidebarOpen(false);}} className="rounded-xl border border-zinc-300 bg-white px-3 py-2 text-xs font-black text-zinc-900 hover:bg-zinc-100">Site Maker ↗</button><span className="hidden rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs font-semibold text-zinc-500 sm:block">{workspace.businessName||"Business"}</span><button type="button" onClick={logOut} className="rounded-xl border border-zinc-200 bg-zinc-950 px-3 py-2 text-xs font-black text-white hover:bg-zinc-800" aria-label="Log out of FUGTH">Log out</button></div>
             </div>
             {notice&&<div className="mt-3 rounded-xl border border-zinc-300 bg-zinc-100 px-4 py-3 text-sm text-zinc-800">{notice}</div>}
           </header>
@@ -1296,7 +1305,7 @@ export default function DashboardPage() {
 
             {activeTab === "leads" && (
               <section className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
-                <div className="xl:col-span-2 rounded-2xl border border-zinc-200 bg-white p-6"><p className="text-xs font-black uppercase tracking-[.14em] text-zinc-500">Founder access</p><h2 className="mt-2 text-2xl font-black text-zinc-900">Administration</h2><p className="mt-2 text-sm text-zinc-600">Account management and developer operations stay here, separate from the client workspace.</p>{!adminVerified&&<p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-900">Verify this account\u0027s email in Firebase Authentication before using privileged account or calling operations.</p>}</div>
+                
                 <Panel title="Add Lead" subtitle="Save cold leads, inbound leads, Google Maps leads, and follow-up notes.">
                   <form onSubmit={addLead} className="space-y-4">
                     <Field label="Business Name">
@@ -1665,13 +1674,13 @@ export default function DashboardPage() {
               </section>
             )}
 
-            {activeTab === "settings" && isAdmin && (
+            {activeTab === "settings" && (
               <section className="rounded-2xl border border-zinc-200 bg-white p-5 sm:p-6">
                 <div className="flex flex-wrap items-center justify-between gap-4">
-                  <div><p className="text-[11px] font-black uppercase tracking-widest text-zinc-500">Founder workspace access</p><p className="mt-2 text-sm text-zinc-600">The customer dashboard looks exactly the same for every account. Founder-only controls stay here in Settings.</p></div>
+                  <div><p className="text-[11px] font-black uppercase tracking-widest text-zinc-500">Workspace view</p><p className="mt-2 text-sm text-zinc-600">Everyone uses the same FUGTH dashboard. Change your view here; administrative actions require a verified FUGTH team account.</p></div>
                   <div className="inline-flex rounded-xl border border-zinc-200 bg-zinc-100 p-1" role="group" aria-label="Settings mode">
                     <button type="button" aria-pressed={!adminMode} onClick={()=>setAdminMode(false)} className={cx("rounded-lg px-4 py-2.5 text-xs font-black",!adminMode?"bg-zinc-950 text-white":"text-zinc-700")}>Normal</button>
-                    <button type="button" aria-pressed={adminMode} onClick={()=>setAdminMode(true)} className={cx("rounded-lg px-4 py-2.5 text-xs font-black",adminMode?"bg-zinc-950 text-white":"text-zinc-700")}>Administration</button>
+                    <button type="button" aria-pressed={adminMode} aria-disabled={!isAdmin} onClick={()=>{if(isAdmin)setAdminMode(true);else setNotice("Admin mode is available only to authorized FUGTH team accounts. Your business features remain available in Normal mode.");}} className={cx("rounded-lg px-4 py-2.5 text-xs font-black",adminMode?"bg-zinc-950 text-white":"text-zinc-700 hover:bg-zinc-200")} title={!isAdmin?"Only verified FUGTH team accounts can open Admin mode":"Open administrative tools"}>Admin {!isAdmin&&<span className="ml-1 text-[10px]">🔒</span>}</button>
                   </div>
                 </div>
               </section>
