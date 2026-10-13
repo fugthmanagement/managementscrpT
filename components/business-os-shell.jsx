@@ -19,6 +19,7 @@ import {
 import { auth, db } from "../lib/firebase";
 import PhoneSetup from "./phone-setup";
 import SiteStudio from "./site-studio";
+import FounderSites from "./founder-sites";
 import {SITE_INDUSTRIES} from "../lib/site-presets";
 async function adminHeaders() { const token = await auth?.currentUser?.getIdToken(); if (!token) throw new Error("Sign in again to use founder tools."); return { "Content-Type": "application/json", Authorization: `Bearer ${token}` }; }
 import IntegrationsHub from "./integrations-hub";
@@ -1797,6 +1798,7 @@ export default function DashboardPage() {
                 </Panel>
 
                 </div></details>
+                <div className="xl:col-span-2"><FounderSites user={user}/></div>
                 <details className="rounded-2xl border border-zinc-200 bg-white p-5 xl:col-span-2"><summary className="cursor-pointer text-base font-black text-zinc-950">Vapi infrastructure <span className="ml-2 text-xs font-medium text-zinc-500">Assistants, phone numbers and recent call states</span></summary><div className="mt-5"><VapiConsole /></div></details>
                 <details className="rounded-2xl border border-zinc-200 bg-white p-5 xl:col-span-2"><summary className="cursor-pointer text-base font-black text-zinc-950">Founder diagnostics <span className="ml-2 text-xs font-medium text-zinc-500">Internal test checklist</span></summary><div className="mt-5">                <Panel title="Admin Snapshot" subtitle="Fast control center for founder testing.">
                   <div className="grid gap-4 sm:grid-cols-2">
