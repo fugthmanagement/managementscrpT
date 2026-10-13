@@ -18,6 +18,83 @@ service cloud.firestore {
       allow update: if isOwner(uid) &&
         !request.resource.data.diff(resource.data).affectedKeys().hasAny(protectedKeys());
       allow delete: if false;
+      // Verified owner-only demo requests. Server chooses a fixed daily slot ID
+      // and creates it atomically before attempting a paid phone call. Clients
+      // cannot update, reset or remove reservations to defeat the quota.
+      match /demoAttempts/{id} {
+        allow get: if isOwner(uid);
+        allow list, update, delete: if false;
+        allow create: if isOwner(uid) &&
+          id.matches('^preview_[0-9]{8}_[12]
+        allow read, create: if isOwner(uid);
+        allow update, delete: if false;
+      }
+      match /{kind}/{id} {
+        allow read, create, update, delete: if isOwner(uid) &&
+          kind in ['leads','appointments','campaigns','knowledge','knowledgeFiles','notifications'];
+      }
+    }
+    // The public site document is an intentionally limited marketing preview, never
+    // a customer profile. No billing, leads, credentials or private calls go here.
+    match /publicSites/{uid} {
+      function hasSafeFields() {
+        return request.resource.data.keys().hasOnly([
+          'ownerId','version','visibility','name','industry','theme','eyebrow',
+          'headline','description','services','phone','contactEmail','createdAt','updatedAt',
+          'serviceArea','businessHours','ctaLabel','showServices',
+          'heroImageId','galleryImageIds','showGallery',
+          'showHero','showAbout','showContact','showChatbot','chatbotGreeting'
+        ]) &&
+        request.resource.data.ownerId == uid &&
+        request.resource.data.version == 1 &&
+        request.resource.data.visibility in ['preview','published','hidden'] &&
+        request.resource.data.name is string && request.resource.data.name.size() <= 80 &&
+        request.resource.data.headline is string && request.resource.data.headline.size() <= 150 &&
+        request.resource.data.description is string && request.resource.data.description.size() <= 380 &&
+        request.resource.data.services is list && request.resource.data.services.size() <= 3 &&
+        request.resource.data.contactEmail is string && request.resource.data.contactEmail.size() <= 120 &&
+        request.resource.data.phone is string && request.resource.data.phone.size() <= 32 &&
+        request.resource.data.serviceArea is string && request.resource.data.serviceArea.size() <= 100 &&
+        request.resource.data.businessHours is string && request.resource.data.businessHours.size() <= 100 &&
+        request.resource.data.ctaLabel is string && request.resource.data.ctaLabel.size() <= 48 &&
+        request.resource.data.showServices is bool &&
+        request.resource.data.showHero is bool &&
+        request.resource.data.showAbout is bool &&
+        request.resource.data.showContact is bool &&
+        request.resource.data.showChatbot is bool &&
+        request.resource.data.chatbotGreeting is string && request.resource.data.chatbotGreeting.size() <= 160 &&
+        request.resource.data.showGallery is bool &&
+        request.resource.data.heroImageId is string &&
+        request.resource.data.heroImageId.matches("^fg-" + request.resource.data.industry + "-[a-z]+$") &&
+        request.resource.data.galleryImageIds is list && request.resource.data.galleryImageIds.size() <= 2 &&
+        (request.resource.data.galleryImageIds.size() < 1 ||
+          (request.resource.data.galleryImageIds[0] is string &&
+           request.resource.data.galleryImageIds[0].matches("^fg-" + request.resource.data.industry + "-[a-z]+$"))) &&
+        (request.resource.data.galleryImageIds.size() < 2 ||
+          (request.resource.data.galleryImageIds[1] is string &&
+           request.resource.data.galleryImageIds[1].matches("^fg-" + request.resource.data.industry + "-[a-z]+$"))) &&
+        request.resource.data.theme in ['editorial','bold','warm','professional'] &&
+        request.resource.data.industry in ['general','roofing','dental','clinic','salon','legal','hvac','automotive','realestate','restaurant','landscaping','contractor'];
+      }
+      allow get: if isOwner(uid) ||
+        resource.data.visibility in ['preview','published'];
+      allow list: if false;
+      // Published site data and owner drafts are modified only by authenticated
+      // server APIs, which check ownership/founder role and record audit history.
+      // Never let a browser directly bypass Save Draft / Publish.
+      allow create, update, delete: if false;
+    }
+    match /{path=**} { allow read, write: if false; }
+  }
+}) &&
+          request.auth.token.phone_number is string &&
+          request.resource.data.keys().hasOnly(['ownerId','kind','phone','createdAt']) &&
+          request.resource.data.ownerId == uid &&
+          request.resource.data.kind == 'voice_preview' &&
+          request.resource.data.phone == request.auth.token.phone_number &&
+          request.resource.data.createdAt is string &&
+          request.resource.data.createdAt.size() <= 40;
+      }
       match /calls/{id} {
         allow read, create: if isOwner(uid);
         allow update, delete: if false;
