@@ -26,7 +26,7 @@ export async function GET(request,{params}) {
   const [published,draft,profile]=await Promise.all([db.doc("publicSites/"+uid).get(),db.doc("siteDrafts/"+uid).get(),db.doc("users/"+uid).get()]);
   if(!published.exists&&!draft.exists&&!profile.exists)return NextResponse.json({error:"Account or website was not found."},{status:404});
   const site=draft.exists?draft.data():published.exists?published.data():buildStarterSite(uid,profile.data()?.businessName||profile.data()?.displayName||"Your business",profile.data()?.businessType);
-  return NextResponse.json({site,hasDraft:draft.exists,liveStatus:published.data()?.visibility||"not_created",publishedAt:published.data()?.publishedAt||null,accountNumber:profile.data()?.accountNumber||null,customerName:profile.data()?.businessName||site.name});
+  return NextResponse.json({site,hasPublicSite:published.exists,hasDraft:draft.exists,liveStatus:published.data()?.visibility||"not_created",publishedAt:published.data()?.publishedAt||null,accountNumber:profile.data()?.accountNumber||null,customerName:profile.data()?.businessName||site.name});
  }catch(e){console.error("FUGTH site read failed",e?.code||"unknown");return NextResponse.json({error:"Could not load this saved website."},{status:503});}
 }
 export async function PUT(request,{params}){
