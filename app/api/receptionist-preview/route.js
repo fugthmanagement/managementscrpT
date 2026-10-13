@@ -60,7 +60,7 @@ async function quota(user,token,to){
   const path=dbRoot()+"/users/"+encodeURIComponent(user.uid)+"/demoAttempts?documentId="+encodeURIComponent(id);
   const fields={
     ownerId:{stringValue:user.uid},kind:{stringValue:"voice_preview"},source:{stringValue:"preview_quota"},
-    phone:{stringValue:to},createdAt:{stringValue:new Date().toISOString()}
+    phone:{stringValue:to},createdAt:{timestampValue:new Date().toISOString()}
   };
   const r=await fetch(path,{method:"POST",headers:{Authorization:"Bearer "+token,"Content-Type":"application/json"},
     body:JSON.stringify({fields}),cache:"no-store",signal:AbortSignal.timeout(8000)});
