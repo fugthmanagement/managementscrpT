@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { auth, db } from "../../lib/firebase";
 import { doc,setDoc,serverTimestamp } from "firebase/firestore";
-import { buildStarterSite,detectIndustry } from "../../lib/site-presets";
+import { detectIndustry } from "../../lib/site-presets";
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 
 const tiers = [
@@ -44,8 +44,13 @@ export default function Login(){
             },{merge:true});
           } catch { console.warn("Customer workspace will initialize when the dashboard is opened."); }
           try {
-            await setDoc(doc(db,"publicSites",created.user.uid),buildStarterSite(created.user.uid,businessName||"Your business",businessName));
-          } catch { console.warn("Site preview will be initialized in FUGTH Site Studio."); }
+            const token=await created.user.getIdToken();
+            const createdSite=await fetch("/api/sites/"+encodeURIComponent(created.user.uid),{
+              method:"PUT",headers:{"Content-Type":"application/json",Authorization:"Bearer "+token},
+              body:JSON.stringify({action:"initialize"}),cache:"no-store"
+            });
+            if(!createdSite.ok)console.warn("FUGTH website preview will be initialized when Site Studio opens.");
+          }catch{console.warn("Website preview initialization will be retried later.");}
         }
         try{
           const token=await created.user.getIdToken();
