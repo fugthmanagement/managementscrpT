@@ -41,27 +41,25 @@ export async function POST(req) {
 
     const body = await req.json();
     const { email, password } = body;
-    const displayName = body.displayName || body.businessName || '';
-    if (!email) return NextResponse.json({ error: 'Missing email' }, { status: 400 });
+    const displayName = String(body.displayName || body.businessName || '').trim().slice(0,80);
+    if (!email || typeof email !== 'string' || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) return NextResponse.json({ error: 'Enter a valid customer email.' }, { status: 400 });
 
     // Allow creating an account with no plan (planTier === 'none')
-    let planTier = body.planTier ?? body.plan ?? 'none';
-    let planStatus = body.planStatus ?? body.status ?? (planTier === 'none' ? 'inactive' : 'trial');
+    let planTier = 'none';
+    let planStatus = 'inactive';
     const businessPhone = body.phone ?? '';
     const fugthNumber = body.fugthNumber ?? '';
     const stripeCustomerId = body.stripeCustomerId ?? null;
 
     // Create or update user
     let userRecord;
+    let newlyCreated = false;
     try {
       userRecord = await admin.auth().createUser({ email, password: password || randomBytes(24).toString('base64url'), displayName: displayName || '' });
       newlyCreated=true;
     } catch (err) {
       if (err.code === 'auth/email-already-exists') {
-        userRecord = await admin.auth().getUserByEmail(email);
-        if (password) {
-          try { await admin.auth().updateUser(userRecord.uid, { password }); } catch (e) { /* ignore */ }
-        }
+        return NextResponse.json({ error: 'This customer already has a FUGTH account. Open the customer in Administration instead.' }, { status: 409 });
       } else {
         return NextResponse.json({ error: err.message || 'Could not create user' }, { status: 500 });
       }

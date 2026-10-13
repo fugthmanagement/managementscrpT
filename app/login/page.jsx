@@ -1,98 +1,61 @@
 "use client";
-
+import {useEffect,useState} from "react";
 import Link from "next/link";
-import { useState } from "react";
-import { auth, db } from "../../lib/firebase";
-import { doc,setDoc,serverTimestamp } from "firebase/firestore";
-import { detectIndustry } from "../../lib/site-presets";
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
-
-const tiers = [
-  {key:"starter",name:"Starter",price:"$49",summary:"For solo operators"},
-  {key:"growth",name:"Growth",price:"$149",summary:"For teams on the move"},
-  {key:"elite",name:"Elite",price:"$499",summary:"For advanced operations"},
-];
+import {createUserWithEmailAndPassword,sendPasswordResetEmail,signInWithEmailAndPassword} from "firebase/auth";
+import {doc,setDoc,serverTimestamp} from "firebase/firestore";
+import {auth,db} from "../../lib/firebase";
+import {detectIndustry} from "../../lib/site-presets";
+const field="mt-2 w-full rounded-xl border border-[#dfe4db] bg-white px-4 py-3.5 text-[15px] text-[#283629] outline-none focus:border-[#70866b] focus:ring-2 focus:ring-[#e6ede0]";
 
 export default function Login(){
-  const [mode,setMode]=useState("login");
-  const [email,setEmail]=useState("");
-  const [businessName,setBusinessName]=useState("");
-  const [password,setPassword]=useState("");
-  const [error,setError]=useState("");
-  const [notice,setNotice]=useState("");
-  const [busy,setBusy]=useState("");
-  async function submit(event){
-    event.preventDefault();setBusy("auth");setError("");setNotice("");
-    if(!auth){setError("Authentication is unavailable. Please try again shortly.");setBusy("");return;}
-    try{
-      const e=email.trim();
-      if(!e||!password)throw new Error("Enter an email and password.");
-      if(mode==="signup"&&password.length<6)throw new Error("Password must be at least six characters.");
-      if(mode==="login")await signInWithEmailAndPassword(auth,e,password);
-      else {
-        const created=await createUserWithEmailAndPassword(auth,e,password);
-        // Keep the site preview separate from private customer profile data.
-        // If publication rules are not yet deployed, Site Studio allows a retry.
-        if (db) {
-          try {
-            await setDoc(doc(db,"users",created.user.uid),{
-              businessName:businessName.trim(),
-              businessType:detectIndustry(businessName),
-              email:e,
-              createdAt:serverTimestamp(),
-              updatedAt:serverTimestamp()
-            },{merge:true});
-          } catch { console.warn("Customer workspace will initialize when the dashboard is opened."); }
-          try {
-            const token=await created.user.getIdToken();
-            const createdSite=await fetch("/api/sites/"+encodeURIComponent(created.user.uid),{
-              method:"PUT",headers:{"Content-Type":"application/json",Authorization:"Bearer "+token},
-              body:JSON.stringify({action:"initialize"}),cache:"no-store"
-            });
-            if(!createdSite.ok)console.warn("FUGTH website preview will be initialized when Site Studio opens.");
-          }catch{console.warn("Website preview initialization will be retried later.");}
-        }
-        try{
-          const token=await created.user.getIdToken();
-          const response=await fetch("/api/account-number",{
-            method:"POST",headers:{Authorization:`Bearer ${token}`},cache:"no-store"
-          });
-          if(!response.ok)console.warn("FUGTH 537 account number pending secure setup.");
-        }catch{console.warn("FUGTH 537 account number will be assigned after sign-in.");}
-      }
-      const wantsDemo = new URLSearchParams(window.location.search).get("demo") === "1";
-      window.location.assign(wantsDemo ? "/dashboard" : mode === "signup" ? "/plans" : "/dashboard");
-    }catch(err){setError(String(err?.message||"Could not sign in").replace("Firebase: ",""));}
-    finally{setBusy("");}
-  }
-  async function reset(){
-    setError("");setNotice("");
-    if(!email.trim()){setError("Enter your email first to receive a reset link.");return;}
-    try{await sendPasswordResetEmail(auth,email.trim());setNotice("If that email is registered, check your inbox for password reset instructions.");}
-    catch(err){setError(err.message||"Could not send reset email.");}
-  }
-  function checkout(planKey){
-    window.location.assign("/plans?plan="+encodeURIComponent(planKey));
-  }
-  return <main className="min-h-screen bg-[#fafaf8] text-[#171717]">
-    <header className="mx-auto flex w-full max-w-7xl items-center justify-between gap-3 px-5 py-6 sm:px-8">
-      <Link href="/" className="flex items-center gap-3"><span className="grid h-11 w-11 place-items-center rounded-2xl bg-[#181818] text-3xl font-black text-white">F</span><span><strong className="block text-xl font-black tracking-tight">Fugth<span className="text-[#181818]">.</span></strong><small className="block text-[9px] font-black tracking-[.2em] text-slate-500">MANAGEMENT OS</small></span></Link>
-      <Link href="/" className="rounded-xl border border-[#d6d6d3] bg-white px-4 py-2.5 text-xs font-extrabold text-[#171717] sm:text-sm">← Back to website</Link>
-    </header>
-    <div className="mx-auto grid max-w-7xl items-stretch gap-7 px-5 pb-16 sm:px-8 lg:grid-cols-[1.05fr_.95fr]">
-      <section className="relative flex min-h-[580px] flex-col overflow-hidden rounded-[2rem] bg-[#161616] p-8 text-white sm:p-12 lg:min-h-[710px]">
-        <div className="pointer-events-none absolute -bottom-32 -right-20 h-96 w-96 rounded-full border-[58px] border-white/10"/>
-        <div className="pointer-events-none absolute -right-16 top-24 h-64 w-64 rounded-full bg-[#f4f4f1]/90 blur-[80px]"/>
-        <div className="relative z-10"><div className="inline-flex items-center gap-3 rounded-full border border-white/30 bg-white/10 px-4 py-2 text-[10px] font-black uppercase tracking-[.16em]">✳ Your Fugth Workspace</div><h1 className="mt-10 text-5xl font-black leading-[1.02] tracking-[-.065em] sm:text-6xl">Your best<br/>business day<br/><span className="text-zinc-100">starts here.</span></h1><p className="mt-8 max-w-md text-base leading-8 text-zinc-300">Calls, leads, appointments and your AI receptionist—all managed in one place. Less juggling. More room to grow.</p></div>
-        <div className="relative z-10 mt-auto pt-14"><div className="grid gap-3 sm:grid-cols-3">{[["01","Voice AI"],["02","Leads & CRM"],["03","Appointments"]].map(x=><div key={x[0]} className="rounded-2xl border border-white/25 bg-white/10 p-4 backdrop-blur"><span className="text-xs font-extrabold text-[#d2f38b]">{x[0]}</span><p className="mb-0 mt-4 text-sm font-black">{x[1]}</p></div>)}</div></div>
-      </section>
-      <section className="flex flex-col justify-center rounded-[2rem] border border-[#ddddda] bg-white p-7 shadow-sm sm:p-11">
-        <div className="mb-8"><div className="flex w-fit rounded-full bg-[#edf0f5] p-1"><button onClick={()=>{setMode("login");setError("");}} className={`rounded-full px-5 py-2.5 text-xs font-black transition ${mode==="login"?"bg-[#171717] text-white shadow-sm":"text-[#566574]"}`}>Sign in</button><button onClick={()=>{setMode("signup");setError("");}} className={`rounded-full px-5 py-2.5 text-xs font-black transition ${mode==="signup"?"bg-[#171717] text-white shadow-sm":"text-[#566574]"}`}>Create account</button></div><h2 className="mt-8 text-3xl font-black tracking-[-.055em] sm:text-4xl">{mode==="login"?"Welcome back.":"Welcome to Fugth."}</h2><p className="mt-3 text-sm leading-7 text-[#616161]">{mode==="login"?"Sign in to your business command center.":"Create your business account and get a FUGTH website preview automatically."}</p></div>
-        {error&&<p role="alert" className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">{error}</p>}
-        {notice&&<p role="status" className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">{notice}</p>}
-        <form onSubmit={submit} className="space-y-4">{mode==="signup"&&<label className="block text-xs font-black uppercase tracking-[.12em] text-[#596778]">Your business name<input type="text" required maxLength={80} autoComplete="organization" placeholder="e.g. North Coast Roofing" value={businessName} onChange={e=>setBusinessName(e.target.value)} className="mt-2 block w-full rounded-xl border border-[#d6d6d3] bg-[#f8f8f6] px-4 py-4 text-sm normal-case tracking-normal text-[#182638] outline-none focus:border-[#181818]"/></label>}<label className="block text-xs font-black uppercase tracking-[.12em] text-[#596778]">Email address<input required type="email" autoComplete="email" placeholder="you@business.com" value={email} onChange={e=>setEmail(e.target.value)} className="mt-2 block w-full rounded-xl border border-[#d6d6d3] bg-[#f8f8f6] px-4 py-4 text-sm normal-case tracking-normal text-[#182638] outline-none focus:border-[#181818]"/></label><label className="block text-xs font-black uppercase tracking-[.12em] text-[#596778]">Password<input required type="password" autoComplete={mode==="login"?"current-password":"new-password"} minLength={mode==="signup"?6:undefined} placeholder="Enter your password" value={password} onChange={e=>setPassword(e.target.value)} className="mt-2 block w-full rounded-xl border border-[#d6d6d3] bg-[#f8f8f6] px-4 py-4 text-sm normal-case tracking-normal text-[#182638] outline-none focus:border-[#181818]"/></label>{mode==="login"&&<div className="text-right"><button type="button" onClick={reset} className="text-xs font-extrabold text-[#181818] hover:underline">Forgot password?</button></div>}<button disabled={busy!==""} className="mt-3 flex w-full items-center justify-center gap-3 rounded-xl bg-[#181818] px-5 py-4 text-sm font-black text-white transition hover:bg-[#333333] disabled:opacity-60">{busy==="auth"?"Please wait...":mode==="login"?"Open dashboard →":"Create account →"}</button></form>
-        <div className="mt-9 border-t border-[#e7e7e5] pt-8"><p className="text-xs font-black uppercase tracking-[.14em] text-[#555555]">Looking for a plan?</p><p className="mt-2 text-xs leading-6 text-[#656565]">Pick a plan after creating your Fugth account. Secure card payments are completed within the Fugth website when checkout is configured.</p><div className="mt-5 space-y-2">{tiers.map(t=><div key={t.key} className="flex items-center justify-between gap-4 rounded-xl border border-[#dededb] p-3.5"><div><p className="mb-0 text-sm font-black">{t.name} <span className="ml-1 font-bold text-[#181818]">{t.price}/mo</span></p><p className="mb-0 mt-1 text-xs text-[#666666]">{t.summary}</p></div><button disabled={busy!==""} type="button" onClick={()=>checkout(t.key)} className="rounded-lg bg-[#eeeeea] px-3 py-2 text-xs font-black text-[#171717] disabled:opacity-50">Choose ↗</button></div>)}</div></div>
-      </section>
-    </div><footer className="mx-auto flex max-w-7xl flex-col justify-between gap-3 px-5 pb-10 text-xs text-[#767676] sm:flex-row sm:px-8"><span>© {new Date().getFullYear()} Fugth Chat LLC</span><a href="mailto:fugthmanagement@gmail.com" className="font-bold text-[#181818]">Need help? Contact support →</a></footer>
-  </main>;
+ const [mode,setMode]=useState("login"),[businessName,setBusinessName]=useState(""),[email,setEmail]=useState(""),[password,setPassword]=useState(""),[error,setError]=useState(""),[notice,setNotice]=useState(""),[busy,setBusy]=useState(false);
+ useEffect(()=>{if(new URLSearchParams(window.location.search).has("signup"))setMode("signup");},[]);
+ async function submit(e){e.preventDefault();setBusy(true);setError("");setNotice("");
+  try{
+   if(!auth)throw Error("Sign in is temporarily unavailable.");
+   const address=email.trim();
+   if(password.length<6)throw Error("Enter a password of at least six characters.");
+   if(mode==="login"){
+      await signInWithEmailAndPassword(auth,address,password);
+      window.location.replace("/dashboard");return;
+   }
+   const created=await createUserWithEmailAndPassword(auth,address,password);
+   try{
+     if(db)await setDoc(doc(db,"users",created.user.uid),{businessName:businessName.trim(),businessType:detectIndustry(businessName),email:address,createdAt:serverTimestamp(),updatedAt:serverTimestamp()},{merge:true});
+   }catch{ /* Account was created; dashboard can finish workspace setup. */ }
+   try{
+      const token=await created.user.getIdToken();
+      await Promise.allSettled([
+        fetch("/api/sites/"+encodeURIComponent(created.user.uid),{method:"PUT",headers:{"Content-Type":"application/json",Authorization:"Bearer "+token},body:JSON.stringify({action:"initialize"})}),
+        fetch("/api/account-number",{method:"POST",headers:{Authorization:"Bearer "+token}})
+      ]);
+   }catch{ /* Provisioning retries from workspace when configured. */ }
+   window.location.replace("/plans");
+  }catch(err){
+   const text=String(err?.code||err?.message||"Could not sign in");
+   setError(text.includes("auth/email-already-in-use")?"An account already exists with this email. Please log in.":text.includes("auth/invalid-credential")?"The email or password is incorrect.":text.includes("auth/weak-password")?"Choose a stronger password.":text.includes("auth/too-many-requests")?"Too many attempts. Try again later.":text.replace(/^Firebase:\s*/,""));
+  }finally{setBusy(false);}
+ }
+ async function reset(){
+  setError("");setNotice("");
+  if(!auth||!email.trim()){setError("Enter your email address first.");return;}
+  try{await sendPasswordResetEmail(auth,email.trim());setNotice("If an account exists with this email, password-reset instructions are on the way.");}
+  catch{setNotice("If an account exists with this email, you'll receive reset instructions.");}
+ }
+ return <main className="min-h-screen bg-[#f8faf7] text-[#27372b]">
+  <header className="mx-auto flex h-[82px] max-w-6xl items-center justify-between px-5 sm:px-8"><Link href="/" className="flex items-center gap-2.5"><span className="grid h-9 w-9 place-items-center rounded-xl bg-[#2b3c2c] text-xl font-black text-white">F</span><b className="text-[22px] font-semibold tracking-[-.08em]">fugth.</b></Link><Link href="/" className="text-xs font-semibold text-[#778674]">← Return to website</Link></header>
+  <div className="mx-auto grid max-w-6xl items-stretch gap-8 px-5 pb-14 pt-5 sm:px-8 lg:grid-cols-[1fr_1fr] lg:pb-20 lg:pt-12">
+   <aside className="relative hidden min-h-[640px] flex-col justify-between overflow-hidden rounded-[28px] bg-[#293e2f] px-12 py-14 text-white lg:flex"><div className="absolute -right-24 top-10 h-[440px] w-[440px] rounded-full border-[80px] border-white/5"/><div className="relative"><p className="text-[11px] font-semibold uppercase tracking-[.25em] text-[#afc6ae]">A BETTER WAY TO RUN YOUR DAY</p><h1 className="mt-12 max-w-md text-[64px] font-semibold leading-[1.04] tracking-[-.08em]">Your business.<br/><span className="font-serif font-normal italic text-[#b5cbb1]">In good hands.</span></h1><p className="mt-9 max-w-sm text-[15px] leading-8 text-[#cfddcd]">Calls, customers, your website—together in a simpler workspace that feels like yours.</p></div><div className="relative grid grid-cols-3 gap-3">{["Stay connected","Stay organized","Look your best"].map((x,i)=><div key={x} className="rounded-xl border border-white/15 bg-white/5 p-4"><p className="text-[10px] text-[#91ab8d]">0{i+1}</p><p className="mt-6 text-xs font-semibold leading-5">{x}</p></div>)}</div></aside>
+   <section className="flex min-h-[570px] flex-col justify-center rounded-[28px] border border-[#e3e9e0] bg-white p-6 sm:p-10 lg:p-12"><div className="mb-9 inline-flex w-fit gap-1 rounded-xl bg-[#f1f4ee] p-1"><button type="button" onClick={()=>{setMode("login");setError("");}} className={`rounded-lg px-5 py-2.5 text-xs font-semibold ${mode==="login"?"bg-[#293c2d] text-white":"text-[#788974]"}`}>Log in</button><button type="button" onClick={()=>{setMode("signup");setError("");}} className={`rounded-lg px-5 py-2.5 text-xs font-semibold ${mode==="signup"?"bg-[#293c2d] text-white":"text-[#788974]"}`}>Create account</button></div>
+    <h2 className="text-[36px] font-semibold tracking-[-.07em] sm:text-[46px]">{mode==="login"?"Welcome back.":"Start something good."}</h2><p className="mt-3 text-sm leading-7 text-[#89998a]">{mode==="login"?"Pick up right where your business left off.":"A workspace of your own, built in just a few steps."}</p>
+    <form onSubmit={submit} className="mt-8 space-y-5">{mode==="signup"&&<label className="block text-xs font-semibold text-[#566857]">Business name<input required maxLength={80} autoComplete="organization" value={businessName} onChange={e=>setBusinessName(e.target.value)} placeholder="Your business name" className={field}/></label>}<label className="block text-xs font-semibold text-[#566857]">Email<input type="email" required autoComplete="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@business.com" className={field}/></label><label className="block text-xs font-semibold text-[#566857]">Password<input type="password" required minLength={6} autoComplete={mode==="signup"?"new-password":"current-password"} value={password} onChange={e=>setPassword(e.target.value)} placeholder="At least 6 characters" className={field}/></label>
+     {error&&<p role="alert" className="rounded-xl border border-[#f0d8c8] bg-[#fff6ef] p-4 text-sm text-[#965c3b]">{error}</p>}
+     {notice&&<p role="status" className="rounded-xl border border-[#d9e7d4] bg-[#f3f8ef] p-4 text-sm text-[#54724e]">{notice}</p>}
+     <button type="submit" disabled={busy} className="w-full rounded-xl bg-[#293b2b] px-6 py-4 text-sm font-semibold text-white transition hover:bg-[#405740] disabled:opacity-50">{busy?"One moment…":mode==="login"?"Log in to FUGTH →":"Create my account →"}</button>
+    </form>
+    {mode==="login"&&<button type="button" onClick={reset} className="mt-5 self-start text-xs font-semibold text-[#688069] underline underline-offset-4">Forgot your password?</button>}
+    <p className="mt-10 border-t border-[#eef0e9] pt-6 text-xs leading-6 text-[#a1aaa0]">Your workspace belongs to you. Keep your account information private.</p>
+   </section>
+  </div>
+ </main>;
 }
