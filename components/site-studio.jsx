@@ -58,7 +58,7 @@ export default function SiteStudio({user,workspace,targetUid=null,compact=false}
       const result=await siteRequest("PUT",{action,site:fields});
       setSite(result.site||site);setHadSite(true);setLiveStatus(result.status||"preview");
       setSavedSignature(JSON.stringify(siteFields(result.site||site)));
-      setNote(action==="publish"?"Your changes are now live.":action==="unpublish"?"The site is back in preview mode.":"Design saved privately. Publish when ready.");
+      setNote(action==="publish"?"Your changes are now live.":action==="unpublish"?"This site is hidden from public visitors until you publish it again.":"Design saved privately. Publish when ready.");
     }catch(e){setError(e.message);}
     finally{setSaving(false);}
   }
