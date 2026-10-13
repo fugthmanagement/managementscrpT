@@ -155,7 +155,7 @@ export default function SiteStudio({user,workspace,targetUid=null,compact=false}
         <div className={`mx-auto overflow-hidden rounded-xl bg-white shadow-xl ${device==="phone"?"w-full max-w-[390px]":"w-full"}`}>
           <div className="flex items-center justify-between gap-2 border-b border-zinc-200 bg-white px-3 py-2 text-[10px] text-zinc-500"><span className="flex gap-1"><i className="h-2 w-2 rounded-full bg-zinc-300"/><i className="h-2 w-2 rounded-full bg-zinc-300"/><i className="h-2 w-2 rounded-full bg-zinc-300"/></span><span className="max-w-[75%] truncate">fugthmanagement.space{link}</span></div>
           <div className={device==="phone"?"fugth-phone-preview":""}>
-            <SiteRenderer data={{...site,visibility:"preview"}}/>
+            <SiteRenderer data={{...site,visibility:"preview"}} preview/>
           </div>
         </div>
       </div>
