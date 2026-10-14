@@ -23,7 +23,7 @@ function formatRemaining(seconds){
  const minutes=Math.ceil(Math.max(0,seconds)/60);
  return minutes>=60?Math.floor(minutes/60)+"h "+(minutes%60)+"m":minutes+"m";
 }
-export default function ReceptionistPreview({user,workspace,onGoPhoneSetup}){
+export default function ReceptionistPreview({user,workspace,onGoPhoneSetup,adminMode=false}){
  const [data,setData]=useState(null),[loading,setLoading]=useState(true);
  const [phone,setPhone]=useState("");
  const [focus,setFocus]=useState("balanced"),[scenario,setScenario]=useState("auto");
@@ -38,16 +38,16 @@ export default function ReceptionistPreview({user,workspace,onGoPhoneSetup}){
  async function load(){
   setLoading(true);
   try{
-   const res=await fetch("/api/receptionist-preview",{headers:await headers(),cache:"no-store"});
+   const res=await fetch("/api/receptionist-preview?view="+(adminMode?"admin":"customer"),{headers:await headers(),cache:"no-store"});
    const json=await res.json().catch(()=>({}));
    if(!res.ok)throw Error(json.error||"Preview service unavailable.");
    setData(json);
-   setCooldownUntil(json.cooldownUntil||null);
+   setCooldownUntil(adminMode?null:(json.cooldownUntil||null));
    setPhone(value=>value||workspace?.phoneSetup?.businessPhone||workspace?.phone||"");
   }catch(e){setError(e.message||"Could not load demo settings.");setData({available:false});}
   finally{setLoading(false);}
  }
- useEffect(()=>{load()},[user?.uid]);
+ useEffect(()=>{load()},[user?.uid,adminMode]);
  useEffect(()=>{
   const update=()=>setRemaining(cooldownUntil?Math.max(0,Math.ceil((new Date(cooldownUntil).getTime()-Date.now())/1000)):0);
   update();const timer=setInterval(update,15000);return()=>clearInterval(timer);
@@ -69,14 +69,14 @@ export default function ReceptionistPreview({user,workspace,onGoPhoneSetup}){
   const target=normalize(phone);
   if(!consent){setError("Please confirm you own or have permission to use this number.");setBusy(false);return;}
   if(!target){setError("Enter a valid US phone number.");setBusy(false);return;}
-  if(remaining>0){setError("Your next demo is available in "+formatRemaining(remaining)+".");setBusy(false);return;}
+  if(!adminMode&&remaining>0){setError("Your next demo is available in "+formatRemaining(remaining)+".");setBusy(false);return;}
   try{
    const res=await fetch("/api/receptionist-preview",{
     method:"POST",headers:await headers(),cache:"no-store",
-    body:JSON.stringify({phone:target,focus,scenario,consent:true})
+    body:JSON.stringify({phone:target,focus,scenario,consent:true,view:adminMode?"admin":"customer",businessName:workspace?.businessName,businessType:workspace?.businessType})
    });
    const json=await res.json().catch(()=>({}));
-   if(json.cooldownUntil)setCooldownUntil(json.cooldownUntil);
+   if(!adminMode&&json.cooldownUntil)setCooldownUntil(json.cooldownUntil);
    if(!res.ok)throw Error(json.error||"Could not start the live demo.");
    setCall({callId:json.callId,status:json.status,businessName:json.businessName});
    setMessage("Call requested! Answer your phone and pretend you're calling "+(json.businessName||"your business")+".");
@@ -96,7 +96,7 @@ export default function ReceptionistPreview({user,workspace,onGoPhoneSetup}){
    <div className="rounded-[20px] border border-white/15 bg-white/[.07] p-5">
     <p className="text-xs font-bold uppercase tracking-wider text-[#e1c5a8]">How it works</p>
     <p className="mt-3 text-sm leading-7 text-[#e8efe5]"><strong>Answer the call and act like you called your business.</strong> The AI will greet you as its receptionist.</p>
-    <p className="mt-4 rounded-xl bg-white/10 p-3 text-xs leading-6 text-[#cbd8c7]">15-second live demo · One test every 3 hours per account and phone number · No SMS verification.</p>
+    <p className="mt-4 rounded-xl bg-white/10 p-3 text-xs leading-6 text-[#cbd8c7]">{adminMode?"Admin test mode · No cooldown · No SMS verification · 15-second calls":"15-second live demo · One test every 3 hours per account and phone number · No SMS verification."}</p>
     <p className="mt-3 text-xs leading-6 text-[#b8c9bc]">Appointments and prices are examples only. Nothing is booked or charged on the demo.</p>
    </div>
   </div>
@@ -123,15 +123,15 @@ export default function ReceptionistPreview({user,workspace,onGoPhoneSetup}){
       <input type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)} className="mt-1 h-4 w-4 shrink-0 accent-[#305237]"/>
       <span>I own this number or have explicit permission to receive a one-time FUGTH demo call.</span>
      </label>
-     {remaining>0&&<div className="mt-5 rounded-xl border border-[#e7dfca] bg-[#fdf9ed] p-4 text-sm text-[#806f40]">Next demo available in <strong>{formatRemaining(remaining)}</strong>. Your FUGTH administrator can reset this cooldown.</div>}
+     {!adminMode&&remaining>0&&<div className="mt-5 rounded-xl border border-[#e7dfca] bg-[#fdf9ed] p-4 text-sm text-[#806f40]">Next demo available in <strong>{formatRemaining(remaining)}</strong>. Your FUGTH administrator can reset this cooldown.</div>}
      <div className="mt-6 flex flex-wrap gap-3">
-      <button type="button" onClick={startCall} disabled={busy||!consent||remaining>0||!normalize(phone)||!!call?.callId} className="rounded-xl bg-[#253c2d] px-7 py-4 text-sm font-semibold text-white disabled:opacity-40">{busy?"Connecting…":"Call me for a live demo ↗"}</button>
+      <button type="button" onClick={startCall} disabled={busy||!consent||(!adminMode&&remaining>0)||!normalize(phone)||!!call?.callId} className="rounded-xl bg-[#253c2d] px-7 py-4 text-sm font-semibold text-white disabled:opacity-40">{busy?"Connecting…":"Call me for a live demo ↗"}</button>
       <button type="button" onClick={onGoPhoneSetup} className="rounded-xl border border-[#e1e8db] px-5 py-4 text-sm font-semibold text-[#687d65]">Business phone settings</button>
      </div>
      {message&&<p role="status" className="mt-5 rounded-xl border border-[#d8e5d4] bg-[#f1f7ee] p-4 text-sm text-[#4e6d4b]">{message}</p>}
      {error&&<p role="alert" className="mt-5 rounded-xl border border-[#ecd8ca] bg-[#fff5ec] p-4 text-sm text-[#966441]">{error}</p>}
      {call?.callId&&<div className="mt-5 rounded-xl border border-[#dee8d7] bg-[#f3f8ef] p-5"><p className="text-sm font-semibold">Live demo call requested</p><p className="mt-2 text-xs text-[#6e866b]">Status: {call.status||"Connecting"}</p>{call.summary&&<p className="mt-3 text-sm leading-6 text-[#465a49]">{call.summary}</p>}</div>}
-     <p className="mt-6 text-xs leading-6 text-[#909b90]">Live calls use paid calling resources; limits keep demo access fair for everyone. No additional phone verification is required.</p>
+     <p className="mt-6 text-xs leading-6 text-[#909b90]">{adminMode?"Founder tests have no customer-demo cooldown, but calls still consume voice credits.":"Live calls use paid calling resources; limits keep demo access fair for everyone."} No SMS verification required.</p>
     </>}
   </div>
  </section>;
