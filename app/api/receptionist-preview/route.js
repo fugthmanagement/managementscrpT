@@ -63,7 +63,7 @@ export async function GET(req){
    const outcome=ended(call)?await saveVerifiedCall(call,account.user.uid,account.token).catch(()=>({saved:false})):{saved:false};
    return response({status:call.status||"queued",endedReason:call.endedReason||null,
     summary:call.analysis?.summary||call.summary||null,
-    saved:outcome.saved===true,recordingSaved:outcome.recordingSaved===true,recordingAvailable:outcome.recordingAvailable===true});
+    saved:outcome.saved===true,recordingSaved:outcome.recordingSaved===true,recordingAvailable:outcome.recordingAvailable===true,leadSaved:outcome.leadSaved===true,leadId:outcome.leadId||null});
   }catch{return response({error:"Call status unavailable right now."},503);}
  }
  try{

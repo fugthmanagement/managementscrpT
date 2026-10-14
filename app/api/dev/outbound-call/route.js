@@ -91,6 +91,8 @@ export async function POST(req) {
     const vapiPayload = {
       maxDurationSeconds: 90,
       metadata:{ownerId:user.uid,founderOutbound:true},
+      server:{url:"https://www.fugthmanagement.space/api/vapi-webhook"},
+      serverMessages:["end-of-call-report"],
       phoneNumberId: vapiNumberId ? vapiNumberId.trim() : undefined,
       customer: {
         number: to
@@ -98,6 +100,14 @@ export async function POST(req) {
       assistant: {
         name: `Fugth Outbound: ${businessName || 'Sandbox Client'}`,
         artifactPlan:{recordingEnabled:true,recordingFormat:"mp3",transcriptPlan:{enabled:true}},
+        analysisPlan:{
+         summaryPrompt:"Summarize the prospect's interest, objections and next steps without inventing details.",
+         structuredDataPrompt:"Extract only facts provided by the caller; use empty strings when missing.",
+         structuredDataSchema:{type:"object",properties:{
+          customerName:{type:"string"},email:{type:"string"},phone:{type:"string"},
+          service:{type:"string"},request:{type:"string"},preferredDate:{type:"string"},preferredTime:{type:"string"}
+         }}
+        },
         firstMessage: firstMessage,
         model: {
           provider: 'openai',

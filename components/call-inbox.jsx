@@ -26,7 +26,7 @@ export default function CallInbox({calls=[],user,locked=false,onPhoneSetup}){
    const res=await fetch("/api/receptionist-preview/sync",{method:"POST",headers:{Authorization:"Bearer "+token},cache:"no-store"});
    const data=await res.json().catch(()=>({}));
    if(!res.ok)throw Error(data.error||"Could not sync recent demos.");
-   setNotice(data.matched?data.saved+" demo call(s) synced; "+Number(data.archived||0)+" recording archive(s) saved. "+(data.failures?data.failures+" failed.":""):"No completed demos were found in the recent Vapi history.");
+   setNotice(data.matched?data.saved+" calls synced; "+Number(data.leads||0)+" CRM leads and "+Number(data.archived||0)+" recording archives processed. "+(data.failures?data.failures+" failed.":""):"No recent completed calls found in Vapi.");
   }catch(e){setNotice(e.message||"Call sync failed.");}
   finally{setBusy("");}
  }
@@ -58,7 +58,7 @@ export default function CallInbox({calls=[],user,locked=false,onPhoneSetup}){
   {notice&&<p role="status" className="m-5 rounded-xl bg-[#f0f6ed] p-4 text-xs text-[#446046]">{notice}</p>}
   <div className={locked?"pointer-events-none select-none opacity-35 grayscale":""}>
    {records.length?<div className="divide-y divide-[#eceee9]">{records.map(call=>{
-    const recording=call.recording||call.recordingUrl||call.audioUrl;
+    const leadId="call_"+(call.providerCallId||call.id);
     const transcript=transcriptText(call.transcript);
     const expanded=open===call.id;
     const summary=call.summary||call.transcriptSummary||"Summary is not available yet.";
@@ -88,6 +88,13 @@ export default function CallInbox({calls=[],user,locked=false,onPhoneSetup}){
       </div>
       <div><p className="text-[10px] font-bold uppercase tracking-wider text-[#939a90]">AI call summary</p>
        <p className="mt-3 rounded-xl bg-white p-4 text-xs leading-6 text-[#536453]">{summary}</p>
+       <div className="mt-4 rounded-xl border border-[#d8e6d4] bg-[#edf5eb] p-4">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-[#738974]">Linked customer lead</p>
+        <p className="mt-2 text-xs text-[#546d56]">Caller: {call.caller||call.phone||"Name not provided"}</p>
+        <p className="mt-1 text-xs text-[#546d56]">Phone: {call.phone||"Not captured"}</p>
+        <p className="mt-2 text-xs leading-6 text-[#546d56]">Review the customer record under Customers. Any requested dates remain pending until your calendar confirms availability.</p>
+        <button type="button" onClick={()=>setNotice("Open Customers to review lead "+leadId+" and its booking request.")} className="mt-3 text-xs font-bold text-[#34593b] underline">Linked lead reference: {leadId.slice(0,18)}…</button>
+       </div>
        <p className="mt-5 text-[10px] font-bold uppercase tracking-wider text-[#939a90]">Conversation transcript</p>
        <div className="mt-3 max-h-64 overflow-y-auto whitespace-pre-wrap rounded-xl bg-white p-4 text-xs leading-6 text-[#596158]">{transcript||"No transcript was attached to this call."}</div>
        <div className="mt-4 flex justify-between gap-3"><button type="button" onClick={()=>{navigator.clipboard?.writeText(transcript||summary);setNotice("Call notes copied.");}} className="text-xs font-semibold text-[#466648]">Copy notes</button><button type="button" onClick={()=>remove(call)} className="text-xs font-semibold text-red-700">Delete call</button></div>
