@@ -3,6 +3,7 @@ import {useEffect,useState} from "react";
 import Link from "next/link";
 import {auth} from "../lib/firebase";
 import SiteStudio from "./site-studio";
+import FounderDemoCooldown from "./founder-demo-cooldown";
 async function headers(){const token=await auth.currentUser?.getIdToken();if(!token)throw Error("Sign in again to view client websites.");return {Authorization:"Bearer "+token};}
 export default function FounderSites({user}){
  const [accounts,setAccounts]=useState([]);
@@ -48,6 +49,7 @@ export default function FounderSites({user}){
    </button>)}{!filtered.length&&!loading&&<p className="p-5 text-sm text-zinc-500">No matching accounts in the loaded pages.</p>}</div>
   {cursor&&<button type="button" disabled={loading} onClick={()=>load(cursor,true)} className="mt-3 rounded-xl bg-zinc-950 px-5 py-3 text-xs font-bold text-white">{loading?"Loading...":"Load more customer accounts"}</button>}
   {selected&&<div className="mt-7 border-t border-zinc-200 pt-7"><div className="mb-5 flex flex-wrap items-center justify-between gap-4"><div><p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">EDIT SELECTED BUSINESS</p><p className="mt-2 text-xl font-black text-zinc-950">{selected.businessName} <span className="ml-2 font-mono text-sm font-bold text-zinc-500">{selected.accountNumber}</span></p></div><Link href={"/sites/"+encodeURIComponent(selected.uid)+"?edit=1"} target="_blank" rel="noopener noreferrer" className="rounded-xl bg-zinc-950 px-5 py-3 text-xs font-black text-white">Open their website ↗</Link><button type="button" onClick={exportDesign} className="rounded-xl border border-zinc-200 px-4 py-3 text-xs font-black text-zinc-900">Export design JSON</button></div>
+  <FounderDemoCooldown key={"cooldown-"+selected.uid} account={selected}/>
   <SiteStudio key={selected.uid} user={user} workspace={{businessName:selected.businessName,businessType:selected.industry}} targetUid={selected.uid}/>
   </div>}
  </section>;
