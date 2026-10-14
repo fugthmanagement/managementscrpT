@@ -46,9 +46,9 @@ export async function GET(req){
  if(!account)return response({error:"Please sign in to preview your receptionist."},401);
  const params=new URL(req.url).searchParams;
  const admin=adminView(account,params.get("view"));
- if(!hasVoice()||(!admin&&!customerReady()))
-  return response({available:false,adminMode:admin,reason:unavailableReason(admin)});
  const callId=params.get("callId");
+ if(!hasVoice()||(!callId&&!admin&&!customerReady()))
+  return response({available:false,adminMode:admin,reason:unavailableReason(admin)});
  if(callId){
   if(!/^[0-9a-f-]{36}$/i.test(callId))return response({error:"Invalid call ID."},400);
   try{
