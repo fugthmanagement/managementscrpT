@@ -7,18 +7,38 @@ import {BILLING_PLANS,dollars} from "../lib/billing-catalog";
 const packages=Object.values(BILLING_PLANS);
 const Arrow=()=> <span aria-hidden="true">↗</span>;
 function BusinessDisplay(){
- return <div className="relative mx-auto w-full max-w-[610px]">
-  <div className="pointer-events-none absolute -left-12 -top-12 h-72 w-72 rounded-full bg-[#beae79]/35 blur-[80px]"/>
-  <div className="relative grid gap-3 rounded-[30px] border border-white/15 bg-[#2b4332] p-3 shadow-[0_38px_110px_rgba(0,0,0,.22)] sm:p-4">
-   <div className="flex items-center justify-between px-2 pb-2 pt-1"><div className="flex items-center gap-2"><span className="grid h-8 w-8 place-items-center rounded-lg bg-[#dddaae] font-black text-[#28432e]">F</span><div><p className="text-[11px] font-bold text-white">FUGTH Management OS</p><p className="text-[10px] text-[#a3c1a3]">Your business control center</p></div></div><span className="rounded-full bg-[#49684a] px-3 py-1.5 text-[10px] text-[#d8e6ce]">● Workspace preview</span></div>
-   <div className="grid grid-cols-2 gap-3">
-    <div className="relative col-span-2 h-[155px] overflow-hidden rounded-[18px] sm:h-[190px]"><SitePhoto industry="roofing" slot="marketing-roofing" className="absolute inset-0 h-full w-full"/><div className="absolute inset-0 bg-gradient-to-r from-[#0c2919]/85 via-[#0c2919]/35 to-transparent"/><div className="absolute bottom-4 left-5 max-w-[240px]"><span className="text-[10px] font-bold uppercase tracking-widest text-[#d7e1c7]">PREVIEW WEBSITE</span><p className="mt-2 font-serif text-3xl italic text-white">Built around<br/>your business.</p></div></div>
-    <div className="rounded-[17px] bg-[#f7f8ef] p-4 text-[#2f4b34]"><span className="text-[9px] font-bold uppercase tracking-widest text-[#7d9681]">MISSED OPPORTUNITIES</span><p className="mt-4 text-2xl font-bold">One inbox.</p><p className="mt-1 text-xs leading-5 text-[#78907b]">Calls, transcripts and follow-up in a single view.</p><div className="mt-4 flex items-end gap-1">{[9,19,12,25,17,34,24,31].map((h,i)=><span key={i} className="w-2 flex-1 rounded-t-md bg-[#7caa81]" style={{height:h}}/>)}</div></div>
-    <div className="relative overflow-hidden rounded-[17px] bg-[#d9e4d0] p-4 text-[#2a4833]"><span className="text-[9px] font-bold uppercase tracking-widest text-[#729074]">RECEPTIONIST</span><div className="mt-4 flex items-center gap-2"><span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#30533b] text-white">✳</span><span className="text-xs font-bold">Ready to answer</span></div><p className="mt-4 font-serif text-[19px] italic leading-snug">“Thank you for calling. How can I help?”</p></div>
+ const levels=[12,22,34,19,46,35,14,25,41,29,17,43,31,14,27,37,20,43,17,30,25,12];
+ return <div className="relative mx-auto w-full max-w-[655px]">
+  <div className="pointer-events-none absolute -inset-8 rounded-[80px] bg-[#cbd5a0]/10 blur-3xl"/>
+  <div className="relative overflow-hidden rounded-[27px] border border-white/25 bg-[#f9faf3] text-[#293e30] shadow-[0_45px_120px_rgba(0,0,0,.38)]">
+   <div className="flex items-center justify-between gap-2 border-b border-[#dfe6d9] px-4 py-4 sm:px-6">
+    <div className="flex items-center gap-2.5"><span className="grid h-8 w-8 place-items-center rounded-xl bg-[#294d35] text-sm font-black text-[#eee5bb]">F</span><div><p className="text-[11px] font-black leading-4 tracking-tight">FUGTH <span className="font-medium text-[#97a597]">/ CONTROL ROOM</span></p><p className="text-[9px] text-[#7e9281]">All your conversations, one place</p></div></div>
+    <span className="flex items-center gap-1.5 rounded-full border border-[#dce5d7] bg-white px-3 py-2 text-[9px] font-bold text-[#4c6852]"><span className="h-1.5 w-1.5 rounded-full bg-[#6b9d71]"/> INTERFACE PREVIEW</span>
    </div>
-   <div className="flex items-center justify-between gap-3 px-2 pb-1 text-[10px] text-[#aac1aa]"><span>Website · Voice · CRM · Marketing</span><span className="text-[#d2dabf]">Everything in one place ↗</span></div>
+   <div className="grid grid-cols-[51px_minmax(0,1fr)] sm:grid-cols-[128px_minmax(0,1fr)]">
+    <aside className="flex min-h-[415px] flex-col gap-2 border-r border-[#e0e8db] bg-[#eff3eb] p-2 sm:p-3">
+     <p className="hidden p-2 text-[9px] font-black uppercase tracking-widest text-[#a2b1a0] sm:block">YOUR BUSINESS</p>
+     {[["⌂","Overview"],["◉","Call library"],["✧","Customers"],["▣","Website"]].map(([symbol,label],i)=><div key={label} className={"flex items-center gap-2.5 rounded-xl px-2.5 py-3 text-xs font-bold "+(i===1?"bg-[#295038] text-white shadow-md":"text-[#708776]")}><span className="text-base">{symbol}</span><span className="hidden sm:inline">{label}</span></div>)}
+     <div className="mt-auto hidden rounded-xl border border-[#d2dfcd] bg-white p-3 text-[10px] leading-5 text-[#7b917b] sm:block">The receptionist, website, and leads work together.</div>
+    </aside>
+    <div className="min-w-0 p-3 sm:p-5">
+     <div className="flex items-start justify-between gap-2"><div><p className="text-[10px] font-black uppercase tracking-[.18em] text-[#90a08d]">CONVERSATION DESK</p><h3 className="mt-1 text-xl font-semibold tracking-[-.06em] sm:text-2xl">One call. <em className="font-serif font-normal">Every detail.</em></h3></div><span className="rounded-lg bg-[#e7f0df] px-2.5 py-2 text-[9px] font-bold text-[#547353]">CALL RECORDED</span></div>
+     <div className="mt-5 rounded-[17px] bg-[#24402e] p-4 text-white sm:p-5">
+      <div className="flex flex-wrap items-center justify-between gap-2"><span className="text-[10px] font-black uppercase tracking-widest text-[#b5d0b4]">INBOUND SERVICE INQUIRY</span><span className="rounded-full bg-white/10 px-2.5 py-1 text-[9px] text-[#d4e4d1]">00:34 · Example</span></div>
+      <div className="mt-4 flex items-center justify-between gap-3"><div><p className="font-semibold">AI receptionist</p><p className="mt-1 text-[10px] text-[#bdcdbc]">Audio · Transcript · Customer lead</p></div><div className="grid h-11 w-11 place-items-center rounded-full bg-[#dfe7bf] text-lg text-[#2b4a35]">▶</div></div>
+      <div className="mt-5 flex h-12 items-center gap-1 overflow-hidden">{levels.map((h,i)=><span key={i} className="w-1 flex-1 rounded-full bg-[#b7d6b0]" style={{height:h,opacity:i%4===0?0.45:1}}/>)}</div>
+      <p className="mt-2 text-[10px] text-[#afc6ad]">Every answered call can become a customer record.</p>
+     </div>
+     <div className="mt-3 grid gap-3 sm:grid-cols-2">
+      <div className="rounded-[15px] border border-[#dee8d9] bg-white p-4"><p className="text-[9px] font-black uppercase tracking-widest text-[#839b82]">CAPTURED LEAD</p><p className="mt-3 text-sm font-semibold">Estimate requested</p><p className="mt-2 text-[11px] leading-5 text-[#7b927c]">Caller details, reason for calling and a follow-up summary.</p><div className="mt-3 rounded-full bg-[#eef5e8] px-3 py-1.5 text-[10px] font-bold text-[#557454]">Needs follow-up ↗</div></div>
+      <div className="relative overflow-hidden rounded-[15px] border border-[#dee8d9] bg-[#e4e9db]">
+       <div className="absolute inset-0"><SitePhoto industry="roofing" slot="marketing-roofing" className="h-full w-full"/></div><div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#1e3b2b]/50 to-[#1e3b2b]/95"/><div className="absolute bottom-4 left-4 right-3 text-white"><p className="text-[9px] font-bold uppercase tracking-widest text-[#d1debf]">WEBSITE + CHAT</p><p className="mt-1 font-serif text-xl italic">Your business, online.</p></div>
+      </div>
+     </div>
+    </div>
+   </div>
   </div>
-  <div className="absolute -bottom-8 -left-3 hidden max-w-[245px] rounded-2xl border border-[#dfe8d8] bg-white p-4 text-[#365238] shadow-[0_20px_50px_rgba(0,0,0,.14)] sm:block"><p className="text-[10px] font-black uppercase tracking-[.12em] text-[#759076]">YOUR AI CHATBOT</p><p className="mt-2 text-xs font-semibold">Can I help you book a consultation?</p><p className="mt-2 text-[10px] text-[#869889]">Also works on your existing site.</p></div>
+  <div className="absolute -bottom-7 -right-2 hidden rotate-3 rounded-[17px] border border-[#ebe1c0] bg-[#e6dec2] px-5 py-4 text-[#314a35] shadow-2xl sm:block"><p className="text-[9px] font-black uppercase tracking-widest text-[#8d926f]">WORK SMARTER</p><p className="mt-1 font-serif text-lg italic">A business that remembers.</p></div>
  </div>;
 }
 export default function Home(){
@@ -33,14 +53,21 @@ export default function Home(){
    <div className="relative mx-auto grid max-w-7xl items-center gap-14 px-5 pb-24 pt-20 sm:px-8 lg:grid-cols-[1.07fr_.93fr] lg:gap-16 lg:py-32">
     <div><div className="inline-flex items-center gap-3 rounded-full border border-[#789275]/30 bg-white/5 px-4 py-2 text-[10px] font-bold uppercase tracking-[.18em] text-[#c1d8b8]"><span className="h-2 w-2 rounded-full bg-[#bad29d]"/>The business manager, reimagined</div>
      <h1 className="mt-8 max-w-[760px] text-[clamp(3.7rem,7.4vw,7.2rem)] font-semibold leading-[.96] tracking-[-.09em]">Your business.<br/><span className="font-serif font-normal italic text-[#ddcea0]">Always in motion.</span></h1>
-     <p className="mt-8 max-w-[520px] text-sm leading-8 text-[#bdcebc] sm:text-[17px]">An AI receptionist that answers for you. A website and chatbot that feel like your business. Your leads, conversations, appointments and follow-ups — together.</p>
+     <p className="mt-8 max-w-[520px] text-sm leading-8 text-[#bdcebc] sm:text-[17px]">When a customer calls, your business keeps the conversation. An AI receptionist answers, records the request, builds a customer lead and keeps the next step organized — alongside your website and chatbot.</p>
      <div className="mt-9 flex flex-wrap gap-3"><a href="#demo" className="inline-flex items-center gap-6 rounded-xl bg-[#dddaa9] px-6 py-4 text-sm font-bold text-[#253e2a]">Hear your AI receptionist <Arrow/></a><Link href="/login?signup=1" className="inline-flex items-center gap-4 rounded-xl border border-white/25 px-6 py-4 text-sm font-bold text-white">Explore the free workspace <Arrow/></Link></div>
      <div className="mt-10 flex flex-wrap gap-6 border-t border-white/15 pt-6 text-[11px] font-bold tracking-wide text-[#bed1b8]"><span>✓ 15-second live phone preview</span><span>✓ Your whole site visible on Zero</span><span>✓ Chatbot for existing sites</span></div>
     </div>
     <div className="pb-8"><BusinessDisplay/></div>
    </div>
   </section>
-  <div className="border-y border-[#dce4d5] bg-[#e6ebdc] px-5 py-5 text-[#506b4e]"><div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 text-[10px] font-bold uppercase tracking-[.16em] sm:px-3"><span>Made for the businesses that keep communities moving</span><span>Home services / Wellness / Professional services / Local retail</span></div></div>
+  <div className="border-y border-[#dce4d5] bg-[#e6ebdc] px-5 py-5 text-[#506b4e]"><div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 text-[10px] font-bold uppercase tracking-[.16em] sm:px-3"><span>One operating system for every conversation</span><span>Home services / Wellness / Professional services / Local retail</span></div></div>
+  <section aria-label="How FUGTH turns calls into customer opportunities" className="border-b border-[#dce4d6] bg-[#f1f4e9] px-5 py-12 sm:px-8">
+   <div className="mx-auto grid max-w-7xl gap-6 md:grid-cols-3">{[
+    ["01","The phone rings","Your receptionist answers business questions and asks what the caller needs."],
+    ["02","The conversation becomes a lead","The call history, available contact details and a clear summary stay together."],
+    ["03","The next step is visible","Review the recording, follow up with the customer and prepare appointment requests."]
+   ].map(([step,title,body])=><div key={step} className="border-l-2 border-[#9aae8d] pl-5"><span className="font-serif text-3xl italic text-[#72866c]">{step}</span><h3 className="mt-3 text-lg font-semibold tracking-tight text-[#314936]">{title}</h3><p className="mt-2 max-w-xs text-xs leading-6 text-[#788976]">{body}</p></div>)}</div>
+  </section>
   <HomeFeatureTabs/>
   <PublicVoiceDemo/>
   <section id="website" className="scroll-mt-24 overflow-hidden bg-[#f7f3e8] py-20 text-[#344831] sm:py-28">
