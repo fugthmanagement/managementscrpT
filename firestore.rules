@@ -20,7 +20,12 @@ service cloud.firestore {
       allow delete: if false;
       match /calls/{id} {
         allow read, create: if isOwner(uid);
-        allow update, delete: if false;
+        // Owners may organize and rate a call, but cannot rewrite provider
+        // recordings, transcripts, caller details, outcomes or timestamps.
+        allow update: if isOwner(uid) &&
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['favorite','ownerRating','updatedAt']);
+        allow delete: if isOwner(uid);
       }
       match /{kind}/{id} {
         allow read, create, update, delete: if isOwner(uid) &&

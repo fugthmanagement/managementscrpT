@@ -64,8 +64,10 @@ export async function PUT(request,{params}){
     // accepting arbitrary customer-controlled layout, photos or colors.
     if(action==="regenerate"){
       const generated=businessPreset(uid,profile);
+      const preservedDesign={template:existing.template,theme:existing.template,headerColor:existing.headerColor,mainColor:existing.mainColor,sectionColor:existing.sectionColor,accentColor:existing.accentColor};
+      const refreshed=siteFields({...generated,...preservedDesign});
       const visibility=pub.data()?.visibility==="hidden"?"hidden":"published";
-      live={...generated,visibility,createdAt:pub.data()?.createdAt||generated.createdAt,updatedAt:new Date().toISOString(),publishedAt:pub.data()?.publishedAt||new Date().toISOString()};
+      live={...generated,...refreshed,visibility,createdAt:pub.data()?.createdAt||generated.createdAt,updatedAt:new Date().toISOString(),publishedAt:pub.data()?.publishedAt||new Date().toISOString()};
       next={...live,revision:(Number(draft.data()?.revision)||0)+1,savedBy:auth.user.uid};
       tx.set(pubRef,live);tx.set(draftRef,next);
       tx.create(historyRef,{ownerId:uid,actorUid:auth.user.uid,actorRole:auth.founder?"founder":"owner",action,at:new Date().toISOString(),revision:next.revision});

@@ -32,7 +32,8 @@ export default function SitePage({params}) {
    try{
     const token=await user.getIdToken();
     const result=await fetch("/api/sites/"+encodeURIComponent(uid),{headers:{Authorization:"Bearer "+token},cache:"no-store"});
-    if(active){setCanEdit(result.ok);if(result.ok && new URLSearchParams(window.location.search).get("edit")==="1")setEditing(true);}
+    const data=await result.json().catch(()=>({}));
+    if(active){setCanEdit(result.ok);const query=new URLSearchParams(window.location.search);if(result.ok&&query.get("preview")==="1"&&data.site)setState({loading:false,site:data.site,error:""});if(result.ok&&query.get("edit")==="1")setEditing(true);}
    }catch{if(active)setCanEdit(false);}
   });
   return()=>{active=false;off();};
