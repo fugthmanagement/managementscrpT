@@ -43,7 +43,6 @@ export async function POST(req){
   businessType:String(body.businessType||"Local business").slice(0,65)});
  let reservation;
  try{
-  reservation=await reserveDemo(account,number,focus);
   // Signed-out guest demos belong to FUGTH's real verified founder account,
   // not a synthetic guest ID that cannot be accessed through Firebase Auth.
   let founderUid=process.env.FUGTH_FOUNDER_UID||"";
@@ -53,6 +52,7 @@ export async function POST(req){
   }
   if(!/^[A-Za-z0-9_-]{8,128}$/.test(founderUid))
    return reply({error:"Guest demo call storage owner is not configured."},503);
+  reservation=await reserveDemo(account,number,focus);
   const provider=await fetch("https://api.vapi.ai/call/phone",{
    method:"POST",headers:{Authorization:"Bearer "+voiceKey().trim(),"Content-Type":"application/json"},
    body:JSON.stringify({customer:{number},phoneNumberId:numberId().trim(),

@@ -13,7 +13,7 @@ const timestamp=call=>{
 };
 const clock=call=>timestamp(call)?.toLocaleString(undefined,{month:"short",day:"numeric",year:"numeric",hour:"numeric",minute:"2-digit",timeZoneName:"short"})||"Date unavailable";
 const sortable=call=>timestamp(call)?.getTime()||0;
-export default function CallInbox({calls=[],user,locked=false,onPhoneSetup}){
+export default function CallInbox({calls=[],leads=[],user,locked=false,onPhoneSetup,onViewCustomer}){
  const [filter,setFilter]=useState("all"),[open,setOpen]=useState(""),[busy,setBusy]=useState(""),[notice,setNotice]=useState("");
  const visible=useMemo(()=>[...calls].sort((a,b)=>sortable(b)-sortable(a)).filter(call=>filter==="favorites"?call.favorite:filter==="appointments"?/book|appointment|schedul/i.test([call.outcome,call.intent,call.summary].join(" ")):true),[calls,filter]);
  async function change(call,patch){if(locked||!db||!user?.uid)return;setBusy(call.id);try{await updateDoc(doc(db,"users",user.uid,"calls",call.id),{...patch,updatedAt:serverTimestamp()});}catch(e){setNotice("Could not update this call.");}finally{setBusy("");}}
@@ -59,6 +59,7 @@ export default function CallInbox({calls=[],user,locked=false,onPhoneSetup}){
   <div className={locked?"pointer-events-none select-none opacity-35 grayscale":""}>
    {records.length?<div className="divide-y divide-[#eceee9]">{records.map(call=>{
     const leadId="call_"+(call.providerCallId||call.id);
+    const linked=leads.find(l=>l.id===leadId||l.sourceCallId===(call.providerCallId||call.id));
     const transcript=transcriptText(call.transcript);
     const expanded=open===call.id;
     const summary=call.summary||call.transcriptSummary||"Summary is not available yet.";
@@ -90,10 +91,13 @@ export default function CallInbox({calls=[],user,locked=false,onPhoneSetup}){
        <p className="mt-3 rounded-xl bg-white p-4 text-xs leading-6 text-[#536453]">{summary}</p>
        <div className="mt-4 rounded-xl border border-[#d8e6d4] bg-[#edf5eb] p-4">
         <p className="text-[10px] font-bold uppercase tracking-widest text-[#738974]">Linked customer lead</p>
-        <p className="mt-2 text-xs text-[#546d56]">Caller: {call.caller||call.phone||"Name not provided"}</p>
-        <p className="mt-1 text-xs text-[#546d56]">Phone: {call.phone||"Not captured"}</p>
-        <p className="mt-2 text-xs leading-6 text-[#546d56]">Review the customer record under Customers. Any requested dates remain pending until your calendar confirms availability.</p>
-        <button type="button" onClick={()=>setNotice("Open Customers to review lead "+leadId+" and its booking request.")} className="mt-3 text-xs font-bold text-[#34593b] underline">Linked lead reference: {leadId.slice(0,18)}…</button>
+        <p className="mt-2 text-xs text-[#546d56]">Caller: {linked?.contactName||call.caller||call.phone||"Name not provided"}</p>
+        <p className="mt-1 text-xs text-[#546d56]">Phone: {linked?.phone||call.phone||"Not captured"}</p>
+        {linked?.email&&<p className="mt-1 break-all text-xs text-[#546d56]">Email: {linked.email}</p>}
+        <p className="mt-2 text-xs leading-6 text-[#546d56]">Reason: {linked?.service||summary}</p>
+        {(linked?.requestedDate||linked?.requestedTime)&&<p className="mt-2 text-xs font-semibold text-[#7c6742]">Appointment request: {[linked.requestedDate,linked.requestedTime].filter(Boolean).join(" · ")} · Awaiting calendar confirmation</p>}
+        <p className="mt-2 text-[11px] leading-5 text-[#617660]">Contact details are only populated when supplied by the caller.</p>
+        <button type="button" onClick={()=>onViewCustomer?.()} className="mt-3 text-xs font-bold text-[#34593b] underline">Open in Customers ↗</button>
        </div>
        <p className="mt-5 text-[10px] font-bold uppercase tracking-wider text-[#939a90]">Conversation transcript</p>
        <div className="mt-3 max-h-64 overflow-y-auto whitespace-pre-wrap rounded-xl bg-white p-4 text-xs leading-6 text-[#596158]">{transcript||"No transcript was attached to this call."}</div>
