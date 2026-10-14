@@ -51,7 +51,7 @@ export default function CallInbox({calls=[],user,locked=false,onPhoneSetup}){
     <p className="mt-1 text-xs text-[#8a9586]">All times are shown in your device's local timezone. Completed demo calls are saved in Firestore.</p></div>
    <div className="flex flex-wrap gap-2">
     {!locked&&<button type="button" disabled={busy==="sync"} onClick={syncRecent} className="rounded-xl border border-[#dae5d4] bg-[#eff6ec] px-4 py-2.5 text-xs font-semibold text-[#395d3f]">{busy==="sync"?"Syncing…":"Sync recent demos"}</button>}
-    <div className="flex rounded-xl bg-[#f3f5f0] p-1">{[["all","All"],["favorites","Favorites"],["appointments","Appointments"]].map(([id,label])=><button key={id} type="button" disabled={locked} onClick={()=>setFilter(id)} className={\`rounded-lg px-3 py-2 text-[11px] font-semibold \${filter===id?"bg-white text-[#27352a] shadow-sm":"text-[#81877e]"}\`}>{label}</button>)}</div>
+    <div className="flex rounded-xl bg-[#f3f5f0] p-1">{[["all","All"],["favorites","Favorites"],["appointments","Appointments"]].map(([id,label])=><button key={id} type="button" disabled={locked} onClick={()=>setFilter(id)} className={`rounded-lg px-3 py-2 text-[11px] font-semibold ${filter===id?"bg-white text-[#27352a] shadow-sm":"text-[#81877e]"}`}>{label}</button>)}</div>
    </div>
   </div>
   {notice&&<p role="status" className="m-5 rounded-xl bg-[#f0f6ed] p-4 text-xs text-[#446046]">{notice}</p>}
@@ -82,7 +82,7 @@ export default function CallInbox({calls=[],user,locked=false,onPhoneSetup}){
        <p className="mt-5 text-[10px] font-bold uppercase tracking-wider text-[#939a90]">Recording</p>
        {recording?<audio className="mt-3 w-full" controls preload="none" src={recording}>Audio playback not supported.</audio>:<p className="mt-3 rounded-xl border border-dashed border-[#d8ded4] bg-white p-4 text-xs text-[#8b9188]">Recording was not provided for this call.</p>}
        <p className="mt-5 text-[10px] font-bold uppercase tracking-wider text-[#939a90]">Rate AI handling</p>
-       <div className="mt-2 flex gap-1">{[1,2,3,4,5].map(n=><button key={n} type="button" onClick={()=>change(call,{ownerRating:n})} className={\`text-2xl \${n<=Number(call.ownerRating||0)?"text-amber-500":"text-[#ccd1c9]"}\`}>★</button>)}</div>
+       <div className="mt-2 flex gap-1">{[1,2,3,4,5].map(n=><button key={n} type="button" onClick={()=>change(call,{ownerRating:n})} className={`text-2xl ${n<=Number(call.ownerRating||0)?"text-amber-500":"text-[#ccd1c9]"}`}>★</button>)}</div>
        <button type="button" disabled={busy===call.id} onClick={()=>followUp(call)} className="mt-4 rounded-xl bg-[#2c4934] px-4 py-3 text-xs font-semibold text-white disabled:opacity-50">Create customer follow-up ↗</button>
       </div>
       <div><p className="text-[10px] font-bold uppercase tracking-wider text-[#939a90]">AI call summary</p>
