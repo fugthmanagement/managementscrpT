@@ -1,67 +1,78 @@
 "use client";
-
-import Script from "next/script";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
-import { onAuthStateChanged } from "firebase/auth";
-import { auth } from "../../lib/firebase";
-
-const PLANS = [
-  {key:"starter",name:"Starter",price:"$49",description:"Your FUGTH front desk for missed calls, questions and new inquiries.",features:["FUGTH voice receptionist","Calls, summaries and lead management","Editable business instructions"]},
-  {key:"growth",name:"Growth",price:"$149",description:"A connected FUGTH workspace for customer conversations, follow-ups and scheduling.",features:["Everything in Starter","Expanded voice capacity","Appointments and campaign planning"],popular:true},
-  {key:"elite",name:"Elite",price:"$499",description:"Advanced FUGTH setup for operations with more staff, calls and workflows.",features:["Everything in Growth","Higher agent capacity","Priority implementation support"]},
-];
-export default function Plans() {
-  const [currentUser,setCurrentUser] = useState(null);
-  const [authReady,setAuthReady] = useState(false);
-  const [selected,setSelected] = useState("");
-  const [processing,setProcessing] = useState(false);
-  const [error,setError] = useState("");
-  const [scriptReady,setScriptReady] = useState(false);
-  const [embedActive,setEmbedActive] = useState(false);
-  const checkoutRef = useRef(null);
-  const mountRef = useRef(null);
-  const activeRef = useRef(false);
-  useEffect(()=>{
-    if(!auth){setAuthReady(true);return;}
-    const unsub=onAuthStateChanged(auth,u=>{setCurrentUser(u);setAuthReady(true);});
-    const requested = new URLSearchParams(window.location.search).get("plan");
-    if(PLANS.some(p=>p.key===requested))setSelected(requested);
-    return ()=>{unsub();};
-  },[]);
-  useEffect(()=>{
-    if(!currentUser || !selected || !scriptReady || !mountRef.current || activeRef.current)return;
-    let canceled=false;
-    activeRef.current=true;
-    setProcessing(true);setError("");
-    const start = async()=>{
-      try{
-        const token=await currentUser.getIdToken();
-        const res=await fetch("/api/stripe/checkout",{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({planKey:selected}),cache:"no-store"});
-        const data=await res.json();
-        if(!res.ok)throw Error(data.error||"Unable to start checkout.");
-        if(!window.Stripe||!data.publishableKey||!data.clientSecret)throw Error("Secure payment form could not be loaded.");
-        const stripe=window.Stripe(data.publishableKey);
-        const checkout=await stripe.initEmbeddedCheckout({clientSecret:data.clientSecret});
-        if(canceled){checkout.destroy();return;}
-        checkoutRef.current=checkout;
-        checkout.mount(mountRef.current);
-        setEmbedActive(true);
-      }catch(e){if(!canceled)setError(e.message||"Payment setup failed.");}
-      finally{if(!canceled)setProcessing(false);}
-    };
-    start();
-    return()=>{canceled=true;checkoutRef.current?.destroy();checkoutRef.current=null;activeRef.current=false;};
-  },[currentUser,selected,scriptReady]);
-  const changePlan=(value)=>{checkoutRef.current?.destroy();checkoutRef.current=null;activeRef.current=false;setEmbedActive(false);setSelected(value);setError("");};
-  return <main className="min-h-screen bg-[#f8faf7] text-[#29382d]">
-    <Script src="https://js.stripe.com/v3/" strategy="afterInteractive" onLoad={()=>setScriptReady(true)}/>
-    <header className="border-b border-[#e7ece3] bg-[#f8faf7]"><div className="mx-auto flex h-[80px] max-w-6xl items-center justify-between gap-4 px-5 sm:px-8"><Link href="/" className="flex items-center gap-2"><span className="grid h-9 w-9 place-items-center rounded-xl bg-[#2b3e2f] text-lg font-bold text-white">F</span><b className="text-[21px] font-semibold tracking-[-.08em]">fugth.</b></Link><Link href={currentUser?"/dashboard":"/login"} className="rounded-xl border border-[#dce4d8] bg-white px-4 py-3 text-xs font-semibold text-[#657763]">Back to {currentUser?"workspace":"login"} →</Link></div></header>
-    <div className="mx-auto max-w-6xl px-5 pb-24 pt-14 sm:px-8 sm:pt-20"><div className="max-w-2xl"><p className="text-[11px] font-semibold uppercase tracking-[.2em] text-[#91a08c]">YOUR FUGTH SUBSCRIPTION</p><h1 className="mt-5 text-4xl font-semibold leading-[1.08] tracking-[-.075em] sm:text-6xl">Find the right <span className="font-serif font-normal italic text-[#7f9d7b]">fit.</span></h1><p className="mt-5 text-sm leading-8 text-[#859481] sm:text-base">Choose one of our original monthly plans. Select the one that suits your business, then review the secure payment form below.</p></div>
-    {authReady&&!currentUser&&<div className="mt-8 max-w-2xl rounded-xl border border-[#dfe6db] bg-white p-5 text-sm text-[#687a65]">Log in or create your account before subscribing. <Link href="/login" className="font-semibold underline">Open login →</Link></div>}
-    <div className="mt-12 grid gap-4 lg:grid-cols-3">{PLANS.map(plan=><article key={plan.key} className={`flex min-h-[355px] flex-col rounded-[24px] border p-7 ${selected===plan.key?"border-[#293c2d] bg-[#293c2d] text-white":"border-[#e0e7db] bg-white text-[#29392d]"}`}><div className="flex items-center justify-between gap-3"><h2 className="text-xl font-semibold">{plan.name}</h2>{plan.popular&&<span className="rounded-full border border-current/20 px-3 py-1.5 text-[10px] font-semibold">Popular</span>}</div><p className={`mt-4 min-h-[70px] text-sm leading-7 ${selected===plan.key?"text-[#c4d2c1]":"text-[#8a9884]"}`}>{plan.description}</p><p className="mt-5"><span className="text-[49px] font-semibold tracking-[-.08em]">{plan.price}</span><span className="ml-2 text-xs opacity-70">/ month</span></p><ul className="my-7 flex-1 space-y-3 border-t border-current/15 pt-5 text-[13px] leading-6">{plan.features.map(feature=><li key={feature} className="flex gap-2"><span>✓</span>{feature}</li>)}</ul><button type="button" onClick={()=>changePlan(plan.key)} disabled={!currentUser} className={`rounded-xl px-5 py-3.5 text-sm font-semibold disabled:opacity-40 ${selected===plan.key?"bg-white text-[#293c2d]":"bg-[#eef3eb] text-[#3b5238]"}`}>{selected===plan.key?"Your selection ✓":"Choose "+plan.name+" →"}</button></article>)}</div>
-    {selected&&currentUser&&<section className="mt-10 grid gap-7 rounded-[24px] border border-[#dfe6da] bg-white p-6 sm:p-9 lg:grid-cols-[.75fr_1.25fr]"><div><p className="text-[11px] font-semibold uppercase tracking-[.16em] text-[#98a695]">FINAL STEP</p><h2 className="mt-4 text-2xl font-semibold tracking-tight">Complete your subscription.</h2><p className="mt-4 text-sm leading-7 text-[#879581]">Your payment details are processed securely. You’ll see your plan and renewal information in your business workspace.</p><p className="mt-5 text-xs leading-6 text-[#9ca99a]">Plans renew monthly until canceled. Nothing is charged until you complete and confirm payment.</p><button type="button" onClick={()=>changePlan("")} className="mt-5 text-xs font-semibold underline underline-offset-4">Change plan</button></div><div className="min-h-[180px]"><div ref={mountRef} aria-label="FUGTH secure payment form"/>{processing&&<p className="py-6 text-sm text-[#849481]">Preparing your secure form…</p>}{error&&<p role="alert" className="rounded-xl border border-[#eadacb] bg-[#fff6ed] p-4 text-sm text-[#815937]">{error}</p>}{!error&&!processing&&!embedActive&&<p className="py-6 text-sm text-[#899684]">Loading payment options…</p>}</div></section>}
-    <p className="mt-7 text-xs leading-6 text-[#9ca89a]">Plan features and availability depend on configuration and activation.</p>
+import {useEffect,useMemo,useState} from "react";
+import {onAuthStateChanged} from "firebase/auth";
+import {auth} from "../../lib/firebase";
+import {BILLING_PLANS,BILLING_ADDONS,addonAmount,dollars,customSetupLabel} from "../../lib/billing-catalog";
+const plans=Object.values(BILLING_PLANS);
+export default function Plans(){
+ const [currentUser,setCurrentUser]=useState(null),[authReady,setAuthReady]=useState(false);
+ const [selected,setSelected]=useState("growth"),[addons,setAddons]=useState([]);
+ const [busy,setBusy]=useState(false),[error,setError]=useState("");
+ useEffect(()=>{
+  const unsub=onAuthStateChanged(auth,u=>{setCurrentUser(u);setAuthReady(true);});
+  const requested=new URLSearchParams(window.location.search).get("plan");
+  if(BILLING_PLANS[requested])setSelected(requested);
+  return()=>unsub();
+ },[]);
+ const plan=BILLING_PLANS[selected];
+ const billable=useMemo(()=>addons.filter(a=>addonAmount(selected,a)>0),[selected,addons]);
+ const addonMonthly=billable.reduce((n,a)=>n+addonAmount(selected,a),0);
+ const total=plan.monthly+addonMonthly;
+ function switchPlan(key){setSelected(key);setAddons(v=>v.filter(a=>addonAmount(key,a)>0));setError("");}
+ function toggle(key){setAddons(prev=>prev.includes(key)?prev.filter(x=>x!==key):[...prev,key]);}
+ async function checkout(){
+  setBusy(true);setError("");
+  try{
+   if(!currentUser)throw Error("Sign in before subscribing.");
+   const token=await currentUser.getIdToken();
+   const response=await fetch("/api/stripe/checkout",{method:"POST",cache:"no-store",
+    headers:{"Content-Type":"application/json",Authorization:"Bearer "+token},
+    body:JSON.stringify({planKey:selected,addons:billable})});
+   const result=await response.json().catch(()=>({}));
+   if(!response.ok)throw Error(result.error||"Could not start payment.");
+   if(!result.url||!result.url.startsWith("https://checkout.stripe.com/"))throw Error("Secure Stripe checkout link was not returned.");
+   window.location.assign(result.url);
+  }catch(e){setError(e.message||"Stripe checkout unavailable.");setBusy(false);}
+ }
+ return <main className="min-h-screen bg-[#f8faf7] text-[#29382d]">
+  <header className="border-b border-[#e7ece3] bg-[#f8faf7]"><div className="mx-auto flex h-20 max-w-6xl items-center justify-between px-5"><Link href="/" className="text-2xl font-bold tracking-tight">fugth.</Link><Link href={currentUser?"/dashboard":"/login"} className="rounded-xl border bg-white px-5 py-3 text-xs font-semibold">Back to workspace ↗</Link></div></header>
+  <div className="mx-auto max-w-6xl px-5 pb-24 pt-14">
+   <p className="text-xs font-bold uppercase tracking-[.18em] text-[#799077]">PLANS + PROFESSIONAL SETUP</p><h1 className="mt-4 text-4xl font-semibold tracking-[-.07em] sm:text-6xl">Build your business command center.</h1>
+   <p className="mt-4 max-w-3xl text-sm leading-7 text-[#738672]">Monthly subscriptions cover the software. A separate one-time setup fee pays for your business-specific onboarding, receptionist configuration, integrations and implementation.</p>
+   <div className="mt-10 grid gap-5 lg:grid-cols-3">{plans.map(p=><article key={p.key} className={"flex flex-col rounded-[24px] border p-6 sm:p-7 "+(selected===p.key?"border-[#2a4633] bg-[#263f2e] text-white shadow-xl":"border-[#e2e8df] bg-white text-[#29392d]")}>
+    <div className="flex items-center justify-between"><h2 className="text-xl font-semibold">{p.name}</h2>{p.key==="growth"&&<span className="rounded-full border border-current/30 px-3 py-1.5 text-[10px] font-bold">Popular</span>}</div>
+    <p className="mt-3 min-h-[72px] text-sm leading-6 opacity-80">{p.description}</p>
+    <p className="mt-4"><strong className="text-5xl tracking-tight">{dollars(p.monthly)}</strong><span className="ml-2 text-xs opacity-70">/ month</span></p>
+    <p className="mt-3 rounded-xl border border-current/20 p-3 text-sm"><strong>{dollars(p.setup)}</strong> one-time setup</p>
+    <ul className="my-6 flex-1 space-y-2 border-t border-current/20 pt-5 text-xs leading-6">{p.features.map(f=><li key={f}>✓ {f}</li>)}</ul>
+    <button type="button" onClick={()=>switchPlan(p.key)} className={"rounded-xl px-5 py-4 text-sm font-semibold "+(selected===p.key?"bg-white text-[#263f2e]":"bg-[#eef4e9] text-[#33513a]")}>{selected===p.key?"Selected ✓":"Choose "+p.name+" ↗"}</button>
+   </article>)}</div>
+   <section className="mt-10 rounded-[24px] border border-[#e0e6de] bg-white p-6 sm:p-8">
+    <p className="text-xs font-bold uppercase tracking-[.16em] text-[#859985]">FLEXIBLE ADD-ONS</p><h2 className="mt-2 text-2xl font-semibold">Customize your {plan.name} plan.</h2>
+    <p className="mt-2 max-w-3xl text-xs leading-6 text-[#819080]">Mid and High include more features by default. Buying several Low-plan upgrades can cost more than moving up to Mid or High. Voice minutes, text messages and other third-party usage have separate fair-use limits.</p>
+    <div className="mt-6 grid gap-3 md:grid-cols-2">{Object.entries(BILLING_ADDONS).map(([key,item])=>{
+     const price=addonAmount(selected,key),included=price===0,checked=included||addons.includes(key);
+     return <label key={key} className={"flex items-start justify-between gap-3 rounded-xl border p-4 "+(included?"border-[#deebd7] bg-[#f3f8ef]":"border-[#e1e8df]")}>
+      <div className="flex items-start gap-3"><input type="checkbox" checked={checked} disabled={included} onChange={()=>toggle(key)} className="mt-1 h-4 w-4 accent-[#34563b]"/><span><strong className="block text-sm">{item.name}</strong><span className="mt-1 block text-xs leading-5 text-[#889487]">{item.description}</span></span></div>
+      <span className="shrink-0 text-xs font-bold text-[#36563d]">{included?"Included":"+"+dollars(price)+"/mo"}</span>
+     </label>;
+    })}</div>
+    <p className="mt-5 text-xs leading-6 text-[#8b9987]">{customSetupLabel} Extra implementation or usage beyond your chosen package requires a separate quote.</p>
+   </section>
+   <section className="mt-8 grid gap-6 rounded-[24px] border border-[#d8e3d5] bg-[#eef5e9] p-6 sm:p-8 lg:grid-cols-[1fr_auto] lg:items-center">
+    <div><p className="text-xs font-bold uppercase tracking-[.15em] text-[#71876e]">YOUR CHECKOUT SUMMARY</p><h2 className="mt-3 text-2xl font-semibold">{plan.name} + {billable.length} paid add-on(s)</h2>
+     <p className="mt-3 text-sm">Subscription: <strong>{dollars(total)} monthly</strong></p>
+     <p className="mt-1 text-sm">One-time professional setup: <strong>{dollars(plan.setup)}</strong></p>
+     <p className="mt-2 text-lg font-bold">First checkout: {dollars(plan.setup+total)} before tax or discounts.</p>
+     <p className="mt-3 max-w-xl text-xs leading-6 text-[#809180]">Subscriptions renew monthly until canceled. Setup is billed once; eligible site packages include personalized website preparation within 24 hours after you provide required materials. No call overages or paid upgrade will be charged without authorization.</p>
     </div>
-  </main>;
+    <div className="w-full lg:w-[250px]"><button type="button" disabled={!currentUser||busy} onClick={checkout} className="w-full rounded-xl bg-[#2a4833] px-6 py-4 text-sm font-bold text-white disabled:opacity-45">{busy?"Opening Stripe…":"Continue to secure Stripe ↗"}</button>
+     {!currentUser&&authReady&&<Link href="/login" className="mt-3 block text-center text-xs font-semibold underline">Log in to subscribe</Link>}
+    </div>
+   </section>
+   {error&&<p role="alert" className="mt-5 rounded-xl border border-[#e9cfc7] bg-[#fff5ef] p-4 text-sm text-[#97543e]">{error}</p>}
+   <p className="mt-6 text-xs text-[#9aab96]">24-hour limited-credit trials are planned separately and will pause when the time or credit allowance ends, whichever comes first. Trial access does not auto-charge customers.</p>
+  </div>
+ </main>;
 }
