@@ -4,16 +4,18 @@ import {addDoc,collection,limit,onSnapshot,orderBy,query,serverTimestamp} from "
 import {db} from "../lib/firebase";
 import FeatureGate from "./feature-gate";
 import LeadDirectory from "./lead-directory";
+import MarketingDelivery from "./marketing-delivery";
 import {hasPlan} from "../lib/plan-access";
 
 const field="w-full rounded-xl border border-[#dfe3da] bg-white px-4 py-3 text-sm outline-none focus:border-[#52654e]";
 const formatDate=value=>{try{return (value?.toDate?.()||new Date(value)).toLocaleDateString(undefined,{month:"short",day:"numeric"});}catch{return "Draft";}};
 
-export default function MarketingHub({user,workspace,planKey}){
+export default function MarketingHub({user,workspace,planKey,founderAdmin=false,simulating=false}){
  const [campaigns,setCampaigns]=useState([]),[busy,setBusy]=useState(false),[message,setMessage]=useState("");
  const [contacts,setContacts]=useState([]);
  const [draft,setDraft]=useState({name:"Spring follow-up",audience:"Past customers",channel:"email",subject:"A quick update from our team",message:""});
- const mid=hasPlan(planKey,"growth"),high=hasPlan(planKey,"elite");
+ const mid=founderAdmin||hasPlan(planKey,"growth")||(!simulating&&workspace?.billingAddons?.includes("email"));
+ const high=founderAdmin||hasPlan(planKey,"elite");
  useEffect(()=>{if(!db||!user?.uid)return;return onSnapshot(query(collection(db,"users",user.uid,"campaigns"),orderBy("createdAt","desc"),limit(100)),snapshot=>setCampaigns(snapshot.docs.map(item=>({id:item.id,...item.data()})).filter(item=>item.type==="marketing_campaign")));},[user?.uid]);
  useEffect(()=>{if(!db||!user?.uid)return;return onSnapshot(query(collection(db,"users",user.uid,"leads"),orderBy("createdAt","desc"),limit(500)),snapshot=>setContacts(snapshot.docs.map(item=>item.data())));},[user?.uid]);
  function generate(){
@@ -25,6 +27,7 @@ export default function MarketingHub({user,workspace,planKey}){
  const optedIn=contacts.filter(c=>c.marketingOptIn===true&&c.unsubscribed!==true&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(c.email||"")).length;
  return <div className="space-y-6">
   <LeadDirectory user={user}/>
+  <MarketingDelivery user={user} campaigns={campaigns} enabled={Boolean(mid)} onDraft={patch=>setDraft(value=>({...value,...patch}))}/>
   <section className="overflow-hidden rounded-[26px] bg-[#17251e] text-white"><div className="grid gap-8 p-6 sm:p-9 lg:grid-cols-[1.1fr_.9fr]"><div><p className="text-[10px] font-black uppercase tracking-[.2em] text-[#a7c0ab]">LEAD GENERATOR + MARKETING</p><h3 className="mt-4 text-3xl font-semibold tracking-[-.06em] sm:text-5xl">Stay in front of the people who already know you.</h3><p className="mt-4 max-w-2xl text-sm leading-7 text-[#bdcbbf]">Build email and text follow-ups, keep drafts organized and turn missed opportunities into the next conversation.</p></div><div className="grid grid-cols-2 gap-3 self-end">{[["AI email",mid],["Text-back",mid],["Campaign drafts",mid],["Advanced automation",high]].map(([label,on])=><div key={label} className={`rounded-2xl border p-4 ${on?"border-[#65816b] bg-white/10":"border-white/10 bg-black/10 opacity-45"}`}><p className="text-xs font-bold">{on?"✓":"🔒"} {label}</p><p className="mt-2 text-[10px] text-white/55">{on?"Included":"Upgrade required"}</p></div>)}</div></div></section>
   {message&&<p role="status" className="rounded-xl border border-[#dbe4d7] bg-[#f1f7ef] px-4 py-3 text-sm text-[#405d42]">{message}</p>}
   <FeatureGate locked={!mid} title="Marketing unlocks on the Mid plan" description="AI email drafts, follow-up campaigns and text-back are visible here so customers know exactly what the upgrade adds.">
