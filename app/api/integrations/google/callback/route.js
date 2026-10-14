@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { decrypt, encrypt, googleToken, integrationDoc, readGoogleState, ensureGoogleOperationsSheet } from "../../../../../lib/server/google-calendar";
+import { decrypt, encrypt, googleToken, integrationDoc, readGoogleState, ensureGoogleOperationsSheet, ensureFugthBusinessCalendar } from "../../../../../lib/server/google-calendar";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 const BASE = process.env.NEXT_PUBLIC_APP_URL || "https://www.fugthmanagement.space";
@@ -40,6 +40,7 @@ export async function GET(req) {
     // If Google Sheets is not enabled yet, Calendar remains connected and the
     // customer can reconnect after the provider setup is completed.
     try { await ensureGoogleOperationsSheet(uid,credentials.access_token); } catch (error) { console.warn("Google workbook setup pending",error?.message||"unknown"); }
+    try { await ensureFugthBusinessCalendar(uid,credentials.access_token); } catch (error) { console.warn("Google business calendar setup pending",error?.message||"unknown"); }
     return back("google-connected");
   } catch { return back("authorization-error"); }
 }
