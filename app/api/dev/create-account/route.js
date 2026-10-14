@@ -19,7 +19,7 @@ if (!admin.apps.length) {
   }
 }
 
-const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || 'fugthmanagement@gmail.com,mepenginestudio@gmail.com').split(',').map(s => s.trim().toLowerCase());
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || 'fugthmanagement@gmail.com,mepenginestudio@gmail.com,fugthchat@gmail.com,novaeriahengine@gmail.com').split(',').map(s => s.trim().toLowerCase());
 
 export async function POST(req) {
   try {
@@ -47,7 +47,11 @@ export async function POST(req) {
     // Allow creating an account with no plan (planTier === 'none')
     let planTier = 'none';
     let planStatus = 'inactive';
-    const businessPhone = body.phone ?? '';
+    const businessPhone = String(body.phone ?? '').trim().slice(0,32);
+    const businessName = String(body.businessName || displayName || '').trim().slice(0,80);
+    const businessType = String(body.businessType || body.industry || 'general').trim().slice(0,50);
+    const serviceArea = String(body.serviceArea || '').trim().slice(0,100);
+    const hours = String(body.hours || '').trim().slice(0,100);
     const fugthNumber = body.fugthNumber ?? '';
     const stripeCustomerId = body.stripeCustomerId ?? null;
 
@@ -73,6 +77,11 @@ export async function POST(req) {
     await userDoc.set({
       email,
       displayName: displayName || '',
+      businessName,
+      businessType,
+      phone: businessPhone,
+      serviceArea,
+      hours,
       planTier,
       planStatus,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -104,7 +113,7 @@ export async function POST(req) {
     let siteReady=true;
     try {
       await db.doc(`publicSites/${uid}`).create(
-        buildStarterSite(uid,body.businessName || displayName || "Your business",body.businessType||body.industry||"general")
+        buildStarterSite(uid,businessName||"Your business",businessType,{phone:businessPhone,email,serviceArea,hours})
       );
     } catch (siteError) {
       if (siteError.code!==6 && siteError.code!=="already-exists") {

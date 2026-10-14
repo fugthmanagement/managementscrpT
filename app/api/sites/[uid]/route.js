@@ -11,6 +11,11 @@ function sanitized(data,uid,old={},visibility="preview"){
  return {...siteFields(data),ownerId:uid,version:1,visibility,
    createdAt:old.createdAt||now,updatedAt:now};
 }
+function businessPreset(uid,profile={}){
+ return buildStarterSite(uid,profile.businessName||profile.displayName||"Your business",profile.businessType||profile.industry||"general",{
+  phone:profile.phone||profile.businessPhone||"",contactEmail:profile.contactEmail||profile.email||"",serviceArea:profile.serviceArea||"",hours:profile.hours||profile.businessHours||""
+ });
+}
 async function viewer(request,uid) {
  const user=await authenticatedUser(request);
  if(!user)return {error:NextResponse.json({error:"Please sign in to edit this website."},{status:401})};
@@ -35,17 +40,18 @@ export async function PUT(request,{params}){
  try{body=await request.json();if(JSON.stringify(body).length>12000)throw Error("Design data is too large.");}
  catch{return NextResponse.json({error:"Invalid site update."},{status:400});}
  const action=body.action;
- if(!["save","publish","unpublish","initialize"].includes(action))return NextResponse.json({error:"Choose save, publish, or unpublish."},{status:400});
+ if(!["save","publish","unpublish","initialize","regenerate"].includes(action))return NextResponse.json({error:"Choose publish, unpublish, or refresh."},{status:400});
  const db=firebaseAdmin().firestore(),pubRef=db.doc("publicSites/"+uid),draftRef=db.doc("siteDrafts/"+uid),historyRef=db.collection("siteChanges").doc();
  try{
   const result=await db.runTransaction(async tx=>{
    const [pub,draft,userDoc]=await Promise.all([tx.get(pubRef),tx.get(draftRef),tx.get(db.doc("users/"+uid))]);
    if(!pub.exists&&!draft.exists&&!userDoc.exists&&!isFounder(auth.user))throw Object.assign(new Error("Business account does not exist."),{status:404});
-   const existing=draft.exists?draft.data():pub.exists?pub.data():buildStarterSite(uid,userDoc.data()?.businessName||"Your business",userDoc.data()?.businessType);
+   const profile=userDoc.data()||{};
+   const existing=draft.exists?draft.data():pub.exists?pub.data():businessPreset(uid,profile);
    let next,live=null;
    if(action==="initialize"){
-    if(!pub.exists)tx.create(pubRef,sanitized(existing,uid,existing,"preview"));
-    return {site:existing,status:pub.data()?.visibility||"preview"};
+    if(!pub.exists)tx.create(pubRef,{...businessPreset(uid,profile),visibility:"published"});
+    return {site:existing,status:pub.data()?.visibility||"published"};
    }
    if(action==="unpublish"){
     if(!pub.exists)throw Object.assign(new Error("No live website exists."),{status:404});
@@ -53,7 +59,19 @@ export async function PUT(request,{params}){
     tx.set(pubRef,live);
     next=draft.exists?draft.data():live;
    } else {
-    next=sanitized(body.site||{},uid,existing,"preview");
+    // Website presentation is owned by the FUGTH preset system. A refresh
+    // deliberately rebuilds it from private business settings instead of
+    // accepting arbitrary customer-controlled layout, photos or colors.
+    if(action==="regenerate"){
+      const generated=businessPreset(uid,profile);
+      const visibility=pub.data()?.visibility==="hidden"?"hidden":"published";
+      live={...generated,visibility,createdAt:pub.data()?.createdAt||generated.createdAt,updatedAt:new Date().toISOString(),publishedAt:pub.data()?.publishedAt||new Date().toISOString()};
+      next={...live,revision:(Number(draft.data()?.revision)||0)+1,savedBy:auth.user.uid};
+      tx.set(pubRef,live);tx.set(draftRef,next);
+      tx.create(historyRef,{ownerId:uid,actorUid:auth.user.uid,actorRole:auth.founder?"founder":"owner",action,at:new Date().toISOString(),revision:next.revision});
+      return {site:next,status:live.visibility,revision:next.revision};
+    }
+    next=sanitized(body.site||existing,uid,existing,"preview");
     if(!next.name||!next.headline)throw Object.assign(new Error("Business name and headline are required."),{status:400});
     if(next.contactEmail&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(next.contactEmail))
       throw Object.assign(new Error("Enter a valid business contact email."),{status:400});
