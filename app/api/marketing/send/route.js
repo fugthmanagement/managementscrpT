@@ -42,12 +42,12 @@ export async function POST(req){
  try{
   // This OAuth scope is granted explicitly through the user's Google consent screen.
   googleToken=await accessGoogleCalendar(uid,"gmail.send");
-  const who=await fetch("https://gmail.googleapis.com/gmail/v1/users/me/profile",{
+  const who=await fetch("https://openidconnect.googleapis.com/v1/userinfo",{
    headers:{Authorization:"Bearer "+googleToken},cache:"no-store",signal:AbortSignal.timeout(6500)
   });
   if(!who.ok)throw Error("Gmail connection needs to be refreshed.");
-  from=(await who.json()).emailAddress;
-  if(!validEmail(from))throw Error("A verified Gmail sender email was not returned.");
+  from=(await who.json()).email;
+  if(!validEmail(from))throw Error("A verified Google email address was not returned. Please reconnect your account.");
  }catch(e){return response({error:e.message||"Reconnect your Google account to send campaigns."},503);}
  let leads;
  try{
