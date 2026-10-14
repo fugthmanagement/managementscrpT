@@ -1,54 +1,64 @@
 import Stripe from "stripe";
-import { NextResponse } from "next/server";
-import { authenticatedUser, firebaseAdmin } from "../../../../lib/server/auth";
+import {NextResponse} from "next/server";
+import {authenticatedUser,firebaseAdmin} from "../../../../lib/server/auth";
+import {BILLING_PLANS,BILLING_ADDONS,addonAmount,validAddons} from "../../../../lib/billing-catalog";
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
-const priceMap = {
-  starter: process.env.STRIPE_STARTER_PRICE_ID,
-  growth: process.env.STRIPE_GROWTH_PRICE_ID,
-  elite: process.env.STRIPE_ELITE_PRICE_ID,
-};
-const siteUrl = "https://www.fugthmanagement.space";
-export async function POST(req) {
-  const user = await authenticatedUser(req);
-  if (!user?.uid || !user.email) return NextResponse.json({ error: "Please sign in before selecting a plan." }, { status: 401 });
-  if (!process.env.STRIPE_SECRET_KEY) return NextResponse.json({error:"Subscription payment provider is not configured."},{status:503});
-  // Do not accept payment if webhooks cannot securely activate the Firebase subscription.
-  if (!process.env.STRIPE_WEBHOOK_SECRET || !(process.env.FIREBASE_SERVICE_ACCOUNT || (process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY))) {
-    return NextResponse.json({ error: "Subscriptions are being configured. Contact support before making a payment." }, { status: 503 });
-  }
-  const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
-  if (!publishableKey?.startsWith("pk_")) return NextResponse.json({ error: "Secure on-site checkout is not configured yet." }, { status: 503 });
-  try {
-    const { planKey } = await req.json();
-    const priceId = priceMap[planKey];
-    if (!priceId) return NextResponse.json({ error: "Select an available subscription plan." }, { status: 400 });
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {apiVersion:"2024-06-20"});
-    const existing = await firebaseAdmin().firestore().doc("users/"+user.uid).get();
-    if (existing.data()?.billingActive) return NextResponse.json({
-      error: "This account already has an active subscription. Contact support before changing plans."
-    }, { status: 409 });
-    const price = await stripe.prices.retrieve(priceId);
-    const expectedAmounts = { starter:4900, growth:14900, elite:49900 };
-    if (!price.active || price.currency !== "usd" || price.unit_amount !== expectedAmounts[planKey] ||
-        price.recurring?.interval !== "month" || price.recurring?.interval_count !== 1) {
-      return NextResponse.json({ error: "Subscription pricing is being verified. Please contact support." }, { status: 503 });
-    }
-    const session = await stripe.checkout.sessions.create({
-      ui_mode: "embedded",
-      mode: "subscription",
-      line_items: [{ price: priceId, quantity: 1 }],
-      customer_email: user.email,
-      client_reference_id: user.uid,
-      return_url: siteUrl + "/billing/return?session_id={CHECKOUT_SESSION_ID}",
-      allow_promotion_codes: true,
-      metadata: { userId: user.uid, planKey, email: user.email },
-      subscription_data: { metadata: { userId: user.uid, planKey, email: user.email } },
-    });
-    return NextResponse.json({ clientSecret: session.client_secret, publishableKey });
-  } catch (e) {
-    console.error("Stripe checkout session error", { code: e.code || "", type: e.type || "" });
-    return NextResponse.json({ error: "We could not prepare secure checkout. Please try again." }, { status: 500 });
-  }
+export const runtime="nodejs";
+export const dynamic="force-dynamic";
+const priceMap=()=>({
+ starter:process.env.STRIPE_STARTER_PRICE_ID,
+ growth:process.env.STRIPE_GROWTH_PRICE_ID,
+ elite:process.env.STRIPE_ELITE_PRICE_ID
+});
+const siteUrl="https://www.fugthmanagement.space";
+const reply=(data,status=200)=>NextResponse.json(data,{status,headers:{"Cache-Control":"no-store"}});
+export async function POST(req){
+ const user=await authenticatedUser(req);
+ if(!user?.uid||!user.email)return reply({error:"Please sign in to select a subscription."},401);
+ if(!process.env.STRIPE_SECRET_KEY)return reply({error:"Stripe's server connection is not configured."},503);
+ // Prevent charging people if a signed payment webhook cannot activate their plan.
+ if(!process.env.STRIPE_WEBHOOK_SECRET)return reply({error:"Payment activation is awaiting its Stripe webhook connection. Contact FUGTH support."},503);
+ if(!process.env.FIREBASE_SERVICE_ACCOUNT&&!(process.env.FIREBASE_CLIENT_EMAIL&&process.env.FIREBASE_PRIVATE_KEY))
+  return reply({error:"Payment activation requires Firebase server credentials in Vercel. Contact FUGTH support."},503);
+ let body;
+ try{body=await req.json();}catch{return reply({error:"Invalid plan selection."},400);}
+ const planKey=body?.planKey,plan=BILLING_PLANS[planKey];
+ if(!plan)return reply({error:"Choose a valid plan."},400);
+ const addons=validAddons(planKey,body.addons||[]);
+ if(!addons)return reply({error:"Invalid add-on selection."},400);
+ const priceId=priceMap()[planKey];
+ if(!priceId)return reply({error:"The monthly price for this plan is not connected to Stripe yet."},503);
+ try{
+  const stripe=new Stripe(process.env.STRIPE_SECRET_KEY,{apiVersion:"2024-06-20"});
+  const account=await firebaseAdmin().firestore().doc("users/"+user.uid).get();
+  if(account.data()?.billingActive)return reply({error:"A subscription is already active. Contact support before changing plans."},409);
+  const price=await stripe.prices.retrieve(priceId);
+  if(!price.active||price.currency!=="usd"||price.unit_amount!==plan.monthly||
+    price.recurring?.interval!=="month"||price.recurring?.interval_count!==1)
+   return reply({error:"This Stripe price does not match the FUGTH plan. Contact support to update the linked price."},503);
+  const line_items=[{price:priceId,quantity:1},{
+   price_data:{currency:"usd",unit_amount:plan.setup,product_data:{name:"FUGTH "+plan.name+" one-time implementation",
+    description:"Personal business onboarding and implementation for the "+plan.name+" plan."}},
+   quantity:1
+  }];
+  addons.forEach(key=>line_items.push({
+   price_data:{currency:"usd",unit_amount:addonAmount(planKey,key),
+    recurring:{interval:"month"},product_data:{name:"FUGTH add-on — "+BILLING_ADDONS[key].name}},
+   quantity:1
+  }));
+  const session=await stripe.checkout.sessions.create({
+   ui_mode:"hosted",mode:"subscription",line_items,
+   customer_email:user.email,client_reference_id:user.uid,
+   success_url:siteUrl+"/billing/return?session_id={CHECKOUT_SESSION_ID}",
+   cancel_url:siteUrl+"/plans?plan="+encodeURIComponent(planKey),
+   allow_promotion_codes:true,
+   metadata:{userId:user.uid,planKey,email:user.email,addons:addons.join(","),setupFeeCents:String(plan.setup)},
+   subscription_data:{metadata:{userId:user.uid,planKey,email:user.email,addons:addons.join(",")}}
+  });
+  if(!session.url)return reply({error:"Stripe did not return a secure checkout link."},502);
+  return reply({url:session.url,setupFeeCents:plan.setup,monthlyCents:plan.monthly+addons.reduce((n,k)=>n+addonAmount(planKey,k),0)});
+ }catch(e){
+  console.error("FUGTH Stripe checkout error",{type:e.type||"",code:e.code||""});
+  return reply({error:"Unable to create Stripe checkout. Please verify billing configuration with FUGTH support."},503);
+ }
 }
