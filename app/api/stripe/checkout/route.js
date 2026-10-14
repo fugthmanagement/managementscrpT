@@ -5,10 +5,12 @@ import {BILLING_PLANS,BILLING_ADDONS,addonAmount,validAddons} from "../../../../
 
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
+// New catalog belongs to the newly authorized FUGTH Management Stripe connection.
+// Verify STRIPE_SECRET_KEY belongs to acct_1QYiGDHGcNIhcRMj before accepting payments.
 const priceMap=()=>({
- starter:process.env.STRIPE_STARTER_PRICE_ID,
- growth:process.env.STRIPE_GROWTH_PRICE_ID,
- elite:process.env.STRIPE_ELITE_PRICE_ID
+ starter:"price_1UQOt9HGcNIhcRMjZJVSgXII",
+ growth:"price_1UQOtBHGcNIhcRMj2uKPsRjD",
+ elite:"price_1UQOtDHGcNIhcRMjvH0HGgfV"
 });
 const siteUrl="https://www.fugthmanagement.space";
 const reply=(data,status=200)=>NextResponse.json(data,{status,headers:{"Cache-Control":"no-store"}});
@@ -30,6 +32,9 @@ export async function POST(req){
  if(!priceId)return reply({error:"The monthly price for this plan is not connected to Stripe yet."},503);
  try{
   const stripe=new Stripe(process.env.STRIPE_SECRET_KEY,{apiVersion:"2024-06-20"});
+  const accountIdentity=await stripe.accounts.retrieve();
+  if(accountIdentity.id!=="acct_1QYiGDHGcNIhcRMj")
+   return reply({error:"Checkout is awaiting the new FUGTH Management Stripe API key. No payment has been started."},503);
   const account=await firebaseAdmin().firestore().doc("users/"+user.uid).get();
   if(account.data()?.billingActive)return reply({error:"A subscription is already active. Contact support before changing plans."},409);
   const price=await stripe.prices.retrieve(priceId);
