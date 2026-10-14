@@ -2,6 +2,7 @@ import {NextResponse} from "next/server";
 import {createHmac} from "node:crypto";
 import {demoBusiness,demoAssistant,focusChoice,scenarioChoice,usNumber,DEMO_DURATION} from "../../../lib/server/voice-preview";
 import {reserveDemo,recordDemoCall} from "../../../lib/server/demo-cooldown";
+import {firebaseAdmin} from "../../../lib/server/auth";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
 const reply=(v,status=200)=>NextResponse.json(v,{status,headers:{"Cache-Control":"no-store"}});
@@ -43,11 +44,20 @@ export async function POST(req){
  let reservation;
  try{
   reservation=await reserveDemo(account,number,focus);
+  // Signed-out guest demos belong to FUGTH's real verified founder account,
+  // not a synthetic guest ID that cannot be accessed through Firebase Auth.
+  let founderUid=process.env.FUGTH_FOUNDER_UID||"";
+  if(!founderUid){
+   const founder=await firebaseAdmin().auth().getUserByEmail("fugthmanagement@gmail.com");
+   founderUid=founder.uid;
+  }
+  if(!/^[A-Za-z0-9_-]{8,128}$/.test(founderUid))
+   return reply({error:"Guest demo call storage owner is not configured."},503);
   const provider=await fetch("https://api.vapi.ai/call/phone",{
    method:"POST",headers:{Authorization:"Bearer "+voiceKey().trim(),"Content-Type":"application/json"},
    body:JSON.stringify({customer:{number},phoneNumberId:numberId().trim(),
     assistant:demoAssistant(context,focus,scenario),
-    metadata:{fugthPreview:true,guestDemo:true,ownerId:account,focus,scenario,industry:context.industry}}),
+    metadata:{fugthPreview:true,guestDemo:true,ownerId:founderUid,guestQuotaId:account,focus,scenario,industry:context.industry}}),
    cache:"no-store",signal:AbortSignal.timeout(16000)
   });
   const result=await provider.json().catch(()=>({}));

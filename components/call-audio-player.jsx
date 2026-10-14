@@ -1,6 +1,6 @@
 "use client";
 import {useEffect,useRef,useState} from "react";
-import {getDownloadURL,ref,uploadBytes} from "firebase/storage";
+import {getBytes,getMetadata,ref,uploadBytes} from "firebase/storage";
 import {auth,storage} from "../lib/firebase";
 const isCallId=value=>/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(value||""));
 export default function CallAudioPlayer({call,user}){
@@ -18,9 +18,13 @@ export default function CallAudioPlayer({call,user}){
   try{
    if(file){
     try{
-     const stored=await getDownloadURL(file);
-     if(ownedUrl.current){URL.revokeObjectURL(ownedUrl.current);ownedUrl.current="";}
-     setSource(stored);setArchived(true);return;
+     // Access through the authenticated Firebase SDK; do not publish a permanent
+     // Firebase download-token URL that bypasses Storage security rules.
+     const [meta,bytes]=await Promise.all([getMetadata(file),getBytes(file,20*1024*1024)]);
+     const blob=new Blob([bytes],{type:meta.contentType||"audio/mpeg"});
+     if(ownedUrl.current)URL.revokeObjectURL(ownedUrl.current);
+     ownedUrl.current=URL.createObjectURL(blob);
+     setSource(ownedUrl.current);setArchived(true);return;
     }catch{/* A missing archive is normal for calls made before this update. */}
    }
    const token=await auth.currentUser?.getIdToken();
