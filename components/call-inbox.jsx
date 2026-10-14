@@ -2,6 +2,7 @@
 import {useMemo,useState} from "react";
 import {addDoc,collection,deleteDoc,doc,serverTimestamp,updateDoc} from "firebase/firestore";
 import {auth,db} from "../lib/firebase";
+import CallAudioPlayer from "./call-audio-player";
 const transcriptText=value=>Array.isArray(value)?value.map(x=>typeof x==="string"?x:(x?.role||x?.speaker||"Speaker")+": "+(x?.text||x?.content||"")).join("\n"):String(value||"");
 const callerName=call=>call.callerName||call.customerName||call.caller||call.from||call.phoneNumber||"Customer call";
 const timestamp=call=>{
@@ -25,7 +26,7 @@ export default function CallInbox({calls=[],user,locked=false,onPhoneSetup}){
    const res=await fetch("/api/receptionist-preview/sync",{method:"POST",headers:{Authorization:"Bearer "+token},cache:"no-store"});
    const data=await res.json().catch(()=>({}));
    if(!res.ok)throw Error(data.error||"Could not sync recent demos.");
-   setNotice(data.matched?data.saved+" recent demo call(s) found in Firestore. "+(data.failures?data.failures+" could not be saved.":""):"No completed demos were found in the recent Vapi history.");
+   setNotice(data.matched?data.saved+" demo call(s) synced; "+Number(data.archived||0)+" recording archive(s) saved. "+(data.failures?data.failures+" failed.":""):"No completed demos were found in the recent Vapi history.");
   }catch(e){setNotice(e.message||"Call sync failed.");}
   finally{setBusy("");}
  }
@@ -80,7 +81,7 @@ export default function CallInbox({calls=[],user,locked=false,onPhoneSetup}){
        <p className="mt-2 text-xs text-[#637262]">Started: {clock(call)}</p>
        {call.endedAt&&<p className="mt-1 text-xs text-[#637262]">Ended: {clock({...call,createdAt:call.endedAt,startedAt:call.endedAt})}</p>}
        <p className="mt-5 text-[10px] font-bold uppercase tracking-wider text-[#939a90]">Recording</p>
-       {recording?<audio className="mt-3 w-full" controls preload="none" src={recording}>Audio playback not supported.</audio>:<p className="mt-3 rounded-xl border border-dashed border-[#d8ded4] bg-white p-4 text-xs text-[#8b9188]">Recording was not provided for this call.</p>}
+       <CallAudioPlayer key={call.id} call={call} user={user}/>
        <p className="mt-5 text-[10px] font-bold uppercase tracking-wider text-[#939a90]">Rate AI handling</p>
        <div className="mt-2 flex gap-1">{[1,2,3,4,5].map(n=><button key={n} type="button" onClick={()=>change(call,{ownerRating:n})} className={`text-2xl ${n<=Number(call.ownerRating||0)?"text-amber-500":"text-[#ccd1c9]"}`}>★</button>)}</div>
        <button type="button" disabled={busy===call.id} onClick={()=>followUp(call)} className="mt-4 rounded-xl bg-[#2c4934] px-4 py-3 text-xs font-semibold text-white disabled:opacity-50">Create customer follow-up ↗</button>

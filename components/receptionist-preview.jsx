@@ -30,6 +30,7 @@ export default function ReceptionistPreview({user,workspace,onGoPhoneSetup,admin
  const [focus,setFocus]=useState("balanced"),[scenario,setScenario]=useState("auto");
  const [busy,setBusy]=useState(false),[error,setError]=useState(""),[message,setMessage]=useState("");
  const [consent,setConsent]=useState(false),[call,setCall]=useState(null);
+ const [pollCount,setPollCount]=useState(0);
  const [cooldownUntil,setCooldownUntil]=useState(null),[remaining,setRemaining]=useState(0);
  async function headers(){
   const token=await auth.currentUser?.getIdToken();
@@ -54,19 +55,19 @@ export default function ReceptionistPreview({user,workspace,onGoPhoneSetup,admin
   update();const timer=setInterval(update,15000);return()=>clearInterval(timer);
  },[cooldownUntil]);
  useEffect(()=>{
-  if(!call?.callId||(["ended","failed"].includes(call.status)&&call.saved))return;
+  if(!call?.callId||(["ended","failed"].includes(call.status)&&call.recordingSaved)||pollCount>=30)return;
   let stopped=false;
   const timer=setInterval(async()=>{
    try{
     const res=await fetch("/api/receptionist-preview?callId="+encodeURIComponent(call.callId),{headers:await headers(),cache:"no-store"});
     const data=await res.json();
-    if(!stopped&&res.ok)setCall(prev=>({...prev,status:data.status,summary:data.summary,endedReason:data.endedReason,saved:data.saved===true}));
+    if(!stopped&&res.ok){setCall(prev=>({...prev,status:data.status,summary:data.summary,endedReason:data.endedReason,saved:data.saved===true,recordingSaved:data.recordingSaved===true,recordingAvailable:data.recordingAvailable===true}));setPollCount(n=>n+1);}
    }catch{}
   },5000);
   return()=>{stopped=true;clearInterval(timer)};
- },[call?.callId,call?.status,call?.saved]);
+ },[call?.callId,call?.status,call?.recordingSaved,pollCount]);
  async function startCall(){
-  setBusy(true);setError("");setMessage("");setCall(null);
+  setBusy(true);setError("");setMessage("");setCall(null);setPollCount(0);
   const target=normalize(phone);
   if(!consent){setError("Please confirm you own or have permission to use this number.");setBusy(false);return;}
   if(!target){setError("Enter a valid US phone number.");setBusy(false);return;}
@@ -132,7 +133,7 @@ export default function ReceptionistPreview({user,workspace,onGoPhoneSetup,admin
      </div>
      {message&&<p role="status" className="mt-5 rounded-xl border border-[#d8e5d4] bg-[#f1f7ee] p-4 text-sm text-[#4e6d4b]">{message}</p>}
      {error&&<p role="alert" className="mt-5 rounded-xl border border-[#ecd8ca] bg-[#fff5ec] p-4 text-sm text-[#966441]">{error}</p>}
-     {call?.callId&&<div className="mt-5 rounded-xl border border-[#dee8d7] bg-[#f3f8ef] p-5"><p className="text-sm font-semibold">Live demo call requested</p><p className="mt-2 text-xs text-[#6e866b]">Status: {call.status||"Connecting"}</p>{call.summary&&<p className="mt-3 text-sm leading-6 text-[#465a49]">{call.summary}</p>}{["ended","failed"].includes(call.status)&&<p className="mt-2 text-xs text-[#617563]">{call.saved?"Saved to your Firestore Call Library.":"Finishing the summary and saving your call record…"}</p>}</div>}
+     {call?.callId&&<div className="mt-5 rounded-xl border border-[#dee8d7] bg-[#f3f8ef] p-5"><p className="text-sm font-semibold">Live demo call requested</p><p className="mt-2 text-xs text-[#6e866b]">Status: {call.status||"Connecting"}</p>{call.summary&&<p className="mt-3 text-sm leading-6 text-[#465a49]">{call.summary}</p>}{["ended","failed"].includes(call.status)&&<p className="mt-2 text-xs text-[#617563]">{call.recordingSaved?"Audio archived in your account; open the Call Library to listen.":call.saved?"Call saved. Open Call Library → Review → Play & save recording while audio finishes processing.":"Saving summary and checking recording…"}</p>}</div>}
      <div className="mt-5 rounded-xl border border-[#dbe5d7] bg-[#f6faf3] p-4 text-xs leading-6 text-[#657663]"><strong>Need more than 15 seconds?</strong> <a href="mailto:fugthmanagement@gmail.com?subject=FUGTH%20extended%20AI%20receptionist%20demo" className="font-bold underline underline-offset-2">Request a longer guided demonstration</a> with the FUGTH management team. Email is the quickest way to reach us. Or book an appointment with the management team through the website.</div>
      <p className="mt-6 text-xs leading-6 text-[#909b90]">{adminMode?"Founder tests have no customer-demo cooldown, but calls still consume voice credits.":"Live calls use paid calling resources; limits keep demo access fair for everyone."} No SMS verification required.</p>
     </>}

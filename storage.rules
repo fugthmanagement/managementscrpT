@@ -13,6 +13,17 @@ service firebase.storage {
       allow read, write: if isOwner(userId);
     }
 
+    match /users/{userId}/call-recordings/{callId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId)
+        && callId.matches('^[0-9a-fA-F-]{36}
+  }
+})
+        && request.resource.size > 0 && request.resource.size < 20 * 1024 * 1024
+        && request.resource.contentType.matches('audio/.*');
+      allow delete: if isOwner(userId);
+      allow update: if false;
+    }
     match /{allPaths=**} {
       allow read, write: if false;
     }

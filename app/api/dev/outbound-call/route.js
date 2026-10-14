@@ -90,12 +90,14 @@ export async function POST(req) {
     // Build standard high-compatibility Vapi payload
     const vapiPayload = {
       maxDurationSeconds: 90,
+      metadata:{ownerId:user.uid,founderOutbound:true},
       phoneNumberId: vapiNumberId ? vapiNumberId.trim() : undefined,
       customer: {
         number: to
       },
       assistant: {
         name: `Fugth Outbound: ${businessName || 'Sandbox Client'}`,
+        artifactPlan:{recordingEnabled:true,recordingFormat:"mp3",transcriptPlan:{enabled:true}},
         firstMessage: firstMessage,
         model: {
           provider: 'openai',

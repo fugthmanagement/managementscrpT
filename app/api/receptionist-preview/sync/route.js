@@ -18,7 +18,7 @@ export async function POST(request){
   const calls=await provider.json();
   if(!Array.isArray(calls))return NextResponse.json({error:"Invalid voice-history response."},{status:502});
   const mine=calls.filter(c=>c?.metadata?.ownerId===user.uid&&c?.metadata?.fugthPreview===true&&ended(c)).slice(0,30);
-  let saved=0,failures=0;
+  let saved=0,failures=0,archived=0;
   for(const item of mine){
    // List responses may omit final analysis and recording; retrieve each full record.
    const detail=await fetch("https://api.vapi.ai/call/"+encodeURIComponent(item.id),{
@@ -27,8 +27,8 @@ export async function POST(request){
    if(!detail.ok){failures++;continue;}
    const call=await detail.json();
    const result=await saveVerifiedCall(call,user.uid,token).catch(()=>({saved:false}));
-   if(result.saved)saved++;else failures++;
+   if(result.saved){saved++;if(result.recordingSaved)archived++;}else failures++;
   }
-  return NextResponse.json({saved,matched:mine.length,failures,window:"7 days"});
+  return NextResponse.json({saved,archived,matched:mine.length,failures,window:"7 days"});
  }catch{return NextResponse.json({error:"Recent call sync failed. Try again later."},{status:503});}
 }
