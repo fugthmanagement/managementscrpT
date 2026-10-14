@@ -119,10 +119,14 @@ export async function POST(req){
    if(reservation)await recordDemoCall(account.user.uid,reservation.attemptId,null,"rejected").catch(()=>{});
    const providerMessage=String(result.message||result.error?.message||"").toLowerCase();
    const phoneProblem=/phone number|outbound|twilio|number not found|free plan/.test(providerMessage);
-   return response({error:phoneProblem?
-    "FUGTH's calling number cannot place this outbound demo yet. Please contact support.":
-    "The voice provider couldn't connect this call. Contact support to reset your cooldown.",
-    ...(reservation?{cooldownUntil:reservation.cooldownUntil}:{})},502);
+   const creditProblem=/credit|balance|billing|payment/.test(providerMessage);
+   const reason=admin
+    ?creditProblem?"Vapi rejected the call because billing or credits need attention."
+     :phoneProblem?"Vapi rejected the outbound number. Check the connected phone number and outbound calling permissions."
+     :"Vapi declined the call (HTTP "+provider.status+"). Check the voice connection in Administration."
+    :phoneProblem?"The FUGTH outbound number could not place this demo. Contact support."
+     :"The demo call couldn't connect. Contact support to review and reset your cooldown.";
+   return response({error:reason,...(reservation?{cooldownUntil:reservation.cooldownUntil}:{})},502);
   }
   if(!result.id){
    if(reservation)await recordDemoCall(account.user.uid,reservation.attemptId,null,"unconfirmed").catch(()=>{});
