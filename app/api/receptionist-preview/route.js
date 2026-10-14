@@ -3,6 +3,7 @@ import {authenticatedUser,isFounder} from "../../../lib/server/auth";
 import {fromFirestoreValue} from "../../../lib/server/firestore-admin";
 import {demoBusiness,demoAssistant,DEMO_DURATION,DEMO_FOCUS_OPTIONS,DEMO_SCENARIOS,focusChoice,scenarioChoice,usNumber} from "../../../lib/server/voice-preview";
 import {getDemoCooldown,reserveDemo,recordDemoCall} from "../../../lib/server/demo-cooldown";
+import {saveVerifiedCall,ended} from "../../../lib/server/voice-call-history";
 
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
@@ -59,7 +60,10 @@ export async function GET(req){
    const call=await r.json();
    if(call.metadata?.ownerId!==account.user.uid||call.metadata?.fugthPreview!==true)
     return response({error:"Call not found."},404);
-   return response({status:call.status||"queued",endedReason:call.endedReason||null,summary:call.analysis?.summary||null});
+   const outcome=ended(call)?await saveVerifiedCall(call,account.user.uid,account.token).catch(()=>({saved:false})):{saved:false};
+   return response({status:call.status||"queued",endedReason:call.endedReason||null,
+    summary:call.analysis?.summary||call.summary||null,
+    saved:outcome.saved===true});
   }catch{return response({error:"Call status unavailable right now."},503);}
  }
  try{
