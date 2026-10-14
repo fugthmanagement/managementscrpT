@@ -32,9 +32,6 @@ export async function POST(req){
  if(!priceId)return reply({error:"The monthly price for this plan is not connected to Stripe yet."},503);
  try{
   const stripe=new Stripe(process.env.STRIPE_SECRET_KEY,{apiVersion:"2024-06-20"});
-  const accountIdentity=await stripe.accounts.retrieve();
-  if(accountIdentity.id!=="acct_1QYiGDHGcNIhcRMj")
-   return reply({error:"Checkout is awaiting the new FUGTH Management Stripe API key. No payment has been started."},503);
   const account=await firebaseAdmin().firestore().doc("users/"+user.uid).get();
   if(account.data()?.billingActive)return reply({error:"A subscription is already active. Contact support before changing plans."},409);
   const price=await stripe.prices.retrieve(priceId);
@@ -64,6 +61,7 @@ export async function POST(req){
   return reply({url:session.url,setupFeeCents:plan.setup,monthlyCents:plan.monthly+addons.reduce((n,k)=>n+addonAmount(planKey,k),0)});
  }catch(e){
   console.error("FUGTH Stripe checkout error",{type:e.type||"",code:e.code||""});
+  if(e.code==="resource_missing")return reply({error:"The current Vercel Stripe key does not recognize the new FUGTH Management prices. Change STRIPE_SECRET_KEY to the new account."},503);
   return reply({error:"Unable to create Stripe checkout. Please verify billing configuration with FUGTH support."},503);
  }
 }
