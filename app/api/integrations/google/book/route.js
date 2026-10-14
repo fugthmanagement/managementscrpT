@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { authenticatedUser,firebaseAdmin } from "../../../../../lib/server/auth";
-import { accessGoogleCalendar } from "../../../../../lib/server/google-calendar";
+import { accessGoogleCalendar, ensureFugthBusinessCalendar } from "../../../../../lib/server/google-calendar";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export async function POST(req) {
@@ -20,16 +20,18 @@ export async function POST(req) {
       return NextResponse.json({ error: "Choose a future appointment title, start, and end (15 minutes to 4 hours)." }, { status: 400 });
     }
     const token = await accessGoogleCalendar(user.uid);
+    const businessCalendar = await ensureFugthBusinessCalendar(user.uid, token);
+    const calendarId = businessCalendar.calendarId;
     const freebusy = await fetch("https://www.googleapis.com/calendar/v3/freeBusy", {
       method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ timeMin: begin.toISOString(), timeMax: finish.toISOString(), items: [{ id: "primary" }] }), cache: "no-store",
+      body: JSON.stringify({ timeMin: begin.toISOString(), timeMax: finish.toISOString(), items: [{ id: "primary" }, { id: calendarId }] }), cache: "no-store",
     });
     if (!freebusy.ok) return NextResponse.json({ error: "Could not read calendar availability. Reconnect Google Calendar if needed." }, { status: 502 });
     const free = await freebusy.json();
-    const primary = free.calendars?.primary;
-    if (!primary || primary.errors?.length) return NextResponse.json({ error: "Calendar availability could not be confirmed." }, { status: 502 });
-    if (primary.busy?.length) return NextResponse.json({ error: "That appointment time conflicts with an existing event." }, { status: 409 });
-    const response = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events", {
+    const primary = free.calendars?.primary, business = free.calendars?.[calendarId];
+    if (!primary || primary.errors?.length || !business || business.errors?.length) return NextResponse.json({ error: "Calendar availability could not be confirmed." }, { status: 502 });
+    if (primary.busy?.length || business.busy?.length) return NextResponse.json({ error: "That appointment time conflicts with an existing event." }, { status: 409 });
+    const response = await fetch("https://www.googleapis.com/calendar/v3/calendars/"+encodeURIComponent(calendarId)+"/events", {
       method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         summary: title,
@@ -48,7 +50,7 @@ export async function POST(req) {
       if(eventId){
         await firebaseAdmin().firestore().doc(`users/${user.uid}/appointments/google_${eventId}`).set({
           customerName:customerName||"Calendar appointment",phone,service:title,startTime:begin.toISOString(),endTime:finish.toISOString(),
-          status:"scheduled",source:"google_calendar",externalEventId:event.id,createdAt:new Date().toISOString()
+          status:"scheduled",source:"google_calendar",externalEventId:event.id,externalCalendarId:calendarId,createdAt:new Date().toISOString()
         },{merge:true});
         workspaceSynced=true;
       }
