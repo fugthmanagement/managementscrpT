@@ -55,7 +55,7 @@ export async function PUT(request,{params}){
    } else {
     next=sanitized(body.site||{},uid,existing,"preview");
     if(!next.name||!next.headline)throw Object.assign(new Error("Business name and headline are required."),{status:400});
-    if(next.contactEmail&&!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(next.contactEmail))
+    if(next.contactEmail&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(next.contactEmail))
       throw Object.assign(new Error("Enter a valid business contact email."),{status:400});
     if(next.phone&&!/^[+0-9() .-]{7,32}$/.test(next.phone))
       throw Object.assign(new Error("Enter a valid business contact phone number."),{status:400});
