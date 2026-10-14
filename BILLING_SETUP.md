@@ -55,3 +55,16 @@ Server-only transaction records event IDs under `processedStripeEvents/{eventId}
 6. Verify active plan enforcement separately in phone provisioning/usage endpoints before enabling billable AI calls for new customers.
 
 Do not treat a success URL, client-side event, selected plan or local Firestore write as proof of payment.
+
+
+## FUGTH Management Stripe migration — October 14, 2026
+The explicitly selected Stripe connector is "Fugth Management", account `acct_1QYiGDHGcNIhcRMj` (live mode). Three **new** monthly products were created there:
+- Low $49/month: `price_1UQOt9HGcNIhcRMjZJVSgXII` / `prod_VRHSIDxPjmR5q7`.
+- Mid $149/month: `price_1UQOtBHGcNIhcRMj2uKPsRjD` / `prod_VRHSxrdAuLvNR5`.
+- High $499/month: `price_1UQOtDHGcNIhcRMjvH0HGgfV` / `prod_VRHS7WK57MDuzj`.
+
+Checkout and signed webhook entitlement mapping now refer exclusively to these new price IDs. Setup implementation charges are one-time Stripe Checkout line items ($1,500/$2,500/$3,500); recurring optional add-ons are priced within each checkout. The site must use the **matching Stripe live secret key** and **this account's webhook signing secret** for production; previous credentials belonging to other accounts will not work. Never commit keys.
+
+Stripe Dashboard for this selected account: enable a signed webhook endpoint `https://www.fugthmanagement.space/api/stripe/webhook` and configure the events listed above. Configure `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and Firebase Admin credentials in Vercel Production, then redeploy and complete an authorized checkout test. The latest checkout returns a specific explanation when the Vercel secret cannot retrieve one of the new account's price IDs.
+
+**Existing subscriptions, customers, historical payouts and payment records in any older Stripe account were not moved.** Stripe account boundaries do not support naively replacing customer IDs or moving stored card details. Handle any intentional old-customer migration separately with explicit customer authorization and proper reconciliation. Don't enable standalone Payment Links as a substitute for the signed Firebase subscription provisioning flow.
