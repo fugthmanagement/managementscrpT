@@ -11,6 +11,7 @@ import FounderSites from "./founder-sites";
 import ReceptionistPreview from "./receptionist-preview";
 import CallInbox from "./call-inbox";
 import FounderPlanPreview,{CustomerPlanSnapshot,getPreviewPlan} from "./founder-plan-preview";
+import FounderColdCall from "./founder-cold-call";
 
 const MENU=[
  {id:"home",label:"Home",icon:"home"},
@@ -183,6 +184,7 @@ export default function FugthWorkspace(){
        {settingsSection==="connections"&&<IntegrationsHub/>}
       </div>}
      {page==="admin"&&founder&&<div><SectionHeading eyebrow="FUGTH INTERNAL" title="Administration." description="Private team tools, fully separate from what customers see."/><div className="space-y-6">
+       <FounderColdCall user={user}/>
        <FounderPlanPreview selected={previewPlan||"none"} onSelect={setPreviewPlan}
          onStart={key=>{setPreviewPlan(key);navigate("home");}}
          onExit={()=>{setPreviewPlan(null);navigate("home");}}/>

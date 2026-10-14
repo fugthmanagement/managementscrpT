@@ -9,6 +9,8 @@ export async function POST(req) {
   try {
     const body = await req.json();
     const title = String(body.title || "").trim();
+    const customerName = String(body.customerName || "").replace(/[<>\u0000-\u001f]/g," ").trim().slice(0,100);
+    const phone = String(body.phone || "").replace(/[^+0-9() .-]/g,"").trim().slice(0,32);
     const begin = new Date(body.startTime);
     const finish = new Date(body.endTime);
     const duration = finish.getTime() - begin.getTime();
@@ -31,7 +33,7 @@ export async function POST(req) {
       method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         summary: title,
-        description: "Created from Fugth Management OS. Do not include confidential patient or case information.",
+        description: ["Created from FUGTH founder sales desk.",customerName&&`Contact: ${customerName}`,phone&&`Phone: ${phone}`,"Free AI audit · 15-minute discovery call."].filter(Boolean).join("\n"),
         start: { dateTime: begin.toISOString() },
         end: { dateTime: finish.toISOString() },
       }), cache: "no-store",
@@ -45,7 +47,7 @@ export async function POST(req) {
       const eventId=String(event.id||"").replace(/[^a-z0-9_-]/gi,"").slice(0,120);
       if(eventId){
         await firebaseAdmin().firestore().doc(`users/${user.uid}/appointments/google_${eventId}`).set({
-          customerName:"Calendar appointment",service:title,startTime:begin.toISOString(),endTime:finish.toISOString(),
+          customerName:customerName||"Calendar appointment",phone,service:title,startTime:begin.toISOString(),endTime:finish.toISOString(),
           status:"scheduled",source:"google_calendar",externalEventId:event.id,createdAt:new Date().toISOString()
         },{merge:true});
         workspaceSynced=true;
