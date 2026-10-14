@@ -1,18 +1,21 @@
 import {NextResponse} from "next/server";
 import {authenticatedUser} from "../../../lib/server/auth";
 import {fromFirestoreValue} from "../../../lib/server/firestore-admin";
-import {demoBusiness,demoAssistant,DEMO_DURATION,DEMO_DAILY_LIMIT,usNumber} from "../../../lib/server/voice-preview";
+import {demoBusiness,demoAssistant,DEMO_DURATION,DEMO_FOCUS_OPTIONS,DEMO_SCENARIOS,focusChoice,scenarioChoice,usNumber} from "../../../lib/server/voice-preview";
+import {getDemoCooldown,reserveDemo,recordDemoCall} from "../../../lib/server/demo-cooldown";
+
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
 
 const projectId=()=>process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID||"";
 const voiceKey=()=>process.env.VAPI_PRIVATE_KEY||process.env.VOICE_PRIVATE_KEY||"";
-const numberId=()=>process.env.VAPI_PHONE_NUMBER_ID||"";
-const dbRoot=()=>`https://firestore.googleapis.com/v1/projects/${encodeURIComponent(projectId())}/databases/(default)/documents`;
-const canUseDemo=()=>Boolean(projectId()&&process.env.NEXT_PUBLIC_FIREBASE_API_KEY&&voiceKey()&&numberId());
+const numberId=()=>process.env.VAPI_PHONE_NUMBER_ID||process.env.VAPI_PHONE_NUMBER||"";
+const hasAdminCredentials=()=>Boolean(process.env.FIREBASE_SERVICE_ACCOUNT||(process.env.FIREBASE_CLIENT_EMAIL&&process.env.FIREBASE_PRIVATE_KEY));
+const canUseDemo=()=>Boolean(projectId()&&process.env.NEXT_PUBLIC_FIREBASE_API_KEY&&voiceKey()&&numberId()&&hasAdminCredentials());
+const root=()=> "https://firestore.googleapis.com/v1/projects/"+encodeURIComponent(projectId())+"/databases/(default)/documents";
 function response(data,status=200){return NextResponse.json(data,{status,headers:{"Cache-Control":"no-store"}});}
 async function readDoc(path,token){
- const res=await fetch(dbRoot()+"/"+path,{headers:{Authorization:"Bearer "+token},cache:"no-store",signal:AbortSignal.timeout(6500)});
+ const res=await fetch(root()+"/"+path,{headers:{Authorization:"Bearer "+token},cache:"no-store",signal:AbortSignal.timeout(6500)});
  if(res.status===404)return null;
  if(!res.ok)throw Error("Saved business information could not be loaded.");
  const payload=await res.json();
@@ -26,56 +29,18 @@ async function authenticated(req){
 }
 async function businessFor(user,token){
  const uid=encodeURIComponent(user.uid);
- const [userDoc,siteDoc]=await Promise.all([
-   readDoc("users/"+uid,token),
-   readDoc("publicSites/"+uid,token).catch(()=>null)
+ const [profile,site]=await Promise.all([
+  readDoc("users/"+uid,token),
+  readDoc("publicSites/"+uid,token).catch(()=>null)
  ]);
- if(!userDoc?.businessName && !siteDoc?.name)return null;
- return demoBusiness(userDoc||{},siteDoc||{});
-}
-async function globalCapacity(){
- // The provider owns the source-of-truth list of actual calls. Never start
- // billable calls if its safety data cannot be checked.
- const since=new Date().toISOString().slice(0,10)+"T00:00:00.000Z";
- const url="https://api.vapi.ai/call?createdAtGt="+encodeURIComponent(since)+"&limit=1000";
- const r=await fetch(url,{headers:{Authorization:"Bearer "+voiceKey()},cache:"no-store",signal:AbortSignal.timeout(9000)});
- if(!r.ok)throw Error("FUGTH call safety check is unavailable.");
- const calls=await r.json();
- if(!Array.isArray(calls))throw Error("FUGTH call safety check is unavailable.");
- if(calls.filter(c=>c.metadata?.fugthPreview===true).length>=80)
-   throw Object.assign(new Error("Today's demo call capacity has been reached. Please try another day."),{status:429});
-}
-function slotName(day,slot){return "preview_"+day+"_"+slot;}
-async function quota(user,token,to){
- const today=new Date().toISOString().slice(0,10).replaceAll("-","");
- for(let slot=1;slot<=DEMO_DAILY_LIMIT;slot++){
-  const id=slotName(today,slot);
-  const existing=await readDoc("users/"+encodeURIComponent(user.uid)+"/calls/"+id,token);
-  if(existing){
-   const elapsed=Date.now()-Date.parse(existing.createdAt||"");
-   if(Number.isFinite(elapsed)&&elapsed<15*60*1000)
-      throw Object.assign(new Error("You've recently tested your receptionist. You can try again after 15 minutes."),{status:429});
-   continue;
-  }
-  const path=dbRoot()+"/users/"+encodeURIComponent(user.uid)+"/demoAttempts?documentId="+encodeURIComponent(id);
-  const fields={
-    ownerId:{stringValue:user.uid},kind:{stringValue:"voice_preview"},source:{stringValue:"preview_quota"},
-    phone:{stringValue:to},createdAt:{timestampValue:new Date().toISOString()}
-  };
-  const r=await fetch(path,{method:"POST",headers:{Authorization:"Bearer "+token,"Content-Type":"application/json"},
-    body:JSON.stringify({fields}),cache:"no-store",signal:AbortSignal.timeout(8000)});
-  if(r.status===409)continue;
-  if(!r.ok)throw Object.assign(new Error("Secure call verification is not active on this account. FUGTH support can enable it."),{status:503});
-  return;
- }
- throw Object.assign(new Error("Your two daily previews have been used. Try again tomorrow."),{status:429});
+ if(!profile?.businessName&&!site?.name)return null;
+ return demoBusiness(profile||{},site||{});
 }
 export async function GET(req){
- const user=await authenticated(req);
- if(!user)return response({error:"Please sign in to preview your receptionist."},401);
- if(!canUseDemo())return response({available:false,reason:"The calling experience is being configured."});
- const params=new URL(req.url).searchParams;
- const callId=params.get("callId");
+ const account=await authenticated(req);
+ if(!account)return response({error:"Please sign in to preview your receptionist."},401);
+ if(!canUseDemo())return response({available:false,reason:"The FUGTH voice or secure cooldown connection is not configured."});
+ const callId=new URL(req.url).searchParams.get("callId");
  if(callId){
   if(!/^[0-9a-f-]{36}$/i.test(callId))return response({error:"Invalid call ID."},400);
   try{
@@ -84,50 +49,70 @@ export async function GET(req){
    });
    if(!r.ok)return response({error:"Call status not available."},503);
    const call=await r.json();
-   if(call.metadata?.ownerId!==user.user.uid || call.metadata?.fugthPreview!==true)return response({error:"Call not found."},404);
+   if(call.metadata?.ownerId!==account.user.uid||call.metadata?.fugthPreview!==true)
+    return response({error:"Call not found."},404);
    return response({status:call.status||"queued",endedReason:call.endedReason||null,summary:call.analysis?.summary||null});
   }catch{return response({error:"Call status unavailable right now."},503);}
  }
- const profile=await businessFor(user.user,user.token).catch(()=>null);
- return response({available:true,business:profile,verifiedPhone:usNumber(user.user.phone_number)||null,
-   maxDurationSeconds:DEMO_DURATION,dailyLimit:DEMO_DAILY_LIMIT,requiresPhoneVerification:true});
+ try{
+  const [business,cooldown]=await Promise.all([businessFor(account.user,account.token),getDemoCooldown(account.user.uid)]);
+  return response({available:true,business,requiresPhoneVerification:false,
+   maxDurationSeconds:DEMO_DURATION,focusOptions:DEMO_FOCUS_OPTIONS,scenarioOptions:DEMO_SCENARIOS,
+   ...cooldown});
+ }catch{
+  return response({available:false,reason:"The secure demo service is unavailable. Please try again later."},503);
+ }
 }
 export async function POST(req){
  const account=await authenticated(req);
  if(!account)return response({error:"Please sign in to try your receptionist."},401);
- if(!canUseDemo())return response({error:"Calls are not configured for this workspace."},503);
- let body={};
- try{body=await req.json();}catch{return response({error:"Invalid request."},400);}
- const to=usNumber(body.phone),linked=usNumber(account.user.phone_number);
- if(!to||!linked||to!==linked)return response({error:"Verify your own mobile number with a text message before requesting the test call."},403);
- if(body.consent!==true)return response({error:"Please consent to receive this one-time voice demo call."},400);
- try {
+ if(!canUseDemo())return response({error:"Calls are not fully configured for this workspace."},503);
+ let body;
+ try{
+  const text=await req.text();if(text.length>3000)throw Error();
+  body=JSON.parse(text);
+ }catch{return response({error:"Invalid call request."},400);}
+ const to=usNumber(body?.phone);
+ if(!to)return response({error:"Enter a valid United States phone number."},400);
+ if(body.consent!==true)return response({error:"Confirm that you own this number or have permission to receive this demo call."},400);
+ const focus=focusChoice(body.focus),scenario=scenarioChoice(body.scenario);
+ let reservation;
+ try{
   const business=await businessFor(account.user,account.token);
-  if(!business)return response({error:"Add your business name and type in Settings first."},400);
-  // Global safety cap and an immutable one-user-per-slot quota: charged previews
-  // cannot be triggered without the user's verified phone number and consent.
-  await globalCapacity();
-  await quota(account.user,account.token,to);
+  if(!business)return response({error:"Save your business name and industry in Settings first."},400);
+  reservation=await reserveDemo(account.user.uid,to,focus);
+  // Reuse the same Vapi outbound mechanism that already powers founder test calls.
+  // Transient per-call assistant holds business facts; no vendor keys reach the client.
   const payload={
-   phoneNumberId:numberId(),customer:{number:to},assistant:demoAssistant(business),
-   metadata:{fugthPreview:true,ownerId:account.user.uid,industry:business.industry}
+   phoneNumberId:numberId().trim(),customer:{number:to},
+   assistant:demoAssistant(business,focus,scenario),
+   metadata:{fugthPreview:true,ownerId:account.user.uid,industry:business.industry,focus,scenario}
   };
-  const provider=await fetch("https://api.vapi.ai/call",{
-   method:"POST",headers:{"Authorization":"Bearer "+voiceKey(),"Content-Type":"application/json"},
+  const provider=await fetch("https://api.vapi.ai/call/phone",{
+   method:"POST",headers:{Authorization:"Bearer "+voiceKey().trim(),"Content-Type":"application/json"},
    body:JSON.stringify(payload),cache:"no-store",signal:AbortSignal.timeout(16000)
   });
   const result=await provider.json().catch(()=>({}));
   if(!provider.ok){
-   console.error("FUGTH receptionist preview rejected",{status:provider.status,code:result.error?.code||result.code||""});
-   const detail=String(result.message||result.error?.message||"").toLowerCase();
-   const unsupported=/free|outbound|phone number|number not found|twilio/.test(detail);
-   return response({error:unsupported?"The configured FUGTH number may not support outbound calls yet. Contact FUGTH support.":"The test call couldn't be connected. Check your number and try again later."},502);
+   console.error("FUGTH preview provider rejection",{status:provider.status,code:result.error?.code||result.code||"unknown"});
+   await recordDemoCall(account.user.uid,reservation.attemptId,null,"rejected").catch(()=>{});
+   const providerMessage=String(result.message||result.error?.message||"").toLowerCase();
+   const phoneProblem=/phone number|outbound|twilio|number not found|free plan/.test(providerMessage);
+   return response({error:phoneProblem?
+    "FUGTH's calling number cannot place this outbound demo yet. Please contact support.":
+    "The voice provider couldn't connect this call. Contact support to reset your cooldown.",
+    cooldownUntil:reservation.cooldownUntil},502);
   }
-  if(!result.id)return response({error:"Your preview request was accepted, but the call has not been confirmed."},502);
+  if(!result.id){
+   await recordDemoCall(account.user.uid,reservation.attemptId,null,"unconfirmed").catch(()=>{});
+   return response({error:"Your demo request did not return a confirmed call ID. Contact support.",cooldownUntil:reservation.cooldownUntil},502);
+  }
+  await recordDemoCall(account.user.uid,reservation.attemptId,result.id,"started").catch(()=>{});
   return response({success:true,callId:result.id,status:result.status||"queued",businessName:business.name,
-    maxDurationSeconds:DEMO_DURATION});
+   maxDurationSeconds:DEMO_DURATION,cooldownUntil:reservation.cooldownUntil,focus,scenario});
  }catch(err){
-  console.error("FUGTH test call unavailable",err?.status||"internal");
-  return response({error:err?.status?err.message:"Your test call could not be started right now."},err?.status||503);
+  console.error("FUGTH live demo unavailable",err?.status||"internal");
+  return response({error:err?.status?err.message:"The demo call could not be started right now. Please contact support if this persists.",
+   cooldownUntil:err?.cooldownUntil||reservation?.cooldownUntil||null},err?.status||503);
  }
 }
