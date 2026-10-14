@@ -116,6 +116,7 @@ export default function ReceptionistPreview({user,workspace,onGoPhoneSetup,admin
        </select>
       </label>
      </div>
+     {data?.warning&&<p role="alert" className="mb-4 rounded-xl border border-[#f0d9c2] bg-[#fff8f1] p-4 text-xs text-[#936b42]">{data.warning}</p>}
      <label className="mt-5 block text-xs font-semibold text-[#536958]">Number to call
       <input type="tel" autoComplete="tel" inputMode="tel" placeholder="(305) 555-0140" value={phone} onChange={e=>setPhone(e.target.value)} className={input+" text-base"}/>
      </label>
@@ -125,7 +126,7 @@ export default function ReceptionistPreview({user,workspace,onGoPhoneSetup,admin
      </label>
      {!adminMode&&remaining>0&&<div className="mt-5 rounded-xl border border-[#e7dfca] bg-[#fdf9ed] p-4 text-sm text-[#806f40]">Next demo available in <strong>{formatRemaining(remaining)}</strong>. Your FUGTH administrator can reset this cooldown.</div>}
      <div className="mt-6 flex flex-wrap gap-3">
-      <button type="button" onClick={startCall} disabled={busy||!consent||(!adminMode&&remaining>0)||!normalize(phone)||!!call?.callId} className="rounded-xl bg-[#253c2d] px-7 py-4 text-sm font-semibold text-white disabled:opacity-40">{busy?"Connecting…":"Call me for a live demo ↗"}</button>
+      <button type="button" onClick={startCall} disabled={busy||!consent||(!adminMode&&remaining>0)||!normalize(phone)||Boolean(call?.callId&&!["ended","failed"].includes(call.status))} className="rounded-xl bg-[#253c2d] px-7 py-4 text-sm font-semibold text-white disabled:opacity-40">{busy?"Connecting…":adminMode&&["ended","failed"].includes(call?.status)?"Run another admin test ↗":"Call me for a live demo ↗"}</button>
       <button type="button" onClick={onGoPhoneSetup} className="rounded-xl border border-[#e1e8db] px-5 py-4 text-sm font-semibold text-[#687d65]">Business phone settings</button>
      </div>
      {message&&<p role="status" className="mt-5 rounded-xl border border-[#d8e5d4] bg-[#f1f7ee] p-4 text-sm text-[#4e6d4b]">{message}</p>}
