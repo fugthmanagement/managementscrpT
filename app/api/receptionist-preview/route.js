@@ -71,7 +71,7 @@ export async function GET(req){
   const fallbackBusiness=business||demoBusiness({businessName:"FUGTH Management",businessType:"Local business"});
   const cooldown=admin?{cooldownUntil:null,remainingSeconds:0}:
    await getDemoCooldown(account.user.uid);
-  return response({available:true,adminMode:admin,business:fallbackBusiness,requiresPhoneVerification:false,
+  return response({available:true,adminMode:admin,business:fallbackBusiness,warning:admin&&!numberId()?"No outbound caller number is configured. Vapi may reject this test until one is connected.":null,requiresPhoneVerification:false,
    maxDurationSeconds:DEMO_DURATION,focusOptions:DEMO_FOCUS_OPTIONS,scenarioOptions:DEMO_SCENARIOS,
    ...cooldown});
  }catch{
