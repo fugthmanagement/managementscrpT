@@ -1,5 +1,5 @@
 "use client";
-import {useState} from "react";
+import {useEffect,useState} from "react";
 const questions=["What services do you offer?","Can I request an appointment?","What are your hours?","Can I get pricing?"];
 function reply(q,site){
  const text=String(q||"").toLowerCase();
@@ -20,6 +20,7 @@ export default function SiteChat({site,preview=false}){
  const [bookingOpen,setBookingOpen]=useState(false);
  const [booking,setBooking]=useState({name:"",contact:"",service:"",date:"",time:""});
  const [bookingNotice,setBookingNotice]=useState("");
+ useEffect(()=>{try{if(window.parent!==window)window.parent.postMessage({type:"FUGTH_CHAT_RESIZE",open},"*");}catch{}},[open]);
  if(site.showChatbot===false)return null;
  function ask(value){
   const query=String(value||"").trim().slice(0,220);if(!query)return;
