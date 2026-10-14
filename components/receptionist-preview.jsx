@@ -19,6 +19,7 @@ const FALLBACK_SCENARIOS=[
  {id:"quote",label:"Customer requesting a quote"},
  {id:"schedule",label:"Customer requesting an appointment"}
 ];
+function formatUnlockDate(until){const date=new Date(until||"");return Number.isFinite(date.getTime())?date.toLocaleString(undefined,{weekday:"short",month:"short",day:"numeric",year:"numeric",hour:"numeric",minute:"2-digit",timeZoneName:"short"}):"Not available";}
 function formatRemaining(seconds){
  const minutes=Math.ceil(Math.max(0,seconds)/60);
  return minutes>=60?Math.floor(minutes/60)+"h "+(minutes%60)+"m":minutes+"m";
@@ -124,7 +125,7 @@ export default function ReceptionistPreview({user,workspace,onGoPhoneSetup,admin
       <input type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)} className="mt-1 h-4 w-4 shrink-0 accent-[#305237]"/>
       <span>I own this number or have explicit permission to receive a one-time FUGTH demo call.</span>
      </label>
-     {!adminMode&&remaining>0&&<div className="mt-5 rounded-xl border border-[#e7dfca] bg-[#fdf9ed] p-4 text-sm text-[#806f40]">Next demo available in <strong>{formatRemaining(remaining)}</strong>. Your FUGTH administrator can reset this cooldown.</div>}
+     {!adminMode&&remaining>0&&<div className="mt-5 rounded-xl border border-[#e7dfca] bg-[#fdf9ed] p-4 text-sm text-[#806f40]">Your next demo unlocks on <strong>{formatUnlockDate(cooldownUntil)}</strong> (in {formatRemaining(remaining)}). Your administrator may reset the limit.</div>}
      <div className="mt-6 flex flex-wrap gap-3">
       <button type="button" onClick={startCall} disabled={busy||!consent||(!adminMode&&remaining>0)||!normalize(phone)||Boolean(call?.callId&&!["ended","failed"].includes(call.status))} className="rounded-xl bg-[#253c2d] px-7 py-4 text-sm font-semibold text-white disabled:opacity-40">{busy?"Connecting…":adminMode&&["ended","failed"].includes(call?.status)?"Run another admin test ↗":"Call me for a live demo ↗"}</button>
       <button type="button" onClick={onGoPhoneSetup} className="rounded-xl border border-[#e1e8db] px-5 py-4 text-sm font-semibold text-[#687d65]">Business phone settings</button>
@@ -132,6 +133,7 @@ export default function ReceptionistPreview({user,workspace,onGoPhoneSetup,admin
      {message&&<p role="status" className="mt-5 rounded-xl border border-[#d8e5d4] bg-[#f1f7ee] p-4 text-sm text-[#4e6d4b]">{message}</p>}
      {error&&<p role="alert" className="mt-5 rounded-xl border border-[#ecd8ca] bg-[#fff5ec] p-4 text-sm text-[#966441]">{error}</p>}
      {call?.callId&&<div className="mt-5 rounded-xl border border-[#dee8d7] bg-[#f3f8ef] p-5"><p className="text-sm font-semibold">Live demo call requested</p><p className="mt-2 text-xs text-[#6e866b]">Status: {call.status||"Connecting"}</p>{call.summary&&<p className="mt-3 text-sm leading-6 text-[#465a49]">{call.summary}</p>}{["ended","failed"].includes(call.status)&&<p className="mt-2 text-xs text-[#617563]">{call.saved?"Saved to your Firestore Call Library.":"Finishing the summary and saving your call record…"}</p>}</div>}
+     <div className="mt-5 rounded-xl border border-[#dbe5d7] bg-[#f6faf3] p-4 text-xs leading-6 text-[#657663]"><strong>Need more than 15 seconds?</strong> <a href="mailto:fugthmanagement@gmail.com?subject=FUGTH%20extended%20AI%20receptionist%20demo" className="font-bold underline underline-offset-2">Request a longer guided demonstration</a> with the FUGTH management team. Email is the quickest way to reach us.</div>
      <p className="mt-6 text-xs leading-6 text-[#909b90]">{adminMode?"Founder tests have no customer-demo cooldown, but calls still consume voice credits.":"Live calls use paid calling resources; limits keep demo access fair for everyone."} No SMS verification required.</p>
     </>}
   </div>
