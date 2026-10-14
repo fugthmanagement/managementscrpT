@@ -74,6 +74,7 @@ export async function POST(req) {
     const expiresAt=iso(subscription.cancel_at || subscription.ended_at) || end;
     const data={
       planTier:tier,
+      billingAddons:String(subscription.metadata?.addons||"").split(",").filter(x=>["website","booking","email","analytics","automation","priority","integration","voice","location","staff","sms"].includes(x)),
       planStatus:status,
       billingActive:isActive,
       billingCurrentPeriodStart:start,
