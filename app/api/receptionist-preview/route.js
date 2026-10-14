@@ -8,7 +8,7 @@ export const runtime="nodejs";
 export const dynamic="force-dynamic";
 
 const projectId=()=>process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID||"";
-const voiceKey=()=>process.env.VAPI_PRIVATE_KEY||process.env.VOICE_PRIVATE_KEY||"";
+const voiceKey=()=>process.env.VOICE_PRIVATE_KEY||process.env.VAPI_PRIVATE_KEY||"";
 const numberId=()=>process.env.VAPI_PHONE_NUMBER_ID||process.env.VAPI_PHONE_NUMBER||"";
 const hasAdminCredentials=()=>Boolean(process.env.FIREBASE_SERVICE_ACCOUNT||(process.env.FIREBASE_CLIENT_EMAIL&&process.env.FIREBASE_PRIVATE_KEY));
 // Founder calls use the pre-existing Vapi path and do not require Firestore Admin.
