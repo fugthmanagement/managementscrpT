@@ -1,5 +1,5 @@
 import {NextResponse} from "next/server";
-import {authenticatedUser} from "../../../lib/server/auth";
+import {authenticatedUser,isFounder} from "../../../lib/server/auth";
 import {fromFirestoreValue} from "../../../lib/server/firestore-admin";
 import {demoBusiness,demoAssistant,DEMO_DURATION,DEMO_FOCUS_OPTIONS,DEMO_SCENARIOS,focusChoice,scenarioChoice,usNumber} from "../../../lib/server/voice-preview";
 import {getDemoCooldown,reserveDemo,recordDemoCall} from "../../../lib/server/demo-cooldown";
@@ -11,7 +11,12 @@ const projectId=()=>process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID||"";
 const voiceKey=()=>process.env.VAPI_PRIVATE_KEY||process.env.VOICE_PRIVATE_KEY||"";
 const numberId=()=>process.env.VAPI_PHONE_NUMBER_ID||process.env.VAPI_PHONE_NUMBER||"";
 const hasAdminCredentials=()=>Boolean(process.env.FIREBASE_SERVICE_ACCOUNT||(process.env.FIREBASE_CLIENT_EMAIL&&process.env.FIREBASE_PRIVATE_KEY));
-const canUseDemo=()=>Boolean(projectId()&&process.env.NEXT_PUBLIC_FIREBASE_API_KEY&&voiceKey()&&numberId()&&hasAdminCredentials());
+// Founder calls use the pre-existing Vapi path and do not require Firestore Admin.
+// Customer calls still require atomic Firestore quota enforcement.
+const hasVoice=()=>Boolean(voiceKey());
+const adminView=(account,view)=>view==="admin"&&isFounder(account.user);
+const customerReady=()=>Boolean(hasVoice()&&numberId()&&hasAdminCredentials());
+const unavailableReason=(admin)=>!hasVoice()?"FUGTH voice calling is missing its Vapi key.":admin?null:!numberId()?"An outbound calling number has not been configured.":"Secure customer demo cooldown storage needs Firebase server credentials.";
 const root=()=> "https://firestore.googleapis.com/v1/projects/"+encodeURIComponent(projectId())+"/databases/(default)/documents";
 function response(data,status=200){return NextResponse.json(data,{status,headers:{"Cache-Control":"no-store"}});}
 async function readDoc(path,token){
@@ -39,8 +44,11 @@ async function businessFor(user,token){
 export async function GET(req){
  const account=await authenticated(req);
  if(!account)return response({error:"Please sign in to preview your receptionist."},401);
- if(!canUseDemo())return response({available:false,reason:"The FUGTH voice or secure cooldown connection is not configured."});
- const callId=new URL(req.url).searchParams.get("callId");
+ const params=new URL(req.url).searchParams;
+ const admin=adminView(account,params.get("view"));
+ if(!hasVoice()||(!admin&&!customerReady()))
+  return response({available:false,adminMode:admin,reason:unavailableReason(admin)});
+ const callId=params.get("callId");
  if(callId){
   if(!/^[0-9a-f-]{36}$/i.test(callId))return response({error:"Invalid call ID."},400);
   try{
@@ -55,8 +63,10 @@ export async function GET(req){
   }catch{return response({error:"Call status unavailable right now."},503);}
  }
  try{
-  const [business,cooldown]=await Promise.all([businessFor(account.user,account.token),getDemoCooldown(account.user.uid)]);
-  return response({available:true,business,requiresPhoneVerification:false,
+  const business=await businessFor(account.user,account.token);
+  const cooldown=admin?{cooldownUntil:null,remainingSeconds:0}:
+   await getDemoCooldown(account.user.uid);
+  return response({available:true,adminMode:admin,business,requiresPhoneVerification:false,
    maxDurationSeconds:DEMO_DURATION,focusOptions:DEMO_FOCUS_OPTIONS,scenarioOptions:DEMO_SCENARIOS,
    ...cooldown});
  }catch{
@@ -66,7 +76,6 @@ export async function GET(req){
 export async function POST(req){
  const account=await authenticated(req);
  if(!account)return response({error:"Please sign in to try your receptionist."},401);
- if(!canUseDemo())return response({error:"Calls are not fully configured for this workspace."},503);
  let body;
  try{
   const text=await req.text();if(text.length>3000)throw Error();
@@ -76,17 +85,20 @@ export async function POST(req){
  if(!to)return response({error:"Enter a valid United States phone number."},400);
  if(body.consent!==true)return response({error:"Confirm that you own this number or have permission to receive this demo call."},400);
  const focus=focusChoice(body.focus),scenario=scenarioChoice(body.scenario);
+ const admin=adminView(account,body.view);
+ if(!hasVoice())return response({error:"FUGTH voice calling is not connected: the Vapi server key is missing."},503);
+ if(!admin&&!customerReady())return response({error:unavailableReason(false)||"Customer demo service unavailable."},503);
  let reservation;
  try{
   const business=await businessFor(account.user,account.token);
-  if(!business)return response({error:"Save your business name and industry in Settings first."},400);
-  reservation=await reserveDemo(account.user.uid,to,focus);
+  if(!business&&!admin)return response({error:"Save your business name and industry in Settings first."},400);
+  if(!admin)reservation=await reserveDemo(account.user.uid,to,focus);
   // Reuse the same Vapi outbound mechanism that already powers founder test calls.
   // Transient per-call assistant holds business facts; no vendor keys reach the client.
   const payload={
-   phoneNumberId:numberId().trim(),customer:{number:to},
-   assistant:demoAssistant(business,focus,scenario),
-   metadata:{fugthPreview:true,ownerId:account.user.uid,industry:business.industry,focus,scenario}
+   ...(numberId()?{phoneNumberId:numberId().trim()}:{}),customer:{number:to},
+   assistant:demoAssistant(business||demoBusiness({businessName:"FUGTH Management",businessType:"Local business"}),focus,scenario),
+   metadata:{fugthPreview:true,ownerId:account.user.uid,industry:business?.industry||"general",focus,scenario,founderTest:admin}
   };
   const provider=await fetch("https://api.vapi.ai/call/phone",{
    method:"POST",headers:{Authorization:"Bearer "+voiceKey().trim(),"Content-Type":"application/json"},
@@ -95,21 +107,21 @@ export async function POST(req){
   const result=await provider.json().catch(()=>({}));
   if(!provider.ok){
    console.error("FUGTH preview provider rejection",{status:provider.status,code:result.error?.code||result.code||"unknown"});
-   await recordDemoCall(account.user.uid,reservation.attemptId,null,"rejected").catch(()=>{});
+   if(reservation)await recordDemoCall(account.user.uid,reservation.attemptId,null,"rejected").catch(()=>{});
    const providerMessage=String(result.message||result.error?.message||"").toLowerCase();
    const phoneProblem=/phone number|outbound|twilio|number not found|free plan/.test(providerMessage);
    return response({error:phoneProblem?
     "FUGTH's calling number cannot place this outbound demo yet. Please contact support.":
     "The voice provider couldn't connect this call. Contact support to reset your cooldown.",
-    cooldownUntil:reservation.cooldownUntil},502);
+    ...(reservation?{cooldownUntil:reservation.cooldownUntil}:{})},502);
   }
   if(!result.id){
-   await recordDemoCall(account.user.uid,reservation.attemptId,null,"unconfirmed").catch(()=>{});
-   return response({error:"Your demo request did not return a confirmed call ID. Contact support.",cooldownUntil:reservation.cooldownUntil},502);
+   if(reservation)await recordDemoCall(account.user.uid,reservation.attemptId,null,"unconfirmed").catch(()=>{});
+   return response({error:"Your demo request did not return a confirmed call ID. Contact support.",...(reservation?{cooldownUntil:reservation.cooldownUntil}:{})},502);
   }
-  await recordDemoCall(account.user.uid,reservation.attemptId,result.id,"started").catch(()=>{});
-  return response({success:true,callId:result.id,status:result.status||"queued",businessName:business.name,
-   maxDurationSeconds:DEMO_DURATION,cooldownUntil:reservation.cooldownUntil,focus,scenario});
+  if(reservation)await recordDemoCall(account.user.uid,reservation.attemptId,result.id,"started").catch(()=>{});
+  return response({success:true,callId:result.id,status:result.status||"queued",businessName:business?.name||"FUGTH Management",
+   adminMode:admin,maxDurationSeconds:DEMO_DURATION,cooldownUntil:reservation?.cooldownUntil||null,focus,scenario});
  }catch(err){
   console.error("FUGTH live demo unavailable",err?.status||"internal");
   return response({error:err?.status?err.message:"The demo call could not be started right now. Please contact support if this persists.",
