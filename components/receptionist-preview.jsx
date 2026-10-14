@@ -53,17 +53,17 @@ export default function ReceptionistPreview({user,workspace,onGoPhoneSetup,admin
   update();const timer=setInterval(update,15000);return()=>clearInterval(timer);
  },[cooldownUntil]);
  useEffect(()=>{
-  if(!call?.callId||["ended","failed"].includes(call.status))return;
+  if(!call?.callId||(["ended","failed"].includes(call.status)&&call.saved))return;
   let stopped=false;
   const timer=setInterval(async()=>{
    try{
     const res=await fetch("/api/receptionist-preview?callId="+encodeURIComponent(call.callId),{headers:await headers(),cache:"no-store"});
     const data=await res.json();
-    if(!stopped&&res.ok)setCall(prev=>({...prev,status:data.status,summary:data.summary,endedReason:data.endedReason}));
+    if(!stopped&&res.ok)setCall(prev=>({...prev,status:data.status,summary:data.summary,endedReason:data.endedReason,saved:data.saved===true}));
    }catch{}
   },5000);
   return()=>{stopped=true;clearInterval(timer)};
- },[call?.callId,call?.status]);
+ },[call?.callId,call?.status,call?.saved]);
  async function startCall(){
   setBusy(true);setError("");setMessage("");setCall(null);
   const target=normalize(phone);
@@ -131,7 +131,7 @@ export default function ReceptionistPreview({user,workspace,onGoPhoneSetup,admin
      </div>
      {message&&<p role="status" className="mt-5 rounded-xl border border-[#d8e5d4] bg-[#f1f7ee] p-4 text-sm text-[#4e6d4b]">{message}</p>}
      {error&&<p role="alert" className="mt-5 rounded-xl border border-[#ecd8ca] bg-[#fff5ec] p-4 text-sm text-[#966441]">{error}</p>}
-     {call?.callId&&<div className="mt-5 rounded-xl border border-[#dee8d7] bg-[#f3f8ef] p-5"><p className="text-sm font-semibold">Live demo call requested</p><p className="mt-2 text-xs text-[#6e866b]">Status: {call.status||"Connecting"}</p>{call.summary&&<p className="mt-3 text-sm leading-6 text-[#465a49]">{call.summary}</p>}</div>}
+     {call?.callId&&<div className="mt-5 rounded-xl border border-[#dee8d7] bg-[#f3f8ef] p-5"><p className="text-sm font-semibold">Live demo call requested</p><p className="mt-2 text-xs text-[#6e866b]">Status: {call.status||"Connecting"}</p>{call.summary&&<p className="mt-3 text-sm leading-6 text-[#465a49]">{call.summary}</p>}{["ended","failed"].includes(call.status)&&<p className="mt-2 text-xs text-[#617563]">{call.saved?"Saved to your Firestore Call Library.":"Finishing the summary and saving your call record…"}</p>}</div>}
      <p className="mt-6 text-xs leading-6 text-[#909b90]">{adminMode?"Founder tests have no customer-demo cooldown, but calls still consume voice credits.":"Live calls use paid calling resources; limits keep demo access fair for everyone."} No SMS verification required.</p>
     </>}
   </div>
