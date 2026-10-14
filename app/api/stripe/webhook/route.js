@@ -16,9 +16,9 @@ const supported = new Set([
 function planForSubscription(subscription) {
   const priceId = subscription.items?.data?.[0]?.price?.id;
   const mapping = [
-    ["starter", process.env.STRIPE_STARTER_PRICE_ID],
-    ["growth", process.env.STRIPE_GROWTH_PRICE_ID],
-    ["elite", process.env.STRIPE_ELITE_PRICE_ID],
+    ["starter", "price_1UQOt9HGcNIhcRMjZJVSgXII"],
+    ["growth", "price_1UQOtBHGcNIhcRMj2uKPsRjD"],
+    ["elite", "price_1UQOtDHGcNIhcRMjvH0HGgfV"],
   ];
   return mapping.find(([name, id]) => id && id === priceId)?.[0] || "";
 }
