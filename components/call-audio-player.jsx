@@ -1,72 +1,49 @@
 "use client";
 import {useEffect,useRef,useState} from "react";
-import {getBytes,getMetadata,ref,uploadBytes} from "firebase/storage";
-import {auth,storage} from "../lib/firebase";
-const isCallId=value=>/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(value||""));
-export default function CallAudioPlayer({call,user}){
+import {auth} from "../lib/firebase";
+const validId=id=>/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(id||""));
+export default function CallAudioPlayer({call}){
  const [source,setSource]=useState("");
- const [loading,setLoading]=useState(false),[error,setError]=useState("");
- const [archived,setArchived]=useState(false),[warning,setWarning]=useState("");
- const ownedUrl=useRef("");
- useEffect(()=>()=>{if(ownedUrl.current)URL.revokeObjectURL(ownedUrl.current);},[]);
- const callId=call.providerCallId||call.id;
+ const [busy,setBusy]=useState(false),[error,setError]=useState("");
+ const [archive,setArchive]=useState("");
+ const objectUrl=useRef("");
+ const id=call.providerCallId||call.id;
+ useEffect(()=>()=>{if(objectUrl.current)URL.revokeObjectURL(objectUrl.current);},[]);
  async function load(){
-  if(!isCallId(callId)){setError("This older call has no verified Vapi recording ID.");return;}
-  setLoading(true);setError("");setWarning("");
-  const path="users/"+user.uid+"/call-recordings/"+callId;
-  const file=storage?ref(storage,path):null;
+  if(!validId(id)){setError("This older call does not have a valid Vapi reference.");return;}
+  setBusy(true);setError("");
   try{
-   if(file){
-    try{
-     // Access through the authenticated Firebase SDK; do not publish a permanent
-     // Firebase download-token URL that bypasses Storage security rules.
-     const [meta,bytes]=await Promise.all([getMetadata(file),getBytes(file,20*1024*1024)]);
-     const blob=new Blob([bytes],{type:meta.contentType||"audio/mpeg"});
-     if(ownedUrl.current)URL.revokeObjectURL(ownedUrl.current);
-     ownedUrl.current=URL.createObjectURL(blob);
-     setSource(ownedUrl.current);setArchived(true);return;
-    }catch{/* A missing archive is normal for calls made before this update. */}
-   }
    const token=await auth.currentUser?.getIdToken();
-   if(!token)throw Error("Sign in to retrieve this private recording.");
-   const response=await fetch("/api/calls/recording?callId="+encodeURIComponent(callId),{
+   if(!token)throw Error("Sign in to access this private recording.");
+   const response=await fetch("/api/calls/recording?callId="+encodeURIComponent(id),{
     headers:{Authorization:"Bearer "+token},cache:"no-store"
    });
    if(!response.ok){
-    const detail=await response.json().catch(()=>({}));
-    throw Error(detail.error||"Recording is unavailable. Try again shortly.");
+    const json=await response.json().catch(()=>({}));
+    throw Error(json.error||"Recording could not be loaded. Retry shortly.");
    }
    const blob=await response.blob();
    if(!blob.size||!blob.type.startsWith("audio/"))
-    throw Error("The provider didn't return playable audio.");
-   let saved=response.headers.get("x-fugth-archived")==="yes";
-   if(file&&!saved){
-    try{
-     await uploadBytes(file,blob,{contentType:blob.type,cacheControl:"private, no-store"});
-     saved=true;
-    }catch{
-     setWarning("Playback works, but Firebase Storage could not archive this audio. Deploy storage.rules and verify your Storage bucket.");
-    }
-   }
-   if(ownedUrl.current)URL.revokeObjectURL(ownedUrl.current);
-   ownedUrl.current=URL.createObjectURL(blob);
-   setSource(ownedUrl.current);setArchived(saved);
-  }catch(e){setError(e.message||"Unable to retrieve audio.");}
-  finally{setLoading(false);}
+    throw Error("The recording service returned no playable audio.");
+   if(objectUrl.current)URL.revokeObjectURL(objectUrl.current);
+   objectUrl.current=URL.createObjectURL(blob);
+   setArchive(response.headers.get("x-fugth-archived")==="drive"?"drive":"temporary");
+   setSource(objectUrl.current);
+  }catch(error){setError(error.message||"Recording unavailable.");}
+  finally{setBusy(false);}
  }
- return <div className="mt-3 space-y-3 rounded-2xl border border-[#dce7d8] bg-white p-4">
-  {source?<>
-   <audio aria-label="Private call recording" className="w-full" controls preload="metadata" src={source}>Your browser cannot play this recording.</audio>
-   <div className="flex flex-wrap items-center gap-3 text-xs">
-    <span className={archived?"font-semibold text-[#366648]":"text-[#8b7949]"}>{archived?"✓ Saved in your Firebase Storage account":"Playing securely from Vapi"}</span>
-    <button type="button" onClick={load} disabled={loading} className="font-semibold text-[#456849] underline">Refresh audio</button>
-    <a href={source} download={"fugth-call-"+callId} className="font-semibold text-[#456849] underline">Download</a>
+ return <div className="mt-3 rounded-2xl border border-[#dce7d8] bg-white p-4">
+  {source?<div className="space-y-3">
+   <audio aria-label="Private call recording" className="w-full" controls preload="metadata" src={source}>Recording playback is unavailable in this browser.</audio>
+   <div className="flex flex-wrap gap-3 text-[11px]">
+    <span className={archive==="drive"?"font-semibold text-[#356844]":"text-amber-800"}>{archive==="drive"?"✓ Archived privately in Google Drive":"Playing from Vapi · Drive archive pending"}</span>
+    <a href={source} download={"fugth-call-"+id} className="font-semibold text-[#446f4b] underline">Download recording</a>
+    <button type="button" onClick={load} disabled={busy} className="font-semibold text-[#446f4b] underline">Refresh</button>
    </div>
-  </>:<>
-   <p className="text-xs leading-6 text-[#738575]">Play this call privately, and save a permanent recording to your Firebase account when available.</p>
-   <button type="button" onClick={load} disabled={loading} className="rounded-xl bg-[#294834] px-4 py-3 text-xs font-bold text-white disabled:opacity-50">{loading?"Retrieving recording…":"▶ Play & save recording"}</button>
-  </>}
-  {warning&&<p className="text-xs leading-6 text-[#a27e40]">{warning}</p>}
-  {error&&<div role="alert" className="text-xs leading-6 text-[#a54842]">{error} <button type="button" onClick={load} className="ml-2 font-semibold underline">Retry</button></div>}
+  </div>:<div className="space-y-3">
+   <p className="text-xs leading-6 text-[#758576]">Your call stays private. Audio loads only when you press Play, and FUGTH archives it to your connected private Google Drive.</p>
+   <button type="button" onClick={load} disabled={busy} className="rounded-xl bg-[#294834] px-4 py-3 text-xs font-bold text-white disabled:opacity-50">{busy?"Loading recording…":"▶ Play recording"}</button>
+  </div>}
+  {error&&<p role="alert" className="mt-3 text-xs leading-6 text-[#9a3d37]">{error} <button type="button" onClick={load} className="ml-2 font-bold underline">Retry</button></p>}
  </div>;
 }

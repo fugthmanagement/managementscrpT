@@ -1,35 +1,49 @@
 import {NextResponse} from "next/server";
 import {authenticatedUser} from "../../../../lib/server/auth";
-import {validCallId,fetchOwnedVapiCall,fetchVapiAudio,fromFirebaseArchive,archiveWithAdmin} from "../../../../lib/server/vapi-recordings";
+import {validCallId,fetchOwnedVapiCall,fetchVapiAudio} from "../../../../lib/server/vapi-recordings";
+import {readDriveRecording,saveDriveRecording} from "../../../../lib/server/drive-recordings";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
-export const maxDuration=45;
-function json(error,status){return NextResponse.json({error},{status,headers:{"Cache-Control":"private, no-store"}});}
+export const maxDuration=60;
+const failure=(error,status)=>NextResponse.json({error},{status,headers:{"Cache-Control":"private, no-store"}});
+const audioReply=(audio,backend)=>new Response(audio.data,{
+ headers:{"Content-Type":audio.contentType,
+ "Content-Length":String(audio.data.byteLength),
+ "Cache-Control":"private, no-store",
+ "X-Fugth-Archived":backend==="google_drive"?"drive":"no",
+ "Content-Disposition":'inline; filename="fugth-call-recording"'
+ }});
 export async function GET(req){
  const user=await authenticatedUser(req);
- if(!user?.uid)return json("Sign in to listen to recordings.",401);
- const id=new URL(req.url).searchParams.get("callId")||"";
- if(!validCallId(id))return json("Invalid recording reference.",400);
+ if(!user?.uid)return failure("Sign in to listen to your recordings.",401);
+ const callId=new URL(req.url).searchParams.get("callId")||"";
+ if(!validCallId(callId))return failure("Invalid call recording reference.",400);
+ let driveError=null;
  try{
-  // Firebase archives are segregated by verified owner UID.
-  const cached=await fromFirebaseArchive(user.uid,id);
-  if(cached)return new Response(cached.data,{headers:{
-   "Content-Type":cached.contentType,"Content-Length":String(cached.data.byteLength),
-   "Cache-Control":"private, no-store","X-Fugth-Archived":"yes",
-   "Content-Disposition":'inline; filename="fugth-call-'+id+'"'
-  }});
-  // Only private server credentials contact Vapi: never send the provider's
-  // short-lived signed URL, original artifact URL, or private API key to a browser.
-  await fetchOwnedVapiCall(id,user.uid);
-  const audio=await fetchVapiAudio(id);
-  const archived=await archiveWithAdmin(user.uid,id,audio);
-  return new Response(audio.data,{headers:{
-   "Content-Type":audio.contentType,"Content-Length":String(audio.data.byteLength),
-   "Cache-Control":"private, no-store","X-Fugth-Archived":archived.archived?"yes":"no",
-   "Content-Disposition":'inline; filename="fugth-call-'+id+'"'
-  }});
+  // The Firebase-authenticated uid selects a server-owned Firestore archive
+  // record; no public Drive link or customer-provided Drive file ID is accepted.
+  const archive=await readDriveRecording(user.uid,callId);
+  if(archive)return audioReply(archive,"google_drive");
  }catch(error){
-  console.warn("FUGTH private call playback",{status:error?.status||"unknown"});
-  return json(error.message||"The recording could not be loaded.",error?.status||503);
+  driveError=error;
+  console.warn("Google Drive playback unavailable",{code:error?.status||"oauth"});
+ }
+ try{
+  // A new or pending archive is still playable from Vapi before retention ends.
+  await fetchOwnedVapiCall(callId,user.uid);
+  const audio=await fetchVapiAudio(callId);
+  let archived=false;
+  try{
+   const outcome=await saveDriveRecording(user.uid,callId,audio);
+   archived=outcome.archived===true;
+  }catch(error){
+   console.warn("Archive deferred until Google Drive is authorized",{code:error?.status||"oauth"});
+  }
+  return audioReply(audio,archived?"google_drive":"vapi");
+ }catch(error){
+  const explanation=driveError?
+   "Google Drive recording could not be opened, and the temporary Vapi recording is unavailable. Reconnect your Google account under Settings → Connections.":
+   error.message||"This recording isn't available yet.";
+  return failure(explanation,error.status===404?404:error.status===403?403:503);
  }
 }
