@@ -1,3 +1,4 @@
+import {durationForDemo,getGlobalDemoSettings} from "../../../lib/server/demo-settings";
 import {NextResponse} from "next/server";
 import {authenticatedUser,isFounder} from "../../../lib/server/auth";
 import {fromFirestoreValue} from "../../../lib/server/firestore-admin";
@@ -71,10 +72,11 @@ export async function GET(req){
   // A founder can still test Vapi if a Firestore user profile has not been provisioned.
   const business=await businessFor(account.user,account.token).catch(()=>null);
   const fallbackBusiness=business||demoBusiness({businessName:"FUGTH Management",businessType:"Local business"});
+  const seconds=await durationForDemo(account.user.uid,founderTesting);
   const cooldown=founderTesting?{cooldownUntil:null,remainingSeconds:0}:
    await getDemoCooldown(account.user.uid);
   return response({available:true,adminMode:admin,business:fallbackBusiness,warning:founderTesting&&!numberId()?"Your outgoing FUGTH demo line needs setup.":null,requiresPhoneVerification:false,
-   maxDurationSeconds:DEMO_DURATION,focusOptions:DEMO_FOCUS_OPTIONS,scenarioOptions:DEMO_SCENARIOS,
+   maxDurationSeconds:seconds,focusOptions:DEMO_FOCUS_OPTIONS,scenarioOptions:DEMO_SCENARIOS,
    ...cooldown});
  }catch{
   return response({available:false,reason:"The secure demo service is unavailable. Please try again later."},503);
@@ -101,11 +103,12 @@ export async function POST(req){
   const business=await businessFor(account.user,account.token).catch(()=>null);
   if(!founderTesting)reservation=await reserveDemo(account.user.uid,to,focus);
   const context=business||demoBusiness({businessName:body.businessName||"FUGTH Management",businessType:body.businessType||"Local business"});
+  const seconds=await durationForDemo(account.user.uid,founderTesting);
   // Reuse the same Vapi outbound mechanism that already powers founder test calls.
   // Transient per-call assistant holds business facts; no vendor keys reach the client.
   const payload={
    ...(numberId()?{phoneNumberId:numberId().trim()}:{}),customer:{number:to},
-   assistant:demoAssistant(context,focus,scenario),
+   assistant:demoAssistant(context,focus,scenario,seconds),
    metadata:{fugthPreview:true,ownerId:account.user.uid,industry:context.industry,focus,scenario,founderTest:founderTesting}
   };
   const provider=await fetch("https://api.vapi.ai/call/phone",{
@@ -133,7 +136,7 @@ export async function POST(req){
   }
   if(reservation)await recordDemoCall(account.user.uid,reservation.attemptId,result.id,"started").catch(()=>{});
   return response({success:true,callId:result.id,status:result.status||"queued",businessName:context.name,
-   adminMode:admin,maxDurationSeconds:DEMO_DURATION,cooldownUntil:reservation?.cooldownUntil||null,focus,scenario});
+   adminMode:admin,maxDurationSeconds:seconds,cooldownUntil:reservation?.cooldownUntil||null,focus,scenario});
  }catch(err){
   console.error("FUGTH live demo unavailable",err?.status||"internal");
   return response({error:err?.status?err.message:"The demo call could not be started right now. Please contact support if this persists.",
