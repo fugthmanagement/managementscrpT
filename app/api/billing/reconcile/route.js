@@ -1,14 +1,10 @@
 import Stripe from "stripe";
 import {NextResponse} from "next/server";
 import {authenticatedUser,firebaseAdmin} from "../../../../lib/server/auth";
+import {priceDetails} from "../../../../lib/server/fugth-price-catalog";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
 const reply=(data,status=200)=>NextResponse.json(data,{status,headers:{"Cache-Control":"private, no-store"}});
-const monthly={
- "price_1UQOt9HGcNIhcRMjZJVSgXII":"starter",
- "price_1UQOtBHGcNIhcRMj2uKPsRjD":"growth",
- "price_1UQOtDHGcNIhcRMjvH0HGgfV":"elite"
-};
 const allowedAddons=new Set(["website","booking","email","analytics","automation","priority","integration","voice","location","staff","sms"]);
 const iso=s=>Number(s)>0?new Date(Number(s)*1000).toISOString():null;
 export async function POST(request){
@@ -30,8 +26,9 @@ export async function POST(request){
   if(!subId)return reply({verified:false,reason:"No subscription associated with this checkout."});
   const subscription=await stripe.subscriptions.retrieve(subId,{expand:["items.data.price"]});
   if(subscription.metadata?.userId!==user.uid)return reply({error:"Subscription owner mismatch."},403);
-  const tier=monthly[subscription.items?.data?.[0]?.price?.id||""];
-  if(!tier)return reply({error:"FUGTH couldn't match this subscription to a live plan."},422);
+  const matched=priceDetails(subscription.items?.data?.[0]?.price?.id||"");
+  if(!matched)return reply({error:"FUGTH couldn't match this subscription to an authorized plan."},422);
+  const {tier,cycle}=matched;
   const active=["active","trialing"].includes(subscription.status);
   const item=subscription.items.data[0];
   const from=iso(item.current_period_start||subscription.current_period_start);
@@ -44,7 +41,7 @@ export async function POST(request){
   // their tier, price, renewal date, or activate an unpaid subscription.
   const fields={
    planTier:tier,planStatus:subscription.status,billingActive:active,
-   billingAddons:addons,billingCycle:"monthly",
+   billingAddons:addons,billingCycle:cycle,
    stripeCustomerId:typeof subscription.customer==="string"?subscription.customer:subscription.customer?.id||"",
    stripeSubscriptionId:subscription.id,
    billingCurrentPeriodStart:from,billingCurrentPeriodEnd:until,
@@ -60,7 +57,7 @@ export async function POST(request){
    if(prior.exists)return;
    tx.set(userRef,fields,{merge:true});
    tx.create(audit,{uid:user.uid,subscriptionId:subscription.id,planTier:tier,
-    status:subscription.status,verifiedAt:now});
+    status:subscription.status,billingCycle:cycle,verifiedAt:now});
   });
   return reply({verified:true,active,planTier:tier,status:subscription.status});
  }catch(error){
