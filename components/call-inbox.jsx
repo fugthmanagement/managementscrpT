@@ -15,7 +15,9 @@ const clock=call=>timestamp(call)?.toLocaleString(undefined,{month:"short",day:"
 const sortable=call=>timestamp(call)?.getTime()||0;
 export default function CallInbox({calls=[],leads=[],user,locked=false,onPhoneSetup,onViewCustomer}){
  const [filter,setFilter]=useState("all"),[open,setOpen]=useState(""),[busy,setBusy]=useState(""),[notice,setNotice]=useState("");
- const visible=useMemo(()=>[...calls].sort((a,b)=>sortable(b)-sortable(a)).filter(call=>filter==="favorites"?call.favorite:filter==="appointments"?/book|appointment|schedul/i.test([call.outcome,call.intent,call.summary].join(" ")):true),[calls,filter]);
+ const validCall=call=>/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(call.providerCallId||call.id||""));
+ const sampleCount=calls.filter(call=>!validCall(call)).length;
+ const visible=useMemo(()=>[...calls].filter(validCall).sort((a,b)=>sortable(b)-sortable(a)).filter(call=>filter==="favorites"?call.favorite:filter==="appointments"?/book|appointment|schedul/i.test([call.outcome,call.intent,call.summary].join(" ")):true),[calls,filter]);
  async function change(call,patch){if(locked||!db||!user?.uid)return;setBusy(call.id);try{await updateDoc(doc(db,"users",user.uid,"calls",call.id),{...patch,updatedAt:serverTimestamp()});}catch(e){setNotice("Could not update this call.");}finally{setBusy("");}}
  async function remove(call){if(locked||!db||!user?.uid||!window.confirm("Delete this call recording and transcript from the library?"))return;setBusy(call.id);try{await deleteDoc(doc(db,"users",user.uid,"calls",call.id));setNotice("Call removed.");}catch{setNotice("Could not delete the call.");}finally{setBusy("");}}
  async function syncRecent(){
@@ -55,6 +57,7 @@ export default function CallInbox({calls=[],leads=[],user,locked=false,onPhoneSe
     <div className="flex rounded-xl bg-[#f3f5f0] p-1">{[["all","All"],["favorites","Favorites"],["appointments","Appointments"]].map(([id,label])=><button key={id} type="button" disabled={locked} onClick={()=>setFilter(id)} className={`rounded-lg px-3 py-2 text-[11px] font-semibold ${filter===id?"bg-white text-[#27352a] shadow-sm":"text-[#81877e]"}`}>{label}</button>)}</div>
    </div>
   </div>
+  {sampleCount>0&&<p className="mx-5 mt-4 rounded-xl border border-[#d9e5df] bg-[#f1f8f6] p-4 text-xs text-[#577b78]">{sampleCount} old demonstration record{sampleCount===1?" was":"s were"} hidden because no real phone-call recording exists. They remain in your account data and can be managed separately.</p>}
   {notice&&<p role="status" className="m-5 rounded-xl bg-[#f0f6ed] p-4 text-xs text-[#446046]">{notice}</p>}
   <div className={locked?"pointer-events-none select-none opacity-35 grayscale":""}>
    {records.length?<div className="divide-y divide-[#eceee9]">{records.map(call=>{
