@@ -1,62 +1,96 @@
-import { NextResponse } from "next/server";
-import { authenticatedUser,firebaseAdmin } from "../../../../../lib/server/auth";
-import { accessGoogleCalendar, ensureFugthBusinessCalendar } from "../../../../../lib/server/google-calendar";
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
-export async function POST(req) {
-  const user = await authenticatedUser(req);
-  if (!user) return NextResponse.json({ error: "Sign in required." }, { status: 401 });
-  try {
-    const body = await req.json();
-    const title = String(body.title || "").trim();
-    const customerName = String(body.customerName || "").replace(/[<>\u0000-\u001f]/g," ").trim().slice(0,100);
-    const phone = String(body.phone || "").replace(/[^+0-9() .-]/g,"").trim().slice(0,32);
-    const begin = new Date(body.startTime);
-    const finish = new Date(body.endTime);
-    const duration = finish.getTime() - begin.getTime();
-    if (!title || title.length > 120 || !Number.isFinite(begin.getTime()) || !Number.isFinite(finish.getTime()) ||
-      begin.getTime() < Date.now() || begin.getTime() > Date.now() + 180 * 86400000 ||
-      duration < 15 * 60000 || duration > 4 * 3600000) {
-      return NextResponse.json({ error: "Choose a future appointment title, start, and end (15 minutes to 4 hours)." }, { status: 400 });
-    }
-    const token = await accessGoogleCalendar(user.uid);
-    const businessCalendar = await ensureFugthBusinessCalendar(user.uid, token);
-    const calendarId = businessCalendar.calendarId;
-    const freebusy = await fetch("https://www.googleapis.com/calendar/v3/freeBusy", {
-      method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ timeMin: begin.toISOString(), timeMax: finish.toISOString(), items: [{ id: "primary" }, { id: calendarId }] }), cache: "no-store",
-    });
-    if (!freebusy.ok) return NextResponse.json({ error: "Could not read calendar availability. Reconnect Google Calendar if needed." }, { status: 502 });
-    const free = await freebusy.json();
-    const primary = free.calendars?.primary, business = free.calendars?.[calendarId];
-    if (!primary || primary.errors?.length || !business || business.errors?.length) return NextResponse.json({ error: "Calendar availability could not be confirmed." }, { status: 502 });
-    if (primary.busy?.length || business.busy?.length) return NextResponse.json({ error: "That appointment time conflicts with an existing event." }, { status: 409 });
-    const response = await fetch("https://www.googleapis.com/calendar/v3/calendars/"+encodeURIComponent(calendarId)+"/events", {
-      method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        summary: title,
-        description: ["Created from FUGTH founder sales desk.",customerName&&`Contact: ${customerName}`,phone&&`Phone: ${phone}`,"Free AI audit · 15-minute discovery call."].filter(Boolean).join("\n"),
-        start: { dateTime: begin.toISOString() },
-        end: { dateTime: finish.toISOString() },
-      }), cache: "no-store",
-    });
-    if (!response.ok) return NextResponse.json({ error: "Google Calendar did not accept the event." }, { status: 502 });
-    const event = await response.json();
-    // Store a minimal pointer in the owner's FUGTH appointment list only after
-    // Google accepted the calendar event. No guests or private descriptions copied.
-    let workspaceSynced=false;
-    try {
-      const eventId=String(event.id||"").replace(/[^a-z0-9_-]/gi,"").slice(0,120);
-      if(eventId){
-        await firebaseAdmin().firestore().doc(`users/${user.uid}/appointments/google_${eventId}`).set({
-          customerName:customerName||"Calendar appointment",phone,service:title,startTime:begin.toISOString(),endTime:finish.toISOString(),
-          status:"scheduled",source:"google_calendar",externalEventId:event.id,externalCalendarId:calendarId,createdAt:new Date().toISOString()
-        },{merge:true});
-        workspaceSynced=true;
-      }
-    }catch(e){console.error("FUGTH calendar import failed; event exists in Google",e?.code||"unknown");}
-    return NextResponse.json({ created: true, workspaceSynced, eventId: event.id, eventUrl: event.htmlLink || null });
-  } catch {
-    return NextResponse.json({ error: "Could not create calendar appointment. Check the connection and try again." }, { status: 500 });
+import {NextResponse} from "next/server";
+import {authenticatedUser,firebaseAdmin} from "../../../../../lib/server/auth";
+import {accessGoogleCalendar,businessCalendarSession} from "../../../../../lib/server/google-calendar";
+export const runtime="nodejs";
+export const dynamic="force-dynamic";
+const reply=(data,status=200)=>NextResponse.json(data,{status,headers:{"Cache-Control":"private, no-store"}});
+async function checkFree(token,ids,begin,finish){
+ const result=await fetch("https://www.googleapis.com/calendar/v3/freeBusy",{
+  method:"POST",headers:{Authorization:"Bearer "+token,"Content-Type":"application/json"},
+  body:JSON.stringify({timeMin:begin.toISOString(),timeMax:finish.toISOString(),items:ids.map(id=>({id}))}),
+  cache:"no-store",signal:AbortSignal.timeout(12000)
+ });
+ if(!result.ok)throw new Error("Could not confirm the requested time is free.");
+ const json=await result.json();
+ for(const id of ids){
+  const item=json.calendars?.[id];
+  if(!item||item.errors?.length)throw new Error("Calendar availability is temporarily unavailable.");
+  if(item.busy?.length)return false;
+ }
+ return true;
+}
+export async function POST(req){
+ const user=await authenticatedUser(req);
+ if(!user?.uid)return reply({error:"Sign in to book a FUGTH appointment."},401);
+ let body;
+ try{const raw=await req.text();if(raw.length>4000)throw Error();body=JSON.parse(raw);}
+ catch{return reply({error:"Invalid appointment details."},400);}
+ const title=String(body.title||"").replace(/[\r\n<>]/g," ").trim().slice(0,120);
+ const name=String(body.customerName||"").replace(/[\r\n<>]/g," ").trim().slice(0,100);
+ const phone=String(body.phone||"").replace(/[^+0-9(). -]/g,"").trim().slice(0,32);
+ const begin=new Date(body.startTime),finish=new Date(body.endTime);
+ const duration=finish.getTime()-begin.getTime();
+ if(!title||!Number.isFinite(begin.getTime())||!Number.isFinite(finish.getTime())||
+  begin.getTime()<Date.now()||begin.getTime()>Date.now()+180*86400000||
+  duration<15*60000||duration>4*3600000)
+  return reply({error:"Choose a future time between 15 minutes and 4 hours."},400);
+ try{
+  const session=await businessCalendarSession(user.uid);
+  const free=await checkFree(session.token,[session.calendarId],begin,finish);
+  if(!free)return reply({error:"Your business calendar already has an appointment at that time."},409);
+  // Connected personal calendars are checked separately. Never check the
+  // founder's primary calendar while scheduling a different customer's work.
+  if(session.central){
+   try{
+    const ownToken=await accessGoogleCalendar(user.uid);
+    if(!(await checkFree(ownToken,["primary"],begin,finish)))
+     return reply({error:"The time conflicts with your connected personal calendar."},409);
+   }catch(error){
+    if(!String(error.message||"").includes("not connected")&&
+       !String(error.message||"").includes("Reconnect"))
+     return reply({error:"Your personal availability could not be checked. Reconnect your calendar before booking."},502);
+   }
+  }else if(!(await checkFree(session.token,["primary"],begin,finish))){
+   return reply({error:"The time conflicts with your connected personal calendar."},409);
   }
+  // A business owner receives an event invitation through their verified
+  // contact email; Google will apply their own notification preferences.
+  const attendees=session.central&&user.email_verified&&user.email?
+   [{email:user.email}]:[];
+  const url="https://www.googleapis.com/calendar/v3/calendars/"+
+    encodeURIComponent(session.calendarId)+"/events?sendUpdates=all";
+  const created=await fetch(url,{
+   method:"POST",headers:{Authorization:"Bearer "+session.token,"Content-Type":"application/json"},
+   body:JSON.stringify({summary:title,
+    description:["FUGTH confirmed business appointment",name&&"Customer: "+name,
+     phone&&"Contact number: "+phone].filter(Boolean).join("\n"),
+    start:{dateTime:begin.toISOString()},end:{dateTime:finish.toISOString()},
+    ...(attendees.length?{attendees}:{}),
+    extendedProperties:{private:{fugthOwnerId:user.uid}}
+   }),
+   cache:"no-store",signal:AbortSignal.timeout(13000)
+  });
+  if(!created.ok)return reply({error:"This appointment couldn't be added to your business calendar."},502);
+  const event=await created.json();
+  let workspaceSynced=false;
+  try{
+   const safe=String(event.id||"").replace(/[^A-Za-z0-9_-]/g,"").slice(0,120);
+   if(safe){
+    await firebaseAdmin().firestore().doc("users/"+user.uid+"/appointments/calendar_"+safe).set({
+     customerName:name||"Calendar appointment",phone,service:title,
+     startTime:begin.toISOString(),endTime:finish.toISOString(),status:"scheduled",
+     source:"fugth_calendar",calendarSyncStatus:"synced",
+     externalCalendarId:session.calendarId,externalEventId:event.id,
+     createdAt:new Date().toISOString()
+    },{merge:true});
+    workspaceSynced=true;
+   }
+  }catch(error){console.warn("FUGTH appointment mirror pending",{code:error?.code||"db"});}
+  return reply({created:true,workspaceSynced,eventId:event.id,eventUrl:event.htmlLink||null,
+   notification:"Owner notifications follow their connected calendar settings."});
+ }catch(error){
+  console.warn("FUGTH booking request failed",{code:error?.code||"calendar"});
+  return reply({error:error.message&&error.message.length<100?error.message:
+   "Your business calendar couldn't complete the booking. Please check the connection."},503);
+ }
 }
