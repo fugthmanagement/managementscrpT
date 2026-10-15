@@ -103,7 +103,7 @@ export async function POST(req){
   // Transient per-call assistant holds business facts; no vendor keys reach the client.
   const payload={
    maxDurationSeconds:DEMO_DURATION,
-   ...(numberId()?{phoneNumberId:numberId().trim()}:{}),customer:{number:to},
+   ...(numberId()?{phoneNumberId:numberId().trim()}:{}),customer:{number:to},maxDurationSeconds:DEMO_DURATION,
    assistant:demoAssistant(context,focus,scenario),
    metadata:{fugthPreview:true,ownerId:account.user.uid,industry:context.industry,focus,scenario,founderTest:admin}
   };
