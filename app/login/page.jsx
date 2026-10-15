@@ -1,15 +1,59 @@
 "use client";
 import {useEffect,useState} from "react";
 import Link from "next/link";
-import {createUserWithEmailAndPassword,sendPasswordResetEmail,signInWithEmailAndPassword} from "firebase/auth";
-import {doc,setDoc,serverTimestamp} from "firebase/firestore";
+import {createUserWithEmailAndPassword,sendPasswordResetEmail,signInWithEmailAndPassword,GoogleAuthProvider,signInWithPopup,signInWithRedirect,getRedirectResult} from "firebase/auth";
+import {doc,getDoc,setDoc,serverTimestamp} from "firebase/firestore";
 import {auth,db} from "../../lib/firebase";
 import {detectIndustry} from "../../lib/site-presets";
 const field="mt-2 w-full rounded-xl border border-[#dfe4db] bg-white px-4 py-3.5 text-[15px] text-[#283629] outline-none focus:border-[#70866b] focus:ring-2 focus:ring-[#e6ede0]";
 
 export default function Login(){
  const [mode,setMode]=useState("login"),[businessName,setBusinessName]=useState(""),[email,setEmail]=useState(""),[password,setPassword]=useState(""),[error,setError]=useState(""),[notice,setNotice]=useState(""),[busy,setBusy]=useState(false);
- useEffect(()=>{if(new URLSearchParams(window.location.search).has("signup"))setMode("signup");},[]);
+ useEffect(()=>{
+  if(new URLSearchParams(window.location.search).has("signup"))setMode("signup");
+  if(!auth)return;
+  getRedirectResult(auth).then(async result=>{
+   if(result?.user){await completeGoogleLogin(result.user);window.location.replace("/dashboard");}
+  }).catch(error=>setError(error?.code==="auth/operation-not-allowed"?
+   "Google sign-in needs to be enabled in the FUGTH login settings.":"Could not complete Google sign-in. Please retry."));
+ },[]);
+ async function completeGoogleLogin(current){
+  if(!db||!current?.uid)return;
+  const ref=doc(db,"users",current.uid);
+  try{
+   const existing=await getDoc(ref);
+   if(!existing.exists())await setDoc(ref,{
+    businessName:businessName.trim(),businessType:detectIndustry(businessName||"local business"),
+    email:current.email||"",createdAt:serverTimestamp(),updatedAt:serverTimestamp(),signInMethod:"google"
+   },{merge:true});
+   else if(!existing.data()?.email&&current.email){
+    await setDoc(ref,{email:current.email,updatedAt:serverTimestamp()},{merge:true});
+   }
+  }catch{/* The dashboard will still load and can finish account setup. */}
+ }
+ async function googleLogin(){
+  setBusy(true);setError("");setNotice("");
+  try{
+   if(!auth)throw Error("FUGTH sign-in isn't available.");
+   const provider=new GoogleAuthProvider();
+   provider.setCustomParameters({prompt:"select_account"});
+   try{
+    const result=await signInWithPopup(auth,provider);
+    await completeGoogleLogin(result.user);
+    window.location.replace("/dashboard");
+   }catch(error){
+    if(["auth/popup-blocked","auth/operation-not-supported-in-this-environment"].includes(error.code)){
+     await signInWithRedirect(auth,provider);return;
+    }
+    throw error;
+   }
+  }catch(error){
+   const code=String(error?.code||"");
+   setError(code==="auth/operation-not-allowed"?"Enable Google sign-in in FUGTH account authentication first.":
+    code==="auth/account-exists-with-different-credential"?"This email already has a different sign-in method. Log in with your password first to link accounts.":
+    code==="auth/popup-closed-by-user"?"The Google sign-in window was closed.":"Google sign-in couldn't finish. Try again.");
+  }finally{setBusy(false);}
+ }
  async function submit(e){e.preventDefault();setBusy(true);setError("");setNotice("");
   try{
    if(!auth)throw Error("Sign in is temporarily unavailable.");
@@ -53,6 +97,9 @@ export default function Login(){
      {notice&&<p role="status" className="rounded-xl border border-[#d9e7d4] bg-[#f3f8ef] p-4 text-sm text-[#54724e]">{notice}</p>}
      <button type="submit" disabled={busy} className="w-full rounded-xl bg-[#293b2b] px-6 py-4 text-sm font-semibold text-white transition hover:bg-[#405740] disabled:opacity-50">{busy?"One moment…":mode==="login"?"Log in to FUGTH →":"Create my account →"}</button>
     </form>
+    <div className="my-6 flex items-center gap-3"><div className="h-px flex-1 bg-[#e6e9e1]"/><span className="text-[11px] font-semibold uppercase tracking-widest text-[#91a18f]">or continue with</span><div className="h-px flex-1 bg-[#e6e9e1]"/></div>
+    <button type="button" onClick={googleLogin} disabled={busy} className="flex w-full items-center justify-center gap-3 rounded-xl border border-[#d6e2d2] bg-[#f8faf5] px-6 py-4 text-sm font-bold text-[#2b4633] transition hover:border-[#9bb798] hover:bg-[#eef5e9] disabled:opacity-50"><span className="grid h-6 w-6 place-items-center rounded-md bg-white text-base font-black text-[#4673c2]">G</span>Continue with Google</button>
+    <p className="mt-3 text-xs leading-6 text-[#869785]">After sign-in, connect your FUGTH business calendar in Settings to approve appointment syncing. Your login alone never grants access to private calendar events.</p>
     {mode==="login"&&<button type="button" onClick={reset} className="mt-5 self-start text-xs font-semibold text-[#688069] underline underline-offset-4">Forgot your password?</button>}
     <p className="mt-10 border-t border-[#eef0e9] pt-6 text-xs leading-6 text-[#a1aaa0]">Your workspace belongs to you. Keep your account information private.</p>
    </section>
