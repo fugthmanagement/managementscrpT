@@ -7,7 +7,7 @@ service cloud.firestore {
         'plan','status','planTier','planStatus','billingActive','billingEmail','billingAddons','founderAccess','founderAccessUpdatedAt',
         'stripeCustomerId','stripeSubscriptionId','billingCurrentPeriodStart',
         'billingCurrentPeriodEnd','billingRenewsAt','billingExpiresAt',
-        'billingCancelAtPeriodEnd','billingTrialEndsAt','billingUpdatedAt','vapiNumber','vapiPhoneNumberId',
+        'billingCancelAtPeriodEnd','billingTrialEndsAt','billingUpdatedAt','billingCycle','vapiNumber','vapiPhoneNumberId',
         'vapiAssistantId','vapiLinked','vapiLinkedAt','needsVapiLink','voiceProvisionedAt',
         'assignedNumberId','assignedAssistantId','accountNumber','accountNumberIssuedAt'
       ];
