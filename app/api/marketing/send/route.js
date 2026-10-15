@@ -2,12 +2,12 @@ import {NextResponse} from "next/server";
 import {authenticatedUser,isFounder,firebaseAdmin} from "../../../../lib/server/auth";
 import {accessGoogleCalendar,integrationConfigured,integrationDoc} from "../../../../lib/server/google-calendar";
 import {EMAIL_BATCH_SIZE,EMAIL_DAILY_LIMIT,mimeMessage,optoutUrl} from "../../../../lib/server/email-marketing";
+import {hasAccess} from "../../../../lib/server/account-entitlements";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
 const response=(obj,status=200)=>NextResponse.json(obj,{status,headers:{"Cache-Control":"no-store"}});
-const isAllowed=(user,profile)=>isFounder(user)||
- (profile?.billingActive===true&&
- (["growth","elite"].includes(profile.planTier)||Array.isArray(profile.billingAddons)&&profile.billingAddons.includes("email")));
+const isAllowed=(user,profile,grant)=>isFounder(user)||hasAccess({...profile,founderAccess:grant},"growth")||
+ (profile?.billingActive===true&&Array.isArray(profile.billingAddons)&&profile.billingAddons.includes("email"));
 const validEmail=email=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email||""));
 const today=()=>new Date().toISOString().slice(0,10).replaceAll("-","");
 export async function GET(req){
@@ -16,9 +16,9 @@ export async function GET(req){
  if(!integrationConfigured())return response({configured:false,connected:false,reason:"Google OAuth or Firebase server integration is not configured."});
  try{
   const db=firebaseAdmin().firestore();
-  const [google,profile]=await Promise.all([integrationDoc(user.uid).get(),db.doc("users/"+user.uid).get()]);
+  const [google,profile,grant]=await Promise.all([integrationDoc(user.uid).get(),db.doc("users/"+user.uid).get(),db.doc("founderAccountGrants/"+user.uid).get()]);
   const granted=google.exists&&String(google.data()?.scopes||"").split(" ").includes("https://www.googleapis.com/auth/gmail.send");
-  return response({configured:true,connected:granted,allowed:isAllowed(user,profile.data()),batchLimit:EMAIL_BATCH_SIZE,dailyLimit:EMAIL_DAILY_LIMIT,
+  return response({configured:true,connected:granted,allowed:isAllowed(user,profile.data(),grant.data()),batchLimit:EMAIL_BATCH_SIZE,dailyLimit:EMAIL_DAILY_LIMIT,
    reason:!granted?"Connect or reconnect your Google account to authorize Gmail sending.":null});
  }catch{return response({configured:false,connected:false,reason:"Could not read the Google delivery connection."},503);}
 }
@@ -29,10 +29,10 @@ export async function POST(req){
  let body;try{body=await req.json();}catch{return response({error:"Invalid request."},400);}
  if(!/^[a-zA-Z0-9]{10,40}$/.test(body?.campaignId||""))return response({error:"Select a saved campaign."},400);
  const db=firebaseAdmin().firestore(),uid=user.uid;
- const [profileDoc,campaignDoc]=await Promise.all([
-  db.doc("users/"+uid).get(),db.doc("users/"+uid+"/campaigns/"+body.campaignId).get()
+ const [profileDoc,campaignDoc,grantDoc]=await Promise.all([
+  db.doc("users/"+uid).get(),db.doc("users/"+uid+"/campaigns/"+body.campaignId).get(),db.doc("founderAccountGrants/"+uid).get()
  ]);
- if(!isAllowed(user,profileDoc.data()))return response({error:"Email campaigns need the Mid plan, High plan or paid Email add-on."},403);
+ if(!isAllowed(user,profileDoc.data(),grantDoc.data()))return response({error:"Email campaigns need the Mid plan, High plan or paid Email add-on."},403);
  if(!campaignDoc.exists||campaignDoc.data()?.type!=="marketing_campaign"||campaignDoc.data()?.channel!=="email")
   return response({error:"Select an email campaign draft from your workspace."},400);
  const campaign=campaignDoc.data();

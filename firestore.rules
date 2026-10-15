@@ -4,7 +4,7 @@ service cloud.firestore {
     function isOwner(uid) { return request.auth != null && request.auth.uid == uid; }
     function protectedKeys() {
       return [
-        'plan','status','planTier','planStatus','billingActive','billingEmail','billingAddons',
+        'plan','status','planTier','planStatus','billingActive','billingEmail','billingAddons','founderAccess','founderAccessUpdatedAt',
         'stripeCustomerId','stripeSubscriptionId','billingCurrentPeriodStart',
         'billingCurrentPeriodEnd','billingRenewsAt','billingExpiresAt',
         'billingCancelAtPeriodEnd','billingTrialEndsAt','billingUpdatedAt','vapiNumber','vapiPhoneNumberId',

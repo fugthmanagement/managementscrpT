@@ -1,5 +1,6 @@
 import {NextResponse} from "next/server";
 import {authenticatedUser,isFounder,firebaseAdmin} from "../../../../lib/server/auth";
+import {hasAccess} from "../../../../lib/server/account-entitlements";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
 const response=(data,status=200)=>NextResponse.json(data,{status,headers:{"Cache-Control":"no-store"}});
@@ -14,7 +15,9 @@ export async function POST(req){
  if(!goal.trim())return response({error:"Describe what you want the email to accomplish."},400);
  try{
   const db=firebaseAdmin().firestore(),userDoc=await db.doc("users/"+user.uid).get(),profile=userDoc.data()||{};
-  const entitled=isFounder(user)||(profile.billingActive===true&&(["growth","elite"].includes(profile.planTier)||profile.billingAddons?.includes("email")));
+  const manualDoc=await db.doc("founderAccountGrants/"+user.uid).get();
+  const entitled=isFounder(user)||hasAccess({...profile,founderAccess:manualDoc.data()},"growth")||
+   (profile.billingActive===true&&profile.billingAddons?.includes("email"));
   if(!entitled)return response({error:"AI campaign writing needs Mid, High or the Email add-on."},403);
   const date=new Date().toISOString().slice(0,10).replaceAll("-");
   const quotaRef=db.doc("marketingAiUsage/"+user.uid+"_"+date);

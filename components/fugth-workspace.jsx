@@ -16,7 +16,7 @@ import FounderAccountDirectory from "./founder-account-directory";
 import MarketingHub from "./marketing-hub";
 import FeatureGate from "./feature-gate";
 import {hasPlan,normalizePlan,planInfo} from "../lib/plan-access";
-import {accessTier,manualAccess} from "../lib/server/account-entitlements";
+import {accountAccessPlan} from "../lib/plan-access";
 
 const MENU=[
  {id:"home",label:"Home",icon:"home"},
@@ -56,7 +56,7 @@ const freshDate=v=>{if(!v)return "Recent";try{const d=v?.toDate?.()||new Date(v?
 export default function FugthWorkspace(){
  const [user,setUser]=useState(null),[ready,setReady]=useState(false);
  const [page,setPage]=useState("home"),[menuOpen,setMenuOpen]=useState(false);
- const [founder,setFounder]=useState(false),[capabilitiesReady,setCapabilitiesReady]=useState(false),[founderVerificationNeeded,setFounderVerificationNeeded]=useState(false);
+ const [founder,setFounder]=useState(false),[capabilitiesReady,setCapabilitiesReady]=useState(false),[founderVerificationNeeded,setFounderVerificationNeeded]=useState(false),[verifiedGrant,setVerifiedGrant]=useState(null);
  const [workspace,setWorkspace]=useState({}),[calls,setCalls]=useState([]),[leads,setLeads]=useState([]),[appointments,setAppointments]=useState([]),[notifications,setNotifications]=useState([]);
  const [error,setError]=useState(""),[notice,setNotice]=useState(""),[busy,setBusy]=useState("");
  const [customerView,setCustomerView]=useState("leads");
@@ -79,7 +79,7 @@ export default function FugthWorkspace(){
        const token=await current.getIdToken();
        const res=await fetch("/api/me/access",{headers:{Authorization:"Bearer "+token},cache:"no-store"});
        const data=await res.json().catch(()=>({}));
-       setFounder(Boolean(res.ok&&data.isFounder));setFounderVerificationNeeded(Boolean(res.ok&&data.needsFounderVerification));setCapabilitiesReady(true);
+       setFounder(Boolean(res.ok&&data.isFounder));setFounderVerificationNeeded(Boolean(res.ok&&data.needsFounderVerification));setVerifiedGrant(res.ok?data.founderGrant||null:null);setCapabilitiesReady(true);
      }catch{setFounder(false);setCapabilitiesReady(true);}
    });
  },[]);
@@ -148,10 +148,10 @@ export default function FugthWorkspace(){
  }
  if(!ready||!user)return <main className="grid min-h-screen place-items-center bg-[#f8f9f6] text-sm text-[#7b7f74]">Opening your FUGTH workspace…</main>;
  const business=workspace.businessName&&workspace.businessName!=="Fugth Management OS"?workspace.businessName:"My business";
- const actualPlanKey=accessTier(workspace);
+ const actualPlanKey=founder?"elite":accountAccessPlan(workspace,verifiedGrant);
  const effectivePlanKey=isSimulating?previewPlan:actualPlanKey;
  const currentPlan=planInfo(effectivePlanKey);
- const plan=workspace.billingActive?String(workspace.planTier||workspace.plan||"").toUpperCase():manualAccess(workspace)?"Founder access · "+String(workspace.founderAccess.tier).toUpperCase():"No active plan";
+ const plan=founder?"Founder · Admin":workspace.billingActive?String(workspace.planTier||workspace.plan||"").toUpperCase():verifiedGrant?"Founder access · "+String(verifiedGrant.tier).toUpperCase():"No active plan";
  const displayPlan=isSimulating?`ADMIN VIEW · ${currentPlan.name.toUpperCase()}`:plan;
  const navigate=id=>changePage(id);
  return <main className="min-h-screen bg-[#0c111b] font-sans text-[#24352d]">
