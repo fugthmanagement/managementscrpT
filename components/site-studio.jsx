@@ -2,7 +2,8 @@
 import {useEffect,useState} from "react";
 import Link from "next/link";
 import {auth,db} from "../lib/firebase";
-import {doc,getDoc} from "firebase/firestore";
+import {doc,getDoc,setDoc,serverTimestamp} from "firebase/firestore";
+import SiteImageLibrary from "./site-image-library";
 import {buildStarterSite,getIndustry,SITE_THEMES,siteFields} from "../lib/site-presets";
 import SiteRenderer from "./site-renderer";
 
@@ -35,6 +36,10 @@ export default function SiteStudio({user,workspace={},targetUid=null,locked=fals
     const next=published?.exists()?published.data():
      buildStarterSite(uid,details.businessName||workspace.businessName||"Your business",
       details.businessType||workspace.businessType||"general",details);
+    const chosen=details.sitePreviewImages||{};
+    if(chosen.heroImageId||chosen.galleryImageIds)next={...next,
+      ...(chosen.heroImageId?{heroImageId:chosen.heroImageId}:{}),
+      ...(chosen.galleryImageIds?{galleryImageIds:chosen.galleryImageIds}:{})};
     setSite(next);setPublished(next.visibility==="published");return;
    }
    const data=await request();
@@ -68,12 +73,31 @@ export default function SiteStudio({user,workspace={},targetUid=null,locked=fals
  useEffect(()=>{load()},[uid]);
  function change(patch){if(locked)return;setSite(current=>{const next={...current,...patch};try{localStorage.setItem(LOCAL_SITE_DRAFT,JSON.stringify({industry:next.industry,template:next.template,headerColor:next.headerColor,mainColor:next.mainColor,sectionColor:next.sectionColor,accentColor:next.accentColor}));}catch{}return next;});setMessage("");}
  function chooseTemplate(theme){change({template:theme.id,theme:theme.id,...theme.palette});}
+ async function choosePhoto(slot,imageId){
+  if(!/^fugth-upload-[a-f0-9]{32}$/.test(String(imageId||"")))return;
+  const gallery=Array.isArray(site?.galleryImageIds)?[...site.galleryImageIds]:[];
+  if(slot==="gallery1")gallery[0]=imageId;
+  if(slot==="gallery2")gallery[1]=imageId;
+  const next=slot==="hero"?{heroImageId:imageId}:{galleryImageIds:gallery};
+  setSite(prev=>({...prev,...next}));
+  setMessage("");setError("");
+  if(!isFounderEditing){
+   try{
+    const saved={heroImageId:slot==="hero"?imageId:site?.heroImageId||"",
+      galleryImageIds:slot==="hero"?gallery:gallery};
+    await setDoc(doc(db,"users",uid),{sitePreviewImages:saved,updatedAt:serverTimestamp()},{merge:true});
+    setMessage("Image saved for your private website preview. Publication remains separate.");
+   }catch{setError("Your photo was selected locally but couldn't be synced to the FUGTH account.");}
+  }
+ }
+
  async function action(kind){if(locked)return;setBusy(kind);setError("");setMessage("");try{const data=await request("PUT",{action:kind,...(["save","publish"].includes(kind)?{site}: {})});setSite(data.site||site);setPublished(data.status==="published");if(kind==="save")setMessage("Design saved to your FUGTH account.");else if(kind==="regenerate")setMessage("Business details refreshed without changing your chosen design.");else if(kind==="publish")setMessage("This website is now live.");else setMessage("This website is hidden from public visitors.");}catch(e){setError(e.message);}finally{setBusy("");}}
  if(loading)return <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-500">Preparing your website…</div>;
  const industry=getIndustry(site?.industry);
  return <div className="space-y-5">
   {locked&&<div className="rounded-2xl border border-[#d0d0d0] bg-[#f4f4f4] p-5 text-[#333333] sm:p-6"><div className="flex flex-wrap items-center justify-between gap-4"><div><strong className="text-base">Your full website preview is unlocked</strong><p className="mt-2 max-w-2xl text-xs leading-6">Explore the entire site and try the included business chatbot now, even on Zero or Low. Color, layout, publishing and personalized site modifications activate with a qualifying website package. FUGTH prepares your tailored website within 24 hours of receiving your onboarding details.</p></div><Link href="/plans" className="rounded-xl bg-[#111111] px-5 py-3 text-xs font-bold text-white">Unlock site customization ↗</Link></div></div>}
   {(error||message)&&<p role="status" className={`rounded-xl border px-4 py-3 text-sm ${error?"border-red-200 bg-red-50 text-red-800":"border-emerald-200 bg-emerald-50 text-emerald-800"}`}>{error||message}</p>}
+  <SiteImageLibrary uid={uid} onPick={choosePhoto}/>
   <div className="rounded-2xl border border-[#dddddd] bg-[#f5f5f5] p-5 text-[#333333] sm:p-6"><p className="text-xs font-bold uppercase tracking-wider">Preview design · Personalized launch service</p><p className="mt-2 text-sm leading-7">These designs are previews, not your finished custom website. Choose a FUGTH package that includes professional website customization and our team will personalize your site and prepare it for launch within 24 hours after purchase and receipt of your business details. Domain approval or content delays may affect the public launch time.</p><p className="mt-2 text-xs">Your preview helps us understand your style; the final design can be substantially improved.</p></div>
   <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white"><div className="grid gap-5 bg-slate-950 p-6 text-white lg:grid-cols-[1fr_auto] lg:items-end sm:p-8"><div><p className="text-[10px] font-black uppercase tracking-[.18em] text-white/60">FUGTH WEBSITE STUDIO</p><h3 className="mt-3 text-3xl font-black tracking-[-.06em]">Three real layouts for your {industry.label.toLowerCase()} site.</h3><p className="mt-3 max-w-2xl text-sm leading-7 text-slate-300">Pick the page structure, tune four brand colors, save it, then open the complete website in its own tab.</p></div><div className="flex flex-wrap gap-2"><span className={`rounded-full px-3 py-2 text-[10px] font-black uppercase ${published?"bg-emerald-300 text-emerald-950":"bg-white/10 text-white"}`}>{published?"Live":"Private preview"}</span><Link href={`/sites/${encodeURIComponent(uid)}?preview=1`} target="_blank" rel="noopener noreferrer" className="rounded-lg bg-white px-4 py-3 text-xs font-black text-slate-950">View your website ↗</Link></div></div>
    <div className="p-6 sm:p-8"><div><p className="text-[10px] font-black uppercase tracking-[.18em] text-slate-500">1 · CHOOSE THE ACTUAL LAYOUT</p><div className="mt-4 grid gap-3 md:grid-cols-3">{SITE_THEMES.map(theme=><button key={theme.id} type="button" disabled={locked} onClick={()=>chooseTemplate(theme)} className={`min-h-[132px] rounded-2xl border p-5 text-left transition ${site.template===theme.id?"border-slate-950 bg-slate-950 text-white shadow-lg":"border-slate-200 bg-white text-slate-900 hover:border-slate-400"}`}><span className="mb-5 block h-2 w-14 rounded-full" style={{backgroundColor:theme.color}}/><strong className="block text-lg">{theme.name}</strong><span className={`mt-2 block text-xs leading-5 ${site.template===theme.id?"text-slate-300":"text-slate-500"}`}>{theme.subtitle}</span></button>)}</div></div>
