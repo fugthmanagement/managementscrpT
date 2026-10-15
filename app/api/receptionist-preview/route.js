@@ -102,7 +102,6 @@ export async function POST(req){
   // Reuse the same Vapi outbound mechanism that already powers founder test calls.
   // Transient per-call assistant holds business facts; no vendor keys reach the client.
   const payload={
-   maxDurationSeconds:DEMO_DURATION,
    ...(numberId()?{phoneNumberId:numberId().trim()}:{}),customer:{number:to},
    assistant:demoAssistant(context,focus,scenario),
    metadata:{fugthPreview:true,ownerId:account.user.uid,industry:context.industry,focus,scenario,founderTest:admin}
