@@ -1,6 +1,7 @@
 import Stripe from "stripe";
 import { NextResponse } from "next/server";
 import { firebaseAdmin } from "../../../../lib/server/auth";
+import {priceDetails} from "../../../../lib/server/fugth-price-catalog";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,14 +14,8 @@ const supported = new Set([
   "invoice.paid",
   "invoice.payment_failed",
 ]);
-function planForSubscription(subscription) {
-  const priceId = subscription.items?.data?.[0]?.price?.id;
-  const mapping = [
-    ["starter", "price_1UQOt9HGcNIhcRMjZJVSgXII"],
-    ["growth", "price_1UQOtBHGcNIhcRMj2uKPsRjD"],
-    ["elite", "price_1UQOtDHGcNIhcRMjvH0HGgfV"],
-  ];
-  return mapping.find(([name, id]) => id && id === priceId)?.[0] || "";
+function planForSubscription(subscription){
+ return priceDetails(subscription.items?.data?.[0]?.price?.id||"");
 }
 function iso(seconds) {
   return Number.isFinite(Number(seconds)) && Number(seconds) > 0
@@ -36,19 +31,19 @@ function subscriptionPeriod(subscription) {
 }
 export async function POST(req) {
   if (!process.env.STRIPE_SECRET_KEY || !process.env.STRIPE_WEBHOOK_SECRET) {
-    return NextResponse.json({ error: "Stripe webhook configuration incomplete." }, { status: 503 });
+    return NextResponse.json({ error: "FUGTH payment confirmation unavailable." }, { status: 503 });
   }
   if (!(process.env.FIREBASE_SERVICE_ACCOUNT || (process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY))) {
-    return NextResponse.json({ error: "Firebase Admin configuration incomplete." }, { status: 503 });
+    return NextResponse.json({ error: "FUGTH account activation unavailable." }, { status: 503 });
   }
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {apiVersion:"2024-06-20"});
   let event;
   try {
     const signature = req.headers.get("stripe-signature");
-    if (!signature) return NextResponse.json({error:"Missing Stripe signature."},{status:400});
+    if (!signature) return NextResponse.json({error:"Missing payment verification signature."},{status:400});
     event = stripe.webhooks.constructEvent(await req.text(), signature, process.env.STRIPE_WEBHOOK_SECRET);
   } catch {
-    return NextResponse.json({ error: "Invalid Stripe event signature." }, { status: 400 });
+    return NextResponse.json({ error: "Invalid payment verification signature." }, { status: 400 });
   }
   if (!supported.has(event.type)) return NextResponse.json({ received:true, skipped:true });
   try {
@@ -65,15 +60,16 @@ export async function POST(req) {
     const subscription=await stripe.subscriptions.retrieve(subscriptionId,{expand:["items.data.price"]});
     const uid=subscription.metadata?.userId || (event.type==="checkout.session.completed"?obj.client_reference_id:"");
     if (!uid || !/^[a-zA-Z0-9_-]{8,128}$/.test(uid)) throw new Error("Stripe subscription is not associated with a verified Firebase account.");
-    const tier=planForSubscription(subscription);
-    if (!tier) throw new Error("Stripe price does not match configured subscription tiers.");
+    const matched=planForSubscription(subscription);
+    if (!matched) throw new Error("Stripe price does not match configured subscription tiers.");
     const {start,end}=subscriptionPeriod(subscription);
     const status=subscription.status;
     const isActive=status==="active"||status==="trialing";
     const cancelAtPeriodEnd=Boolean(subscription.cancel_at_period_end);
     const expiresAt=iso(subscription.cancel_at || subscription.ended_at) || end;
     const data={
-      planTier:tier,
+      planTier:matched.tier,
+      billingCycle:matched.cycle,
       billingAddons:String(subscription.metadata?.addons||"").split(",").filter(x=>["website","booking","email","analytics","automation","priority","integration","voice","location","staff","sms"].includes(x)),
       planStatus:status,
       billingActive:isActive,
