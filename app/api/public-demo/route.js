@@ -1,3 +1,4 @@
+import {durationForDemo,getGlobalDemoSettings} from "../../../lib/server/demo-settings";
 import {NextResponse} from "next/server";
 import {createHmac} from "node:crypto";
 import {demoBusiness,demoAssistant,focusChoice,scenarioChoice,usNumber,DEMO_DURATION} from "../../../lib/server/voice-preview";
@@ -24,7 +25,8 @@ async function verifyHuman(token,req){
  return result.ok&&(await result.json()).success===true;
 }
 export async function GET(){
- return reply({available:configured(),lengthSeconds:DEMO_DURATION,cooldownHours:3,
+ const {seconds}=await getGlobalDemoSettings();
+ return reply({available:configured(),lengthSeconds:seconds,cooldownHours:3,
   reason:configured()?null:"Guest calling is awaiting the secure anti-abuse and voice configuration. You can still use the demo from a free FUGTH account."});
 }
 export async function POST(req){
@@ -53,10 +55,11 @@ export async function POST(req){
   if(!/^[A-Za-z0-9_-]{8,128}$/.test(founderUid))
    return reply({error:"Guest demo call storage owner is not configured."},503);
   reservation=await reserveDemo(account,number,focus);
+  const {seconds}=await getGlobalDemoSettings();
   const provider=await fetch("https://api.vapi.ai/call/phone",{
    method:"POST",headers:{Authorization:"Bearer "+voiceKey().trim(),"Content-Type":"application/json"},
    body:JSON.stringify({customer:{number},phoneNumberId:numberId().trim(),
-    assistant:demoAssistant(context,focus,scenario),
+    assistant:demoAssistant(context,focus,scenario,seconds),
     metadata:{fugthPreview:true,guestDemo:true,ownerId:founderUid,guestQuotaId:account,focus,scenario,industry:context.industry}}),
    cache:"no-store",signal:AbortSignal.timeout(16000)
   });
@@ -66,7 +69,7 @@ export async function POST(req){
    return reply({error:"The calling provider could not place the guest demo. Please contact FUGTH support.",cooldownUntil:reservation.cooldownUntil},502);
   }
   await recordDemoCall(account,reservation.attemptId,result.id,"started").catch(()=>{});
-  return reply({success:true,callId:result.id,status:result.status||"queued",businessName:context.name,cooldownUntil:reservation.cooldownUntil,lengthSeconds:DEMO_DURATION});
+  return reply({success:true,callId:result.id,status:result.status||"queued",businessName:context.name,cooldownUntil:reservation.cooldownUntil,lengthSeconds:seconds});
  }catch(error){
   return reply({error:error.status?error.message:"We couldn't request your guest demo. Please try again later.",cooldownUntil:error.cooldownUntil||reservation?.cooldownUntil||null},error.status||503);
  }
