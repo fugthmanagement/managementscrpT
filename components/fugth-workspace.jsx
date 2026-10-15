@@ -12,9 +12,11 @@ import ReceptionistPreview from "./receptionist-preview";
 import CallInbox from "./call-inbox";
 import FounderColdCall from "./founder-cold-call";
 import FounderBillingHealth from "./founder-billing-health";
+import FounderAccountDirectory from "./founder-account-directory";
 import MarketingHub from "./marketing-hub";
 import FeatureGate from "./feature-gate";
 import {hasPlan,normalizePlan,planInfo} from "../lib/plan-access";
+import {accessTier,manualAccess} from "../lib/server/account-entitlements";
 
 const MENU=[
  {id:"home",label:"Home",icon:"home"},
@@ -46,7 +48,7 @@ function Symbol({name,size=19}){
  return <svg {...attrs}>{paths[name]||paths.home}</svg>;
 }
 function SectionHeading({eyebrow,title,description,action}){
- return <div className="mb-7 flex flex-wrap items-end justify-between gap-4"><div><p className="text-[11px] font-semibold uppercase tracking-[.19em] text-[#96988f]">{eyebrow}</p><h2 className="mt-2 text-[32px] font-semibold tracking-[-.06em] text-[#22251e] sm:text-[40px]">{title}</h2>{description&&<p className="mt-2 max-w-2xl text-sm leading-7 text-[#73776c]">{description}</p>}</div>{action}</div>;
+ return <div className="mb-7 flex flex-wrap items-end justify-between gap-4"><div><p className="text-[11px] font-bold uppercase tracking-[.22em] text-[#63d5c4]">{eyebrow}</p><h2 className="mt-2 text-[32px] font-semibold tracking-[-.06em] text-[#e9f7f7] sm:text-[40px]">{title}</h2>{description&&<p className="mt-2 max-w-2xl text-sm leading-7 text-[#a7bfc0]">{description}</p>}</div>{action}</div>;
 }
 function Empty({title,description,action}){return <div className="rounded-[18px] border border-dashed border-[#dbded5] bg-[#fafbf8] px-6 py-10 text-center"><p className="text-base font-semibold text-[#3c4138]">{title}</p><p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[#888b82]">{description}</p>{action&&<div className="mt-5">{action}</div>}</div>;}
 function ListRecord({title,detail,meta}){return <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 border-b border-[#ecece8] py-4 last:border-0"><div className="min-w-0"><p className="truncate text-sm font-semibold text-[#353832]">{title}</p><p className="mt-1 break-words text-xs text-[#8a8d84]">{detail}</p></div><span className="rounded-full bg-[#f1f3ed] px-3 py-1.5 text-[11px] font-medium text-[#59604f]">{meta||"New"}</span></div>}
@@ -146,27 +148,27 @@ export default function FugthWorkspace(){
  }
  if(!ready||!user)return <main className="grid min-h-screen place-items-center bg-[#f8f9f6] text-sm text-[#7b7f74]">Opening your FUGTH workspace…</main>;
  const business=workspace.businessName&&workspace.businessName!=="Fugth Management OS"?workspace.businessName:"My business";
- const actualPlanKey=normalizePlan(workspace.planTier||workspace.plan,workspace.billingActive);
+ const actualPlanKey=accessTier(workspace);
  const effectivePlanKey=isSimulating?previewPlan:actualPlanKey;
  const currentPlan=planInfo(effectivePlanKey);
- const plan=workspace.billingActive?String(workspace.planTier||workspace.plan||"").toUpperCase():"No active plan";
+ const plan=workspace.billingActive?String(workspace.planTier||workspace.plan||"").toUpperCase():manualAccess(workspace)?"Founder access · "+String(workspace.founderAccess.tier).toUpperCase():"No active plan";
  const displayPlan=isSimulating?`ADMIN VIEW · ${currentPlan.name.toUpperCase()}`:plan;
  const navigate=id=>changePage(id);
- return <main className="min-h-screen bg-[#f8f9f6] font-sans text-[#262a23]">
-  {menuOpen&&<button type="button" aria-label="Close navigation" className="fixed inset-0 z-40 bg-[#1c241b]/40 lg:hidden" onClick={()=>setMenuOpen(false)}/>}
+ return <main className="min-h-screen bg-[#0c111b] font-sans text-[#24352d]">
+  {menuOpen&&<button type="button" aria-label="Close navigation" className="fixed inset-0 z-40 bg-[#0c111b]/70 backdrop-blur-sm lg:hidden" onClick={()=>setMenuOpen(false)}/>}
   <div className="mx-auto flex min-h-screen max-w-[1900px]">
-   <aside className={`fixed inset-y-0 left-0 z-50 flex w-[258px] shrink-0 flex-col border-r border-[#e5e8e0] bg-[#fff] px-4 pb-5 pt-6 transition-transform lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 ${menuOpen?"translate-x-0":"-translate-x-full"}`}>
-    <div className="flex items-center justify-between gap-3 px-2"><Link href="/" className="flex items-center gap-2.5"><span className="grid h-9 w-9 place-items-center rounded-[12px] bg-[#253027] text-lg font-black text-white">F</span><span className="text-xl font-semibold tracking-[-.07em]">fugth<span className="text-[#a1a59c]">.</span></span></Link><button type="button" onClick={()=>setMenuOpen(false)} className="p-2 lg:hidden" aria-label="Close menu"><Symbol name="close"/></button></div>
-    <div className="mt-9 rounded-2xl bg-[#f5f7f2] px-4 py-4"><p className="text-[10px] font-semibold uppercase tracking-[.18em] text-[#959b8d]">Your business</p><p className="mt-2 truncate text-sm font-semibold text-[#293026]">{business}</p><p className="mt-1 text-[11px] text-[#909688]">{workspace.accountNumber?"Account #"+workspace.accountNumber:"FUGTH workspace"}</p></div>
-    <nav aria-label="Workspace" className="mt-8 flex-1 space-y-1">{tabs.map(item=><button key={item.id} type="button" onClick={()=>navigate(item.id)} aria-current={page===item.id?"page":undefined} className={`flex w-full items-center gap-3.5 rounded-xl px-4 py-3.5 text-left text-[13px] font-medium transition ${page===item.id?"bg-[#27322a] text-white":"text-[#697166] hover:bg-[#f3f5f1] hover:text-[#2a3229]"}`}><Symbol name={item.icon}/>{item.label}</button>)}</nav>
-    <div className="border-t border-[#eef0ea] pt-4"><Link href="/plans" className="flex items-center justify-between gap-2 rounded-xl px-4 py-3 text-xs text-[#777d71] hover:bg-[#f6f7f4]">Subscription <span className="font-semibold text-[#33402f]">{workspace.billingActive?"Active":"Manage →"}</span></Link><button type="button" onClick={logOut} className="mt-1 flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-[13px] font-medium text-[#515c50] hover:bg-[#f3f5f0]"><Symbol name="logout"/>Log out</button></div>
+   <aside className={`fixed inset-y-0 left-0 z-50 flex w-[258px] shrink-0 flex-col border-r border-[#203342] bg-[#111c2b] px-4 pb-5 pt-6 text-[#dcece9] shadow-[10px_0_45px_rgba(0,0,0,.17)] transition-transform lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 ${menuOpen?"translate-x-0":"-translate-x-full"}`}>
+    <div className="flex items-center justify-between gap-3 px-2"><Link href="/" className="flex items-center gap-2.5"><span className="grid h-9 w-9 place-items-center rounded-[12px] bg-gradient-to-br from-[#42eed1] to-[#4399ef] text-lg font-black text-[#0f1c28] shadow-[0_8px_22px_rgba(64,229,210,.25)]">F</span><span className="text-xl font-semibold tracking-[-.07em] text-white">fugth<span className="text-[#55e3cf]">.</span></span></Link><button type="button" onClick={()=>setMenuOpen(false)} className="p-2 lg:hidden" aria-label="Close menu"><Symbol name="close"/></button></div>
+    <div className="mt-9 rounded-2xl border border-[#2b4652] bg-gradient-to-br from-[#1c3040] to-[#152332] px-4 py-4"><p className="text-[10px] font-semibold uppercase tracking-[.18em] text-[#7ec7bc]">Your business</p><p className="mt-2 truncate text-sm font-semibold text-[#f0f7f4]">{business}</p><p className="mt-1 text-[11px] text-[#8eaaa7]">{workspace.accountNumber?"Account #"+workspace.accountNumber:"FUGTH workspace"}</p></div>
+    <nav aria-label="Workspace" className="mt-8 flex-1 space-y-1">{tabs.map(item=><button key={item.id} type="button" onClick={()=>navigate(item.id)} aria-current={page===item.id?"page":undefined} className={`flex w-full items-center gap-3.5 rounded-xl px-4 py-3.5 text-left text-[13px] font-medium transition ${page===item.id?"bg-gradient-to-r from-[#2bc5b7] to-[#1894b9] text-[#081d27] shadow-[0_10px_25px_rgba(27,185,179,.17)]":"text-[#a8c0bd] hover:bg-[#213547] hover:text-white"}`}><Symbol name={item.icon}/>{item.label}</button>)}</nav>
+    <div className="border-t border-[#29404b] pt-4"><Link href="/plans" className="flex items-center justify-between gap-2 rounded-xl px-4 py-3 text-xs text-[#aec4c0] hover:bg-[#203343]">Subscription <span className="font-semibold text-[#4fe0cc]">{workspace.billingActive?"Active":"Manage →"}</span></Link><button type="button" onClick={logOut} className="mt-1 flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-[13px] font-medium text-[#b9d1cb] hover:bg-[#203343]"><Symbol name="logout"/>Log out</button></div>
    </aside>
    <div className="flex min-w-0 flex-1 flex-col">
-    <header className="sticky top-0 z-30 flex min-h-[79px] items-center justify-between gap-2 border-b border-[#e9ebe5] bg-[#f8f9f6]/95 px-4 backdrop-blur-lg sm:px-8 lg:px-10">
-     <div className="flex min-w-0 items-center gap-3"><button type="button" className="grid h-10 w-10 place-items-center rounded-xl border border-[#e0e4da] bg-white lg:hidden" aria-label="Open menu" onClick={()=>setMenuOpen(true)}><Symbol name="menu"/></button><p className="truncate text-[15px] font-semibold tracking-[-.03em]">{tabs.find(t=>t.id===page)?.label||"Home"}</p></div>
-     <div className="flex shrink-0 items-center gap-2">{founder&&<label className="flex items-center gap-1 rounded-xl border border-[#b5c9b3] bg-[#e9f0e5] px-2 py-2 text-[10px] font-bold text-[#31513a] sm:gap-2 sm:px-3 sm:text-[11px]"><span className="hidden sm:inline">Customer view</span><select aria-label="Preview customer plan" value={previewPlan??"real"} onChange={event=>setPreviewPlan(event.target.value==="real"?null:event.target.value)} className="max-w-[88px] bg-transparent text-[10px] font-bold outline-none sm:max-w-none sm:text-[11px]"><option value="real">Admin</option><option value="none">Zero · $0</option><option value="starter">Low · $49</option><option value="growth">Mid · $149</option><option value="elite">High · $499</option></select></label>}{founder&&<button type="button" onClick={()=>navigate("admin")} className="hidden rounded-xl border border-[#b5c9b3] bg-[#e9f0e5] px-3.5 py-2.5 text-[12px] font-bold text-[#31513a] hover:bg-[#dae9d6] sm:block">Administration</button>}<button type="button" onClick={()=>navigate("website")} className="hidden rounded-xl border border-[#dbe0d6] bg-white px-3.5 py-2.5 text-[12px] font-semibold text-[#3a4937] hover:bg-[#f0f3ec] md:block">My website <span aria-hidden="true">↗</span></button><button type="button" onClick={logOut} className="rounded-xl bg-[#27322a] px-3 py-2.5 text-[11px] font-semibold text-white hover:bg-[#435345] sm:px-3.5 sm:text-[12px]">Log out</button></div>
+    <header className="sticky top-0 z-30 flex min-h-[79px] items-center justify-between gap-2 border-b border-[#253541] bg-[#101a28]/95 text-[#e5f7f4] px-4 backdrop-blur-lg sm:px-8 lg:px-10">
+     <div className="flex min-w-0 items-center gap-3"><button type="button" className="grid h-10 w-10 place-items-center rounded-xl border border-[#344a57] bg-[#1c3040] text-white lg:hidden" aria-label="Open menu" onClick={()=>setMenuOpen(true)}><Symbol name="menu"/></button><p className="truncate text-[15px] font-semibold tracking-[-.03em]">{tabs.find(t=>t.id===page)?.label||"Home"}</p></div>
+     <div className="flex shrink-0 items-center gap-2">{founder&&<label className="flex items-center gap-1 rounded-xl border border-[#3a9e98] bg-[#163a42] px-2 py-2 text-[10px] font-bold text-[#a2f6e8] sm:gap-2 sm:px-3 sm:text-[11px]"><span className="hidden sm:inline">Customer view</span><select aria-label="Preview customer plan" value={previewPlan??"real"} onChange={event=>setPreviewPlan(event.target.value==="real"?null:event.target.value)} className="max-w-[88px] bg-transparent text-[10px] font-bold outline-none sm:max-w-none sm:text-[11px]"><option value="real">Admin</option><option value="none">Zero · $0</option><option value="starter">Low · $49</option><option value="growth">Mid · $149</option><option value="elite">High · $499</option></select></label>}{founder&&<button type="button" onClick={()=>navigate("admin")} className="hidden rounded-xl border border-[#3a9e98] bg-[#163a42] px-3.5 py-2.5 text-[12px] font-bold text-[#a2f6e8] hover:bg-[#dae9d6] sm:block">Administration</button>}<button type="button" onClick={()=>navigate("website")} className="hidden rounded-xl border border-[#344a57] bg-[#1f3140] px-3.5 py-2.5 text-[12px] font-semibold text-white hover:bg-[#f0f3ec] md:block">My website <span aria-hidden="true">↗</span></button><button type="button" onClick={logOut} className="rounded-xl bg-[#203b44] px-3 py-2.5 text-[11px] font-semibold text-[#adede2] hover:bg-[#435345] sm:px-3.5 sm:text-[12px]">Log out</button></div>
     </header>
-    <div className="mx-auto w-full max-w-[1500px] flex-1 px-4 pb-16 pt-8 sm:px-8 sm:pt-10 lg:px-10">
+    <div className="mx-auto w-full max-w-[1500px] flex-1 bg-[radial-gradient(ellipse_at_85%_0%,rgba(28,167,161,.10),transparent_40%)] px-4 pb-16 pt-8 sm:px-8 sm:pt-10 lg:px-10">
      {founderVerificationNeeded&&<div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[#e6d5a8] bg-[#fffaf0] p-5"><div><p className="text-sm font-bold text-[#6e5430]">Finish verifying your FUGTH team account</p><p className="mt-1 text-xs leading-6 text-[#927c56]">Administration is private to approved team emails. Verify your email to unlock it; normal customer accounts won't see these tools.</p></div><button type="button" disabled={busy==="verifyFounder"} onClick={verifyFounder} className="rounded-xl bg-[#574a34] px-4 py-3 text-xs font-bold text-white disabled:opacity-50">{busy==="verifyFounder"?"Checking…":"Verify my email"}</button></div>}
      {(notice||error)&&<div role="status" className={`mb-6 rounded-2xl border px-5 py-4 text-sm ${error?"border-[#ead5cc] bg-[#fff7f1] text-[#824e34]":"border-[#d9e4d5] bg-[#f0f6ed] text-[#38573c]"}`}>{error||notice}</div>}
      {isSimulating&&<div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#e8cfaa] bg-[#fff9ec] px-5 py-3 text-xs text-[#715d3f]"><p><strong>Admin customer view: {currentPlan.name}</strong> — this is the real workspace with the same locks a customer sees. Billing and customer data are unchanged.</p><button type="button" onClick={()=>setPreviewPlan(null)} className="rounded-lg bg-[#5e523d] px-3 py-2 font-semibold text-white">Return to my account</button></div>}
@@ -190,7 +192,8 @@ export default function FugthWorkspace(){
        {settingsSection==="phone"&&<PhoneSetup user={user} workspace={workspace}/>}
        {settingsSection==="connections"&&<IntegrationsHub/>}
       </div>}
-     {page==="admin"&&founder&&<div><SectionHeading eyebrow="FUGTH INTERNAL" title="Administration." description="Private team tools, fully separate from what customers see."/><div className="space-y-6">
+     {page==="admin"&&founder&&<div><SectionHeading eyebrow="FUGTH INTERNAL" title="Operations center." description="Your accounts, founding customers, live payments and sales operations in one private workspace."/><div className="space-y-6">
+       <FounderAccountDirectory/>
        <FounderBillingHealth/>
        <FounderColdCall user={user}/>
        <section className={`${panel} p-6 sm:p-8`}><h3 className="text-xl font-semibold">Create a customer account</h3><p className="mt-2 text-sm leading-6 text-[#848b80]">Create an account for a business you spoke with. Share the private activation link directly with its owner.</p>
@@ -201,7 +204,7 @@ export default function FugthWorkspace(){
       </div></div>}
      {page==="admin"&&!founder&&<Empty title="This area is private" description="Administration is available only to authorized FUGTH team accounts."/>}
     </div>
-    <footer className="border-t border-[#e7eae3] px-4 py-6 text-center text-[11px] text-[#9da297] sm:px-8">FUGTH Management · A calmer way to run your business</footer>
+    <footer className="border-t border-[#273d48] bg-[#101a28] px-4 py-6 text-center text-[11px] text-[#82a8a6] sm:px-8">FUGTH Management · A calmer way to run your business</footer>
    </div>
   </div>
  </main>;
