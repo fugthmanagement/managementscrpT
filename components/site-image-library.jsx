@@ -10,7 +10,7 @@ function Thumbnail({uid,id}){
   if(!r.ok)throw Error();
   objectUrl=URL.createObjectURL(await r.blob());
   if(active)setUrl(objectUrl);else URL.revokeObjectURL(objectUrl);
- }catch{if(active)setUrl("");}})();return()=>{active=false;if(objectUrl)URL.revokeObjectURL(objectUrl)},[uid,id]);
+ }catch{if(active)setUrl("");}})();return()=>{active=false;if(objectUrl)URL.revokeObjectURL(objectUrl)};},[uid,id]);
  return url?<img src={url} alt="My business photo" className="aspect-[4/3] w-full rounded-lg object-cover"/>:
  <div className="grid aspect-[4/3] place-items-center rounded-lg bg-zinc-100 text-xs text-zinc-500">Private photo</div>;
 }
