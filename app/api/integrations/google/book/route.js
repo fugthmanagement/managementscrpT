@@ -1,6 +1,8 @@
 import {NextResponse} from "next/server";
 import {authenticatedUser,firebaseAdmin} from "../../../../../lib/server/auth";
 import {accessGoogleCalendar,businessCalendarSession} from "../../../../../lib/server/google-calendar";
+import {checkBusinessHours} from "../../../../../lib/booking-availability";
+import {fromFirestoreValue} from "../../../../../lib/server/firestore-admin";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
 const reply=(data,status=200)=>NextResponse.json(data,{status,headers:{"Cache-Control":"private, no-store"}});
@@ -19,6 +21,25 @@ async function checkFree(token,ids,begin,finish){
  }
  return true;
 }
+async function readAvailability(uid,request){
+ try{const profile=await firebaseAdmin().firestore().doc("users/"+uid).get();
+  if(profile.exists)return profile.data()?.bookingAvailability||null;}catch{}
+ // Signed-in owners can read their own booking preferences directly even
+ // when a separate FUGTH service credential is being repaired.
+ try{
+  const token=(request.headers.get("authorization")||"").replace(/^Bearer\\s+/,"");
+  const project=process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+  const r=await fetch("https://firestore.googleapis.com/v1/projects/"+encodeURIComponent(project)+
+   "/databases/(default)/documents/users/"+encodeURIComponent(uid),{
+   headers:{Authorization:"Bearer "+token},signal:AbortSignal.timeout(7000),cache:"no-store"
+  });
+  if(r.ok){
+   const profile=await r.json(),field=profile.fields?.bookingAvailability;
+   return field?fromFirestoreValue(field):null;
+  }
+ }catch{}
+ return null;
+}
 export async function POST(req){
  const user=await authenticatedUser(req);
  if(!user?.uid)return reply({error:"Sign in to book a FUGTH appointment."},401);
@@ -35,6 +56,9 @@ export async function POST(req){
   duration<15*60000||duration>4*3600000)
   return reply({error:"Choose a future time between 15 minutes and 4 hours."},400);
  try{
+  const availability=await readAvailability(user.uid,req);
+  const hours=checkBusinessHours(availability,begin,finish);
+  if(!hours.allowed)return reply({error:hours.reason},409);
   const session=await businessCalendarSession(user.uid);
   const free=await checkFree(session.token,[session.calendarId],begin,finish);
   if(!free)return reply({error:"Your business calendar already has an appointment at that time."},409);
