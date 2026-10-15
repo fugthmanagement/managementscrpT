@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { authenticatedUser } from "../../../../lib/server/auth";
 import { buildGoogleUrl, decrypt, integrationConfigured, integrationDoc } from "../../../../lib/server/google-calendar";
+import {archiveConnection} from "../../../../lib/server/drive-recordings";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export async function GET(req) {
@@ -10,7 +11,8 @@ export async function GET(req) {
   try {
     const snap = await integrationDoc(user.uid).get();
     const sheet=await (snap.exists?integrationDoc(user.uid).parent.doc("google_sheet").get():Promise.resolve(null));
-    return NextResponse.json({ configured: true, connected: snap.exists, docsConnected: snap.exists && String(snap.data()?.scopes||"").split(" ").includes("https://www.googleapis.com/auth/drive.file"), sheetsConnected:snap.exists && String(snap.data()?.scopes||"").split(" ").includes("https://www.googleapis.com/auth/spreadsheets"), gmailConnected:snap.exists && String(snap.data()?.scopes||"").split(" ").includes("https://www.googleapis.com/auth/gmail.send"), operationsSheetUrl:sheet?.data()?.url||null, connectedAt: snap.data()?.connectedAt || null });
+    const recordingArchive=await archiveConnection(user.uid);
+    return NextResponse.json({ configured: true, connected: snap.exists, recordingDriveAuthorized:recordingArchive.connected, recordingArchiveCentral:recordingArchive.sharedArchive, docsConnected: snap.exists && String(snap.data()?.scopes||"").split(" ").includes("https://www.googleapis.com/auth/drive.file"), sheetsConnected:snap.exists && String(snap.data()?.scopes||"").split(" ").includes("https://www.googleapis.com/auth/spreadsheets"), gmailConnected:snap.exists && String(snap.data()?.scopes||"").split(" ").includes("https://www.googleapis.com/auth/gmail.send"), operationsSheetUrl:sheet?.data()?.url||null, connectedAt: snap.data()?.connectedAt || null });
   } catch { return NextResponse.json({ configured: false, connected: false, error: "Calendar service configuration is incomplete." }); }
 }
 export async function POST(req) {
