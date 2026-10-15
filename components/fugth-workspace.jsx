@@ -12,6 +12,7 @@ import ReceptionistPreview from "./receptionist-preview";
 import CallInbox from "./call-inbox";
 import FounderColdCall from "./founder-cold-call";
 import FounderBillingHealth from "./founder-billing-health";
+import FounderVoiceHealth from "./founder-voice-health";
 import FounderAccountDirectory from "./founder-account-directory";
 import MarketingHub from "./marketing-hub";
 import FeatureGate from "./feature-gate";
@@ -196,6 +197,7 @@ export default function FugthWorkspace(){
      {page==="accounts"&&!founder&&<Empty title="This area is private" description="Accounts can only be managed by verified FUGTH administrators."/>}
      {page==="admin"&&founder&&<div><SectionHeading eyebrow="FUGTH INTERNAL" title="Operations center." description="Your accounts, founding customers, live payments and sales operations in one private workspace."/><div className="space-y-6">
        <div className="flex justify-end"><button type="button" onClick={()=>navigate("accounts")} className="rounded-xl border border-[#6b9994] bg-[#174044] px-5 py-3 text-xs font-bold text-[#aef8ec]">Manage all registered accounts ↗</button></div>
+       <FounderVoiceHealth/>
        <FounderBillingHealth/>
        <FounderColdCall user={user}/>
        <section className={`${panel} p-6 sm:p-8`}><h3 className="text-xl font-semibold">Create a customer account</h3><p className="mt-2 text-sm leading-6 text-[#848b80]">Create an account for a business you spoke with. Share the private activation link directly with its owner.</p>
