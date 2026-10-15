@@ -47,8 +47,9 @@ export async function GET(req){
  if(!account)return response({error:"Please sign in to preview your receptionist."},401);
  const params=new URL(req.url).searchParams;
  const admin=adminView(account,params.get("view"));
+ const founderTesting=isFounder(account.user);
  const callId=params.get("callId");
- if(!hasVoice()||(!callId&&!admin&&!customerReady()))
+ if(!hasVoice()||(!callId&&!founderTesting&&!customerReady()))
   return response({available:false,adminMode:admin,reason:unavailableReason(admin)});
  if(callId){
   if(!/^[0-9a-f-]{36}$/i.test(callId))return response({error:"Invalid call ID."},400);
@@ -70,9 +71,9 @@ export async function GET(req){
   // A founder can still test Vapi if a Firestore user profile has not been provisioned.
   const business=await businessFor(account.user,account.token).catch(()=>null);
   const fallbackBusiness=business||demoBusiness({businessName:"FUGTH Management",businessType:"Local business"});
-  const cooldown=admin?{cooldownUntil:null,remainingSeconds:0}:
+  const cooldown=founderTesting?{cooldownUntil:null,remainingSeconds:0}:
    await getDemoCooldown(account.user.uid);
-  return response({available:true,adminMode:admin,business:fallbackBusiness,warning:admin&&!numberId()?"Your outgoing FUGTH demo line needs setup.":null,requiresPhoneVerification:false,
+  return response({available:true,adminMode:admin,business:fallbackBusiness,warning:founderTesting&&!numberId()?"Your outgoing FUGTH demo line needs setup.":null,requiresPhoneVerification:false,
    maxDurationSeconds:DEMO_DURATION,focusOptions:DEMO_FOCUS_OPTIONS,scenarioOptions:DEMO_SCENARIOS,
    ...cooldown});
  }catch{
@@ -92,19 +93,20 @@ export async function POST(req){
  if(body.consent!==true)return response({error:"Confirm that you own this number or have permission to receive this demo call."},400);
  const focus=focusChoice(body.focus),scenario=scenarioChoice(body.scenario);
  const admin=adminView(account,body.view);
+ const founderTesting=isFounder(account.user);
  if(!hasVoice())return response({error:"FUGTH calling is not connected yet. Contact the management team."},503);
- if(!admin&&!customerReady())return response({error:unavailableReason(false)||"Customer demo service unavailable."},503);
+ if(!founderTesting&&!customerReady())return response({error:unavailableReason(false)||"Customer demo service unavailable."},503);
  let reservation;
  try{
   const business=await businessFor(account.user,account.token).catch(()=>null);
-  if(!admin)reservation=await reserveDemo(account.user.uid,to,focus);
+  if(!founderTesting)reservation=await reserveDemo(account.user.uid,to,focus);
   const context=business||demoBusiness({businessName:body.businessName||"FUGTH Management",businessType:body.businessType||"Local business"});
   // Reuse the same Vapi outbound mechanism that already powers founder test calls.
   // Transient per-call assistant holds business facts; no vendor keys reach the client.
   const payload={
    ...(numberId()?{phoneNumberId:numberId().trim()}:{}),customer:{number:to},
    assistant:demoAssistant(context,focus,scenario),
-   metadata:{fugthPreview:true,ownerId:account.user.uid,industry:context.industry,focus,scenario,founderTest:admin}
+   metadata:{fugthPreview:true,ownerId:account.user.uid,industry:context.industry,focus,scenario,founderTest:founderTesting}
   };
   const provider=await fetch("https://api.vapi.ai/call/phone",{
    method:"POST",headers:{Authorization:"Bearer "+voiceKey().trim(),"Content-Type":"application/json"},
