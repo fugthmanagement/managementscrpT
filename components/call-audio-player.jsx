@@ -10,7 +10,7 @@ export default function CallAudioPlayer({call}){
  const id=call.providerCallId||call.id;
  useEffect(()=>()=>{if(objectUrl.current)URL.revokeObjectURL(objectUrl.current);},[]);
  async function load(){
-  if(!validId(id)){setError("This older call does not have a valid Vapi reference.");return;}
+  if(!validId(id)){setError("This older call does not have a valid FUGTH call reference.");return;}
   setBusy(true);setError("");
   try{
    const token=await auth.currentUser?.getIdToken();
@@ -36,7 +36,7 @@ export default function CallAudioPlayer({call}){
   {source?<div className="space-y-3">
    <audio aria-label="Private call recording" className="w-full" controls preload="metadata" src={source}>Recording playback is unavailable in this browser.</audio>
    <div className="flex flex-wrap gap-3 text-[11px]">
-    <span className={archive==="drive"?"font-semibold text-[#356844]":"text-amber-800"}>{archive==="drive"?"✓ Archived privately in Google Drive":"Playing from Vapi · Drive archive pending"}</span>
+    <span className={archive==="drive"?"font-semibold text-[#356844]":"text-amber-800"}>{archive==="drive"?"✓ Archived privately in your FUGTH account":"Private playback ready · Permanent archive pending"}</span>
     <a href={source} download={"fugth-call-"+id} className="font-semibold text-[#446f4b] underline">Download recording</a>
     <button type="button" onClick={load} disabled={busy} className="font-semibold text-[#446f4b] underline">Refresh</button>
    </div>

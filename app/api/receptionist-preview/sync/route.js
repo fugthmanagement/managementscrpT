@@ -16,7 +16,7 @@ export async function POST(request){
   const provider=await fetch("https://api.vapi.ai/call?limit=100&createdAtGt="+encodeURIComponent(since),{
    headers:{Authorization:"Bearer "+key.trim()},cache:"no-store",signal:AbortSignal.timeout(12500)
   });
-  if(!provider.ok)return NextResponse.json({error:"Vapi could not return recent call history."},{status:502});
+  if(!provider.ok)return NextResponse.json({error:"Your FUGTH call history could not be refreshed right now."},{status:502});
   const calls=await provider.json();
   if(!Array.isArray(calls))return NextResponse.json({error:"Invalid voice-history response."},{status:502});
   // Backfill older calls on assigned inbound numbers, not only preview calls

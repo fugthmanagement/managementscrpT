@@ -91,7 +91,7 @@ export default function FounderAccounts(){
     <label className="text-xs font-semibold sm:col-span-2">Reason<input required maxLength={180} value={edit.reason} onChange={e=>setEdit({...edit,reason:e.target.value})} className={"mt-2 "+classes}/></label>
    </div>
    <button type="button" onClick={save} disabled={busy!==""||!edit.reason.trim()} className="mt-4 rounded-xl bg-[#2c5035] px-5 py-3 text-xs font-bold text-white disabled:opacity-50">{busy==="save"?"Saving…":edit.tier==="none"?"Remove manual access":"Save founder access"}</button>
-   <p className="mt-3 text-xs leading-6 text-[#81927d]">Takes effect now, expires after one calendar month or year, and records an audit entry. This does not authorize a payment or move the customer's Stripe billing cycle.</p>
+   <p className="mt-3 text-xs leading-6 text-[#81927d]">Takes effect now, expires after one calendar month or year, and records an audit entry. This does not authorize a payment or move the customer's paid billing date.</p>
   </div>}
   {notice&&<p role="status" className="mt-4 rounded-xl bg-[#eef8e8] p-4 text-xs text-[#3e653f]">{notice}</p>}
   {error&&<p role="alert" className="mt-4 rounded-xl bg-[#fff2ef] p-4 text-xs text-[#a34c44]">{error}</p>}

@@ -87,7 +87,7 @@ export default function FounderAccountDirectory(){
     <label className="text-xs font-bold">Duration<select value={term} onChange={e=>setTerm(e.target.value)} className={"mt-2 "+input}><option value="monthly">One month from now</option><option value="yearly">One year from now</option></select></label>
     <label className="text-xs font-bold sm:col-span-2">Audit reason<input value={reason} maxLength={180} onChange={e=>setReason(e.target.value)} className={"mt-2 "+input}/></label>
    </div>
-   <p className="mt-4 text-xs leading-6 text-[#6b8169]">This is a promotional or founder-authorized feature grant. It expires automatically after the selected term. <strong>It never charges a customer or changes Stripe's renewal date.</strong> Paid monthly/yearly billing must be handled through authorized customer checkout and subscriptions.</p>
+   <p className="mt-4 text-xs leading-6 text-[#6b8169]">This is a promotional or founder-authorized feature grant. It expires automatically after the selected term. <strong>It never charges a customer or changes the payment renewal date.</strong> Paid monthly/yearly billing must be handled through authorized customer checkout and subscriptions.</p>
    <div className="mt-4 flex flex-wrap gap-3"><button type="button" onClick={()=>save(false)} disabled={busy!==""} className="rounded-xl bg-[#305139] px-5 py-3 text-xs font-bold text-white disabled:opacity-50">{busy==="save"?"Saving…":"Grant access ↗"}</button>{selected.grant&&<button type="button" disabled={busy!==""} onClick={()=>save(true)} className="rounded-xl border border-[#d6c7bc] px-5 py-3 text-xs font-bold text-[#975d43]">Revoke founder access</button>}</div>
   </div>}
  </section>;

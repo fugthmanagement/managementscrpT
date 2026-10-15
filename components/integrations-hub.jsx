@@ -99,7 +99,7 @@ export default function IntegrationsHub(){
       <div className="flex flex-wrap items-start justify-between gap-4">
        <div><p className="text-[10px] font-black uppercase tracking-[.16em] text-[#81947a]">PRIVATE CALL RECORDINGS</p>
         <h3 className="mt-2 text-xl font-bold text-[#2d4832]">Google Drive audio archive</h3>
-        <p className="mt-2 max-w-2xl text-xs leading-6 text-[#708170]">Vapi audio is copied to a restricted Google Drive folder for your business. Recordings are never shared through public Drive URLs. Customers play them privately in their FUGTH Call Library.</p>
+        <p className="mt-2 max-w-2xl text-xs leading-6 text-[#708170]">FUGTH securely archives call audio in a private business recording folder. The recordings never have public sharing links, and customers play them directly in their FUGTH Call Library.</p>
        </div>
        <span className={"rounded-full px-3 py-2 text-[10px] font-bold "+(google.recordingDriveAuthorized?"bg-[#d2e8d1] text-[#356442]":"bg-white text-[#8a744b]")}>{google.recordingDriveAuthorized?"Drive permission connected":"Google authorization needed"}</span>
       </div>
