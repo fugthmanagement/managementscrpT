@@ -20,14 +20,18 @@ export async function GET(request){
  try{
   const service=firebaseAdmin(),result=await service.auth().listUsers(60,cursor);
   const refs=result.users.map(u=>service.firestore().doc("users/"+u.uid));
-  const docs=refs.length?await service.firestore().getAll(...refs):[];
+  const accessRefs=result.users.map(u=>service.firestore().doc("founderAccountGrants/"+u.uid));
+  const [docs,grantDocs]=await Promise.all([
+   refs.length?service.firestore().getAll(...refs):[],
+   accessRefs.length?service.firestore().getAll(...accessRefs):[]
+  ]);
   const accounts=result.users.map((u,i)=>{
-   const profile=docs[i]?.data()||{},grant=manualAccess(profile);
+   const profile=docs[i]?.data()||{},verifiedGrant=grantDocs[i]?.data()||null,grant=manualAccess({founderAccess:verifiedGrant});
    return {uid:u.uid,email:u.email||"",displayName:u.displayName||"",
     emailVerified:u.emailVerified===true,disabled:u.disabled===true,
     createdAt:date(u.metadata.creationTime),lastSignInAt:date(u.metadata.lastSignInTime),
     businessName:String(profile.businessName||"").slice(0,100),
-    tier:accessTier(profile),paidTier:profile.billingActive===true?profile.planTier||"none":"none",
+    tier:accessTier({...profile,founderAccess:verifiedGrant}),paidTier:profile.billingActive===true?profile.planTier||"none":"none",
     billingActive:profile.billingActive===true,planStatus:profile.planStatus||"none",
     nextChargeAt:profile.billingRenewsAt||profile.billingCurrentPeriodEnd||null,
     grant:grant?{tier:grant.tier,term:grant.term,startsAt:grant.startsAt,expiresAt:grant.expiresAt}:null};
@@ -50,7 +54,7 @@ export async function POST(request){
  try{
   const firebase=firebaseAdmin();
   await firebase.auth().getUser(uid);
-  const db=firebase.firestore(),ref=db.doc("users/"+uid),audit=db.collection("founderAccountAudit").doc();
+  const db=firebase.firestore(),ref=db.doc("founderAccountGrants/"+uid),audit=db.collection("founderAccountAudit").doc();
   const issuedAt=new Date(),endsAt=new Date(issuedAt);
   if(term==="monthly")endsAt.setUTCMonth(endsAt.getUTCMonth()+1);
   else endsAt.setUTCFullYear(endsAt.getUTCFullYear()+1);
@@ -58,8 +62,8 @@ export async function POST(request){
    expiresAt:endsAt.toISOString(),updatedAt:issuedAt.toISOString(),updatedBy:admin.uid,reason};
   await db.runTransaction(async tx=>{
    const original=await tx.get(ref);
-   tx.set(ref,{founderAccess:grant,founderAccessUpdatedAt:issuedAt.toISOString()},{merge:true});
-   tx.create(audit,{actorUid:admin.uid,targetUid:uid,previous:original.data()?.founderAccess||null,
+   if(grant)tx.set(ref,grant);else tx.delete(ref);
+   tx.create(audit,{actorUid:admin.uid,targetUid:uid,previous:original.data()||null,
     updated:grant,reason,createdAt:issuedAt.toISOString(),action:grant?"grant":"revoke"});
   });
   return respond({success:true,grant,charged:false,
