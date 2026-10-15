@@ -1,5 +1,6 @@
 "use client";
 import {useEffect,useState} from "react";
+function TypedMessage({text}){const [visible,setVisible]=useState("");useEffect(()=>{setVisible("");let i=0;const handle=setInterval(()=>{i=Math.min(String(text).length,i+2);setVisible(String(text).slice(0,i));if(i>=String(text).length)clearInterval(handle);},18);return()=>clearInterval(handle);},[text]);return <>{visible}<span aria-hidden="true" className="animate-pulse">▏</span></>;}
 const questions=["What services do you offer?","Can I request an appointment?","What are your hours?","Can I get pricing?"];
 function reply(q,site){
  const text=String(q||"").toLowerCase();
@@ -14,7 +15,7 @@ function reply(q,site){
  return "I can help with services, hours, contact details, and appointment inquiries. Which would you like to know about?";
 }
 export default function SiteChat({site,preview=false}){
- const [open,setOpen]=useState(false);
+ const [open,setOpen]=useState(Boolean(preview));
  const [text,setText]=useState("");
  const [messages,setMessages]=useState([]);
  const [bookingOpen,setBookingOpen]=useState(false);
@@ -45,12 +46,12 @@ export default function SiteChat({site,preview=false}){
   window.location.href="mailto:"+encodeURIComponent(destination)+"?subject="+encodeURIComponent(subject)+"&body="+encodeURIComponent(body);
   setBookingNotice("Your email app will open with the booking request. The business must confirm the appointment.");
  }
- return <div className={preview?"fixed bottom-4 right-4 z-[60] w-[min(350px,calc(100vw-2rem))]":"fixed bottom-4 right-4 z-[60] w-[min(380px,calc(100vw-2rem))] sm:bottom-6 sm:right-6"} data-fugth-chat="business-assistant">
-  {open&&<section aria-label="Business website chat" className="mb-3 flex max-h-[min(580px,75vh)] flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-[0_16px_70px_rgba(0,0,0,.18)]">
-   <header className="flex items-center justify-between bg-zinc-950 px-5 py-4 text-white"><div><p className="text-sm font-semibold">Ask {site.name}</p><p className="mt-1 text-[11px] text-zinc-300">FUGTH website assistant</p></div><button type="button" onClick={()=>setOpen(false)} className="rounded-lg border border-white/20 px-3 py-2 text-sm" aria-label="Close chat">×</button></header>
+ return <div className={preview?"relative mx-auto my-12 w-full max-w-[800px] border-y border-zinc-200 bg-white px-4 py-7 sm:rounded-[24px] sm:border sm:px-8":"fixed bottom-4 right-4 z-[60] w-[min(380px,calc(100vw-2rem))] sm:bottom-6 sm:right-6"} data-fugth-chat="business-assistant">
+  {open&&<section aria-label="Business website chat" className={preview?"flex min-h-[420px] flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-[0_10px_32px_rgba(0,0,0,.06)]":"mb-3 flex max-h-[min(580px,75vh)] flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-[0_16px_70px_rgba(0,0,0,.18)]"}>
+   <header className="flex items-center justify-between bg-zinc-950 px-5 py-4 text-white"><div><p className="text-sm font-semibold">Ask {site.name}</p><p className="mt-1 text-[11px] text-zinc-300">FUGTH website assistant</p></div>{!preview&&<button type="button" onClick={()=>setOpen(false)} className="rounded-lg border border-white/20 px-3 py-2 text-sm" aria-label="Close chat">×</button>}</header>
    <div className="min-h-[180px] flex-1 space-y-3 overflow-y-auto bg-[#fafaf8] p-4" role="log" aria-live="polite">
     <p className="max-w-[90%] rounded-2xl rounded-bl-sm bg-white p-3 text-sm leading-6 text-zinc-800">{site.chatbotGreeting||"Hi! Welcome. How can I help you today?"}</p>
-    {messages.map((m,i)=><p key={i} className={`max-w-[92%] rounded-2xl p-3 text-sm leading-6 ${m.from==="visitor"?"ml-auto rounded-br-sm bg-zinc-900 text-white":"rounded-bl-sm bg-white text-zinc-800"}`}>{m.text}</p>)}
+    {messages.map((m,i)=><p key={i} className={`max-w-[92%] rounded-2xl p-3 text-sm leading-6 ${m.from==="visitor"?"ml-auto rounded-br-sm bg-zinc-900 text-white":"rounded-bl-sm bg-white text-zinc-800"}`}>{m.from==="bot"?<TypedMessage text={m.text}/>:m.text}</p>)}
    </div>
    {messages.length<2&&<div className="flex gap-2 overflow-x-auto bg-[#fafaf8] px-4 pb-3">{questions.map(q=><button key={q} type="button" onClick={()=>ask(q)} className="shrink-0 rounded-full border border-zinc-300 bg-white px-3 py-2 text-[11px] font-semibold text-zinc-800">{q}</button>)}</div>}
    {bookingOpen&&<form onSubmit={requestBooking} className="space-y-2 border-t border-zinc-200 bg-[#eef5e9] p-4"><div className="flex items-center justify-between"><strong className="text-sm">Request an appointment</strong><button type="button" onClick={()=>setBookingOpen(false)} className="text-xs font-semibold">Close</button></div>
@@ -65,6 +66,6 @@ export default function SiteChat({site,preview=false}){
    <form onSubmit={e=>{e.preventDefault();ask(text);}} className="flex gap-2 border-t border-zinc-200 bg-white p-3"><label className="sr-only" htmlFor="fugth-site-chat-input">Your question</label><input id="fugth-site-chat-input" maxLength={220} autoComplete="off" placeholder="Ask a quick question..." value={text} onChange={e=>setText(e.target.value)} className="min-w-0 flex-1 rounded-lg border border-zinc-200 px-3 py-3 text-sm text-zinc-900 outline-none focus:border-zinc-900"/><button className="rounded-lg bg-zinc-950 px-4 py-2 text-sm font-semibold text-white">Send</button></form>
    <p className="px-4 pb-3 text-[10px] leading-5 text-zinc-500">Answers use published business details. Appointment requests open your email app; only the business can confirm a booking. No live calendar reservation is made.</p>
   </section>}
-  <div className="flex justify-end"><button type="button" onClick={()=>setOpen(!open)} aria-expanded={open} className="flex items-center gap-3 rounded-full bg-zinc-950 px-5 py-4 text-sm font-bold text-white shadow-xl"><span aria-hidden="true">✳</span>{open?"Close chat":"Chat with us"}</button></div>
+  {!preview&&<div className="flex justify-end"><button type="button" onClick={()=>setOpen(!open)} aria-expanded={open} className="flex items-center gap-3 rounded-full bg-zinc-950 px-5 py-4 text-sm font-bold text-white shadow-xl"><span aria-hidden="true">✳</span>{open?"Close chat":"Chat with us"}</button></div>}
  </div>;
 }
