@@ -42,6 +42,13 @@ export default function SitePage({params}){
      site={...buildStarterSite(uid,details.businessName||user.displayName||"Your business",
        details.businessType||"general",details),visibility:"preview"};
     }
+    if(site&&owner&&preview){
+     const profile=await getDoc(doc(db,"users",uid)).catch(()=>null);
+     const photos=profile?.data()?.sitePreviewImages||{};
+     if(photos.heroImageId||photos.galleryImageIds)site={...site,
+      ...(photos.heroImageId?{heroImageId:photos.heroImageId}:{}),
+      ...(photos.galleryImageIds?{galleryImageIds:photos.galleryImageIds}:{}),ownerId:uid};
+    }
     if(!cancelled)setPage({loading:false,site,owner:canEdit,preview,error:site?"":"This website isn't available yet."});
    }catch{
     if(!cancelled)setPage({loading:false,site:null,owner:canEdit,preview,error:"Could not open this website. Return to your workspace and try again."});
