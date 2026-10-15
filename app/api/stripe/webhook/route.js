@@ -15,7 +15,13 @@ const supported = new Set([
   "invoice.payment_failed",
 ]);
 function planForSubscription(subscription){
- return priceDetails(subscription.items?.data?.[0]?.price?.id||"");
+ // Optional recurring add-ons may be reordered by the billing provider.
+ // Identify the tier by a verified FUGTH base price on ANY subscription item.
+ for(const line of subscription.items?.data||[]){
+  const matched=priceDetails(line.price?.id||"");
+  if(matched)return matched;
+ }
+ return null;
 }
 function iso(seconds) {
   return Number.isFinite(Number(seconds)) && Number(seconds) > 0
