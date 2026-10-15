@@ -106,7 +106,7 @@ export default function ReceptionistPreview({user,workspace,onGoPhoneSetup,admin
   </div>
   <div className="bg-[#fdfdf9] px-6 py-7 text-[#26352b] sm:px-9 sm:py-9">
    {loading?<p className="text-sm text-[#78887b]">Loading your live demo…</p>:!available?
-    <div className="rounded-xl border border-[#e6e4dc] bg-[#f8f7f2] p-5"><p className="font-semibold">Demo service unavailable</p><p className="mt-2 text-sm text-[#869184]">{error||data?.reason||"The calling connection needs to be configured."}</p></div>:
+    <div className="rounded-xl border border-[#e6e4dc] bg-[#f8f7f2] p-5"><p className="font-semibold">Your live test needs attention</p><p className="mt-2 text-sm text-[#869184]">{error||data?.reason||"We're checking your FUGTH calling connection."}<button type="button" onClick={load} className="mt-4 block rounded-lg bg-[#304c38] px-4 py-3 text-xs font-bold text-white">Refresh and retry ↗</button></p></div>:
     <>
      <div className="grid gap-4 sm:grid-cols-2">
       <label className="text-xs font-semibold text-[#536958]">What should the AI focus on?
