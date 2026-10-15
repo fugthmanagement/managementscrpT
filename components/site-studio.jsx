@@ -33,7 +33,7 @@ export default function SiteStudio({user,workspace={},targetUid=null,locked=fals
      getDoc(doc(db,"users",uid)).catch(()=>null)
     ]);
     const details=profile?.data()||{};
-    const next=published?.exists()?published.data():
+    let next=published?.exists()?published.data():
      buildStarterSite(uid,details.businessName||workspace.businessName||"Your business",
       details.businessType||workspace.businessType||"general",details);
     const chosen=details.sitePreviewImages||{};
