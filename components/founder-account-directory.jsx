@@ -7,7 +7,7 @@ const input="w-full rounded-xl border border-[#d8e3d5] bg-white px-3 py-3 text-x
 const date=v=>{const d=new Date(v||"");return Number.isFinite(d.getTime())?d.toLocaleString(undefined,{month:"short",day:"numeric",year:"numeric",hour:"numeric",minute:"2-digit"}):"Not set";};
 const clean=v=>String(v||"").trim();
 export default function FounderAccountDirectory(){
- const [accounts,setAccounts]=useState([]),[cursor,setCursor]=useState(null);
+ const [accounts,setAccounts]=useState([]),[cursor,setCursor]=useState(null),[loaded,setLoaded]=useState(false);
  const [search,setSearch]=useState(""),[filter,setFilter]=useState("all");
  const [selected,setSelected]=useState(null);
  const [tier,setTier]=useState("starter"),[term,setTerm]=useState("monthly");
@@ -25,9 +25,9 @@ export default function FounderAccountDirectory(){
    const res=await fetch(url,{headers:await headers(),cache:"no-store"});
    const data=await res.json().catch(()=>({}));
    if(!res.ok)throw Error(data.error||"The customer directory couldn't load.");
-   setAccounts(old=>append?[...old,...(data.accounts||[])]:data.accounts||[]);
+   setAccounts(old=>append?[...old,...(data.accounts||[])]:data.accounts||[]);setLoaded(true);
    setCursor(data.nextCursor||null);
-  }catch(error){setMessage(error.message||"Could not load FUGTH accounts.");}
+  }catch(error){setLoaded(false);setMessage(error.message||"Could not load FUGTH accounts.");}
   finally{setBusy("");}
  }
  useEffect(()=>{load();},[]);
@@ -66,7 +66,7 @@ export default function FounderAccountDirectory(){
    <button type="button" onClick={()=>load()} disabled={busy!==""} className="rounded-xl border border-[#c9d9c6] bg-[#edf4eb] px-4 py-3 text-xs font-bold text-[#30533a] disabled:opacity-50">{busy==="load"?"Loading…":"Refresh accounts ↗"}</button>
   </div>
   <div className="mt-6"><FounderDemoControls/></div>
-  <div className="mt-6 grid grid-cols-3 gap-3">{[["Accounts loaded",accounts.length],["Paid subscriptions",paying],["Founder access",manual]].map(([label,value])=><div key={label} className="rounded-2xl bg-[#f3f6ef] p-4"><p className="text-2xl font-semibold tracking-tight">{value}</p><p className="mt-2 text-[10px] leading-4 text-[#7d8d7b]">{label}</p></div>)}</div>
+  <div className="mt-6 grid grid-cols-3 gap-3">{[["Accounts loaded",loaded?accounts.length:"—"],["Paid subscriptions",loaded?paying:"—"],["Founder access",loaded?manual:"—"]].map(([label,value])=><div key={label} className="rounded-2xl bg-[#f3f6ef] p-4"><p className="text-2xl font-semibold tracking-tight">{value}</p><p className="mt-2 text-[10px] leading-4 text-[#7d8d7b]">{label}</p></div>)}</div>
   <div className="mt-5 flex flex-wrap gap-3"><input type="search" value={search} onChange={event=>setSearch(event.target.value)} placeholder="Find account, customer email, business…" className={input+" min-w-48 flex-1"}/><select value={filter} onChange={event=>setFilter(event.target.value)} className={input+" max-w-[180px]"}><option value="all">All accounts</option><option value="paying">Paying</option><option value="founding">Founder access</option><option value="free">Free</option></select></div>
   {message&&<p role="status" className="mt-5 rounded-xl border border-[#d6e5d0] bg-[#f1f7ee] p-4 text-xs text-[#526b51]">{message}</p>}
   <div className="mt-4 max-h-[460px] divide-y divide-[#ecf0e9] overflow-y-auto">
@@ -79,7 +79,7 @@ export default function FounderAccountDirectory(){
     </div>
     <button type="button" onClick={()=>selectAccount(a)} className="rounded-xl border border-[#cbdac7] bg-[#f7faf5] px-4 py-2.5 text-xs font-bold text-[#39593c]">Manage access ↗</button>
    </article>)}
-   {!filtered.length&&<p className="py-9 text-center text-xs text-[#8b9989]">No matching accounts in this page of the directory.</p>}
+   {loaded&&!filtered.length&&<p className="py-9 text-center text-xs text-[#8b9989]">No matching accounts in this page of the directory.</p>}{!loaded&&<p className="py-9 text-center text-xs text-zinc-500">Customer account records have not loaded. This does not mean there are zero accounts.</p>}
   </div>
   {cursor&&<button type="button" disabled={busy!==""} onClick={()=>load(cursor,true)} className="mt-4 w-full rounded-xl border border-[#d4e0d0] px-4 py-3 text-xs font-bold text-[#416348] disabled:opacity-50">Load more registered accounts ↘</button>}
   {selected&&<div className="mt-6 rounded-2xl border border-[#bed7b9] bg-[#f1f7ee] p-5 sm:p-6">
