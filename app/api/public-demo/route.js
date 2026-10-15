@@ -55,7 +55,7 @@ export async function POST(req){
   reservation=await reserveDemo(account,number,focus);
   const provider=await fetch("https://api.vapi.ai/call/phone",{
    method:"POST",headers:{Authorization:"Bearer "+voiceKey().trim(),"Content-Type":"application/json"},
-   body:JSON.stringify({customer:{number},phoneNumberId:numberId().trim(),
+   body:JSON.stringify({maxDurationSeconds:DEMO_DURATION,customer:{number},phoneNumberId:numberId().trim(),
     assistant:demoAssistant(context,focus,scenario),
     metadata:{fugthPreview:true,guestDemo:true,ownerId:founderUid,guestQuotaId:account,focus,scenario,industry:context.industry}}),
    cache:"no-store",signal:AbortSignal.timeout(16000)

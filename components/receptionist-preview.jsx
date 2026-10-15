@@ -33,12 +33,14 @@ export default function ReceptionistPreview({user,workspace,onGoPhoneSetup,admin
  const [pollCount,setPollCount]=useState(0);
  const [cooldownUntil,setCooldownUntil]=useState(null),[remaining,setRemaining]=useState(0);
  async function headers(){
-  const token=await auth.currentUser?.getIdToken();
-  if(!token)throw Error("Please sign in to try your receptionist.");
+  const active=auth?.currentUser||user;
+  if(!active)throw Error("Your FUGTH session is still opening. Retry in a moment.");
+  const token=await active.getIdToken();
+  if(!token)throw Error("Please refresh your FUGTH session.");
   return {Authorization:"Bearer "+token,"Content-Type":"application/json"};
  }
  async function load(){
-  setLoading(true);
+  setLoading(true);setError("");
   try{
    const res=await fetch("/api/receptionist-preview?view="+(adminMode?"admin":"customer"),{headers:await headers(),cache:"no-store"});
    const json=await res.json().catch(()=>({}));
@@ -98,7 +100,7 @@ export default function ReceptionistPreview({user,workspace,onGoPhoneSetup,admin
    <div className="rounded-[20px] border border-white/15 bg-white/[.07] p-5">
     <p className="text-xs font-bold uppercase tracking-wider text-[#e1c5a8]">How it works</p>
     <p className="mt-3 text-sm leading-7 text-[#e8efe5]"><strong>Answer the call and act like you called your business.</strong> The AI will greet you as its receptionist.</p>
-    <p className="mt-4 rounded-xl bg-white/10 p-3 text-xs leading-6 text-[#cbd8c7]">{adminMode?"Admin test mode · No cooldown · No SMS verification · 15-second calls":"15-second live demo · One test every 3 hours per account and phone number · No SMS verification."}</p>
+    <p className="mt-4 rounded-xl bg-white/10 p-3 text-xs leading-6 text-[#cbd8c7]">{adminMode?"Admin test mode · No cooldown · No SMS verification · 30-second calls":"30-second live demo · One test every 3 hours per account and phone number · No SMS verification."}</p>
     <p className="mt-3 text-xs leading-6 text-[#b8c9bc]">Appointments and prices are examples only. Nothing is booked or charged on the demo.</p>
    </div>
   </div>
@@ -134,7 +136,7 @@ export default function ReceptionistPreview({user,workspace,onGoPhoneSetup,admin
      {message&&<p role="status" className="mt-5 rounded-xl border border-[#d8e5d4] bg-[#f1f7ee] p-4 text-sm text-[#4e6d4b]">{message}</p>}
      {error&&<p role="alert" className="mt-5 rounded-xl border border-[#ecd8ca] bg-[#fff5ec] p-4 text-sm text-[#966441]">{error}</p>}
      {call?.callId&&<div className="mt-5 rounded-xl border border-[#dee8d7] bg-[#f3f8ef] p-5"><p className="text-sm font-semibold">Live demo call requested</p><p className="mt-2 text-xs text-[#6e866b]">Status: {call.status||"Connecting"}</p>{call.summary&&<p className="mt-3 text-sm leading-6 text-[#465a49]">{call.summary}</p>}{["ended","failed"].includes(call.status)&&<p className="mt-2 text-xs text-[#617563]">{call.recordingSaved&&call.leadSaved?"Audio and customer lead saved. Open Call Library to listen and review the lead.":call.saved?"Call saved. Open Call Library to retrieve audio and follow-up details while analysis finishes.":"Saving the call summary and customer lead…"}</p>}</div>}
-     <div className="mt-5 rounded-xl border border-[#dbe5d7] bg-[#f6faf3] p-4 text-xs leading-6 text-[#657663]"><strong>Need more than 15 seconds?</strong> <a href="mailto:fugthmanagement@gmail.com?subject=FUGTH%20extended%20AI%20receptionist%20demo" className="font-bold underline underline-offset-2">Request a longer guided demonstration</a> with the FUGTH management team. Email is the quickest way to reach us. Or book an appointment with the management team through the website.</div>
+     <div className="mt-5 rounded-xl border border-[#dbe5d7] bg-[#f6faf3] p-4 text-xs leading-6 text-[#657663]"><strong>Need more than 30 seconds?</strong> <a href="mailto:fugthmanagement@gmail.com?subject=FUGTH%20extended%20AI%20receptionist%20demo" className="font-bold underline underline-offset-2">Request a longer guided demonstration</a> with the FUGTH management team. Email is the quickest way to reach us. Or book an appointment with the management team through the website.</div>
      <p className="mt-6 text-xs leading-6 text-[#909b90]">{adminMode?"Founder tests have no customer-demo cooldown, but calls still consume voice credits.":"Live calls use paid calling resources; limits keep demo access fair for everyone."} No SMS verification required.</p>
     </>}
   </div>

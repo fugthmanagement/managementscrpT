@@ -17,7 +17,7 @@ const hasAdminCredentials=()=>Boolean(process.env.FIREBASE_SERVICE_ACCOUNT||(pro
 const hasVoice=()=>Boolean(voiceKey());
 const adminView=(account,view)=>view==="admin"&&isFounder(account.user);
 const customerReady=()=>Boolean(hasVoice()&&numberId()&&hasAdminCredentials());
-const unavailableReason=(admin)=>!hasVoice()?"FUGTH voice calling is missing its Vapi key.":admin?null:!numberId()?"An outbound calling number has not been configured.":"Secure customer demo cooldown storage needs Firebase server credentials.";
+const unavailableReason=(admin)=>!hasVoice()?"FUGTH calling is not connected yet.":admin?null:!numberId()?"The FUGTH outgoing demo line is not configured.":"The FUGTH demo protection service is temporarily unavailable.";
 const root=()=> "https://firestore.googleapis.com/v1/projects/"+encodeURIComponent(projectId())+"/databases/(default)/documents";
 function response(data,status=200){return NextResponse.json(data,{status,headers:{"Cache-Control":"no-store"}});}
 async function readDoc(path,token){
@@ -68,14 +68,11 @@ export async function GET(req){
  }
  try{
   // A founder can still test Vapi if a Firestore user profile has not been provisioned.
-  const business=await businessFor(account.user,account.token).catch(error=>{
-   if(admin)return null;
-   throw error;
-  });
+  const business=await businessFor(account.user,account.token).catch(()=>null);
   const fallbackBusiness=business||demoBusiness({businessName:"FUGTH Management",businessType:"Local business"});
   const cooldown=admin?{cooldownUntil:null,remainingSeconds:0}:
    await getDemoCooldown(account.user.uid);
-  return response({available:true,adminMode:admin,business:fallbackBusiness,warning:admin&&!numberId()?"No outbound caller number is configured. Vapi may reject this test until one is connected.":null,requiresPhoneVerification:false,
+  return response({available:true,adminMode:admin,business:fallbackBusiness,warning:admin&&!numberId()?"Your outgoing FUGTH demo line needs setup.":null,requiresPhoneVerification:false,
    maxDurationSeconds:DEMO_DURATION,focusOptions:DEMO_FOCUS_OPTIONS,scenarioOptions:DEMO_SCENARIOS,
    ...cooldown});
  }catch{
@@ -95,20 +92,17 @@ export async function POST(req){
  if(body.consent!==true)return response({error:"Confirm that you own this number or have permission to receive this demo call."},400);
  const focus=focusChoice(body.focus),scenario=scenarioChoice(body.scenario);
  const admin=adminView(account,body.view);
- if(!hasVoice())return response({error:"FUGTH voice calling is not connected: the Vapi server key is missing."},503);
+ if(!hasVoice())return response({error:"FUGTH calling is not connected yet. Contact the management team."},503);
  if(!admin&&!customerReady())return response({error:unavailableReason(false)||"Customer demo service unavailable."},503);
  let reservation;
  try{
-  const business=await businessFor(account.user,account.token).catch(error=>{
-   if(admin)return null;
-   throw error;
-  });
-  if(!business&&!admin)return response({error:"Save your business name and industry in Settings first."},400);
+  const business=await businessFor(account.user,account.token).catch(()=>null);
   if(!admin)reservation=await reserveDemo(account.user.uid,to,focus);
   const context=business||demoBusiness({businessName:body.businessName||"FUGTH Management",businessType:body.businessType||"Local business"});
   // Reuse the same Vapi outbound mechanism that already powers founder test calls.
   // Transient per-call assistant holds business facts; no vendor keys reach the client.
   const payload={
+   maxDurationSeconds:DEMO_DURATION,
    ...(numberId()?{phoneNumberId:numberId().trim()}:{}),customer:{number:to},
    assistant:demoAssistant(context,focus,scenario),
    metadata:{fugthPreview:true,ownerId:account.user.uid,industry:context.industry,focus,scenario,founderTest:admin}
@@ -125,9 +119,9 @@ export async function POST(req){
    const phoneProblem=/phone number|outbound|twilio|number not found|free plan/.test(providerMessage);
    const creditProblem=/credit|balance|billing|payment/.test(providerMessage);
    const reason=admin
-    ?creditProblem?"Vapi rejected the call because billing or credits need attention."
-     :phoneProblem?"Vapi rejected the outbound number. Check the connected phone number and outbound calling permissions."
-     :"Vapi declined the call (HTTP "+provider.status+"). Check the voice connection in Administration."
+    ?creditProblem?"FUGTH calling credits need attention."
+     :phoneProblem?"Your FUGTH outgoing demo line needs to be connected."
+     :"FUGTH could not connect the call (reference "+provider.status+"). Check the voice connection in Administration."
     :phoneProblem?"The FUGTH outbound number could not place this demo. Contact support."
      :"The demo call couldn't connect. Contact support to review and reset your cooldown.";
    return response({error:reason,...(reservation?{cooldownUntil:reservation.cooldownUntil}:{})},502);
