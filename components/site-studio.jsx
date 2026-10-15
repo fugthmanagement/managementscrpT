@@ -1,7 +1,8 @@
 "use client";
 import {useEffect,useState} from "react";
 import Link from "next/link";
-import {auth} from "../lib/firebase";
+import {auth,db} from "../lib/firebase";
+import {doc,getDoc} from "firebase/firestore";
 import {buildStarterSite,getIndustry,SITE_THEMES,siteFields} from "../lib/site-presets";
 import SiteRenderer from "./site-renderer";
 
@@ -18,8 +19,52 @@ export default function SiteStudio({user,workspace={},targetUid=null,locked=fals
  const [site,setSite]=useState(null),[loading,setLoading]=useState(true),[busy,setBusy]=useState(""),[error,setError]=useState(""),[message,setMessage]=useState(""),[published,setPublished]=useState(false);
  const isFounderEditing=Boolean(targetUid&&targetUid!==user?.uid);
  async function request(method="GET",data){const token=await auth.currentUser?.getIdToken();if(!token)throw Error("Log in to manage this website.");const res=await fetch("/api/sites/"+encodeURIComponent(uid),{method,cache:"no-store",headers:{Authorization:"Bearer "+token,"Content-Type":"application/json"},body:data?JSON.stringify(data):undefined});const json=await res.json().catch(()=>({}));if(!res.ok)throw Error(json.error||"Website service is unavailable.");return json;}
- async function load(){if(!uid)return;setLoading(true);setError("");try{const data=await request();let next=data.site||buildStarterSite(uid,workspace.businessName||"Your business",workspace.businessType,workspace);setPublished(data.liveStatus==="published"||data.site?.visibility==="published");if(!targetUid&&!locked){try{const saved=JSON.parse(localStorage.getItem(LOCAL_SITE_DRAFT)||"null");if(saved){next=siteFields({...next,industry:saved.industry||next.industry,template:saved.template||next.template,headerColor:saved.headerColor,mainColor:saved.mainColor,sectionColor:saved.sectionColor,accentColor:saved.accentColor});const synced=await request("PUT",{action:"save",site:next});next=synced.site||next;localStorage.removeItem(LOCAL_SITE_DRAFT);setMessage("Your browser design was synced to this account.");}}catch{}}
- setSite(next);}catch(e){setError(e.message);setSite(buildStarterSite(uid,workspace.businessName||"Your business",workspace.businessType,workspace));}finally{setLoading(false);}}
+ async function load(){
+  if(!uid)return;
+  setLoading(true);setError("");setMessage("");
+  const starter=()=>buildStarterSite(uid,workspace.businessName||"Your business",workspace.businessType,workspace);
+  try{
+   // Free customers can always see their own private preview without
+   // needing privileged publishing credentials or a public site.
+   if(locked&&!targetUid){
+    const [published,profile]=await Promise.all([
+     getDoc(doc(db,"publicSites",uid)).catch(()=>null),
+     getDoc(doc(db,"users",uid)).catch(()=>null)
+    ]);
+    const details=profile?.data()||{};
+    const next=published?.exists()?published.data():
+     buildStarterSite(uid,details.businessName||workspace.businessName||"Your business",
+      details.businessType||workspace.businessType||"general",details);
+    setSite(next);setPublished(next.visibility==="published");return;
+   }
+   const data=await request();
+   let next=data.site||starter();
+   setPublished(data.liveStatus==="published"||data.site?.visibility==="published");
+   if(!targetUid&&!locked){
+    try{
+     const saved=JSON.parse(localStorage.getItem(LOCAL_SITE_DRAFT)||"null");
+     if(saved){
+      next=siteFields({...next,industry:saved.industry||next.industry,template:saved.template||next.template,
+       headerColor:saved.headerColor,mainColor:saved.mainColor,sectionColor:saved.sectionColor,accentColor:saved.accentColor});
+      const synced=await request("PUT",{action:"save",site:next});
+      next=synced.site||next;localStorage.removeItem(LOCAL_SITE_DRAFT);
+      setMessage("Your saved design preferences have been restored.");
+     }
+    }catch{}
+   }
+   setSite(next);
+  }catch(error){
+   // No false 404 for the owner's preview. Saving still requires a working
+   // protected server connection and will explain failures explicitly.
+   let next=starter();
+   try{
+    const snap=await getDoc(doc(db,"publicSites",uid));
+    if(snap.exists())next=snap.data();
+   }catch{}
+   setSite(next);setPublished(next.visibility==="published");
+   setMessage("Showing the FUGTH website preview from your business details. Secure editing or publishing may require the management connection to be restored.");
+  }finally{setLoading(false);}
+ }
  useEffect(()=>{load()},[uid]);
  function change(patch){if(locked)return;setSite(current=>{const next={...current,...patch};try{localStorage.setItem(LOCAL_SITE_DRAFT,JSON.stringify({industry:next.industry,template:next.template,headerColor:next.headerColor,mainColor:next.mainColor,sectionColor:next.sectionColor,accentColor:next.accentColor}));}catch{}return next;});setMessage("");}
  function chooseTemplate(theme){change({template:theme.id,theme:theme.id,...theme.palette});}
