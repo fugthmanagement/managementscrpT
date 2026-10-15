@@ -31,7 +31,7 @@ async function secureHeaders() {
 export default function IntegrationsHub(){
   const [category,setCategory]=useState("All");
   const [search,setSearch]=useState("");
-  const [google,setGoogle]=useState({configured:false,connected:false,docsConnected:false,sheetsConnected:false,operationsSheetUrl:null});
+  const [google,setGoogle]=useState({configured:false,connected:false,docsConnected:false,sheetsConnected:false,recordingDriveAuthorized:false,operationsSheetUrl:null});
   const [docs,setDocs]=useState([]);
   const [docsLoading,setDocsLoading]=useState(false);
   const [documentForm,setDocumentForm]=useState({title:"Business notes",content:""});
@@ -95,6 +95,20 @@ export default function IntegrationsHub(){
   return <section className="space-y-5 text-zinc-950">
     <div className="rounded-3xl border border-zinc-200 bg-white p-6 sm:p-8"><p className="text-[10px] font-black uppercase tracking-[.16em] text-zinc-500">YOUR BUSINESS CONNECTIONS</p><h2 className="mt-4 text-3xl font-black tracking-tight">Connect the tools you already know.</h2><p className="mt-3 max-w-3xl text-sm leading-7 text-zinc-600">A simple place to authorize calendars, connect automation tools and see which integrations are ready. We don't mark providers as connected until authorization succeeds.</p></div>
     {message&&<div role="status" className="rounded-xl border border-zinc-300 bg-zinc-100 p-4 text-sm text-zinc-800">{message}</div>}
+    <div className="rounded-3xl border border-[#d4e5cf] bg-[#f0f7ec] p-5 sm:p-7">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+       <div><p className="text-[10px] font-black uppercase tracking-[.16em] text-[#81947a]">PRIVATE CALL RECORDINGS</p>
+        <h3 className="mt-2 text-xl font-bold text-[#2d4832]">Google Drive audio archive</h3>
+        <p className="mt-2 max-w-2xl text-xs leading-6 text-[#708170]">Vapi audio is copied to a restricted Google Drive folder for your business. Recordings are never shared through public Drive URLs. Customers play them privately in their FUGTH Call Library.</p>
+       </div>
+       <span className={"rounded-full px-3 py-2 text-[10px] font-bold "+(google.recordingDriveAuthorized?"bg-[#d2e8d1] text-[#356442]":"bg-white text-[#8a744b]")}>{google.recordingDriveAuthorized?"Drive permission connected":"Google authorization needed"}</span>
+      </div>
+      {!google.recordingDriveAuthorized&&<div className="mt-4 flex flex-wrap items-center gap-3">
+       <button type="button" disabled={!google.configured||busy!==""} onClick={connect} className="rounded-xl bg-[#2f5237] px-5 py-3 text-xs font-bold text-white disabled:opacity-45">Connect Google Drive ↗</button>
+       <p className="text-xs text-[#7c8c79]">Your existing Google connection may need reconnection to approve Drive access.</p>
+      </div>}
+      {google.recordingDriveAuthorized&&<p className="mt-3 text-xs text-[#527455]">Authorization is present. The recording folder is created automatically after the first completed call is archived.</p>}
+    </div>
     <div className="grid gap-5 xl:grid-cols-2">
       <div className="rounded-3xl border border-zinc-200 bg-white p-6"><div className="flex items-center justify-between gap-3"><h3 className="text-lg font-black">Google Calendar</h3><span className="rounded-full border border-zinc-200 bg-zinc-50 px-3 py-2 text-[10px] font-black">{google.connected?"Connected":google.configured?"Available to connect":"Configuration needed"}</span></div><p className="mt-3 text-sm leading-7 text-zinc-600">Connect your Google account once. FUGTH creates a separate private business calendar, checks your personal calendar for conflicts, and mirrors each confirmed booking into your FUGTH workspace.</p><div className="mt-6 flex flex-wrap gap-2">{!google.connected?<button type="button" disabled={!google.configured||busy!==""} onClick={connect} className="rounded-xl bg-zinc-950 px-5 py-3 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-40">{busy==="connect"?"Connecting...":"Connect Google Calendar"}</button>:<button type="button" disabled={busy!==""} onClick={disconnect} className="rounded-xl border border-zinc-300 px-5 py-3 text-sm font-black">Disconnect</button>}</div>{!google.configured&&<p className="mt-4 text-xs leading-6 text-amber-800">Google connections are being prepared. Please contact FUGTH support if you need this connected today.</p>}</div>
       <div className="rounded-3xl border border-zinc-200 bg-white p-6"><h3 className="text-lg font-black">Try a calendar appointment</h3><p className="mt-2 text-xs leading-6 text-zinc-500">This saves a real Google Calendar event only when you submit and the selected period is free.</p><form onSubmit={createAppointment} className="mt-5 space-y-3">{[["Appointment name","title","text"],["Start time","startTime","datetime-local"],["End time","endTime","datetime-local"]].map(([label,key,type])=><label key={key} className="block text-xs font-bold text-zinc-600">{label}<input required type={type} maxLength={type==="text"?120:undefined} value={event[key]} onChange={e=>setEvent({...event,[key]:e.target.value})} className="mt-1 w-full rounded-xl border border-zinc-300 bg-white p-3 text-sm text-zinc-950 outline-none focus:border-zinc-900"/></label>)}<button disabled={!google.connected||busy!==""} className="w-full rounded-xl bg-zinc-950 px-4 py-3 text-sm font-black text-white disabled:opacity-40">{busy==="booking"?"Checking calendar...":"Check and save appointment"}</button></form></div>
