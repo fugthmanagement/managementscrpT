@@ -1,48 +1,20 @@
-import { randomBytes } from "crypto";
-import { buildStarterSite } from "../../../../lib/site-presets";
-import { allocateFugthAccountNumber } from "../../../../lib/server/account-number";
-import { NextResponse } from 'next/server';
-import admin from 'firebase-admin';
-
-// Initialize firebase-admin once
-if (!admin.apps.length) {
-  try {
-    if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-      const svc = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-      admin.initializeApp({ credential: admin.credential.cert(svc) });
-    } else {
-      admin.initializeApp();
-    }
-  } catch (err) {
-    // fallback to application default
-    try { admin.initializeApp(); } catch (e) { console.error('Admin init failed', e); }
-  }
-}
-
-const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || 'fugthmanagement@gmail.com,mepenginestudio@gmail.com,fugthchat@gmail.com,novaeriahengine@gmail.com').split(',').map(s => s.trim().toLowerCase());
-
+import {randomBytes} from "crypto";
+import {buildStarterSite} from "../../../../lib/site-presets";
+import {allocateFugthAccountNumber} from "../../../../lib/server/account-number";
+import {NextResponse} from "next/server";
+import {firebaseAdmin,authenticatedUser,isFounder} from "../../../../lib/server/auth";
+export const runtime="nodejs";
+export const dynamic="force-dynamic";
 export async function POST(req) {
   try {
-    const authHeader = req.headers.get('authorization') || '';
-    const idToken = authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : null;
-    if (!idToken) return NextResponse.json({ error: 'Missing authorization token' }, { status: 401 });
-
-    let verified;
-    try {
-      verified = await admin.auth().verifyIdToken(idToken);
-    } catch (err) {
-      return NextResponse.json({ error: 'Invalid auth token' }, { status: 401 });
-    }
-
-    const adminEmail = (verified.email || '').toLowerCase();
-    if (!verified.email_verified || !ADMIN_EMAILS.includes(adminEmail)) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-    }
-
+    const verified=await authenticatedUser(req);
+    if(!verified?.uid)return NextResponse.json({error:"Sign in with FUGTH Management."},{status:401});
+    if(!isFounder(verified))return NextResponse.json({error:"Only a verified founder can create client accounts."},{status:403});
+    const admin=firebaseAdmin();
     const body = await req.json();
     const { email, password } = body;
     const displayName = String(body.displayName || body.businessName || '').trim().slice(0,80);
-    if (!email || typeof email !== 'string' || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) return NextResponse.json({ error: 'Enter a valid customer email.' }, { status: 400 });
+    if (!email || typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return NextResponse.json({ error: 'Enter a valid customer email.' }, { status: 400 });
 
     // Allow creating an account with no plan (planTier === 'none')
     let planTier = 'none';
