@@ -18,28 +18,56 @@ export async function GET(request){
  const cursor=new URL(request.url).searchParams.get("cursor")||undefined;
  if(cursor&&!/^[\w+/=-]{1,3000}$/.test(cursor))return respond({error:"Invalid page reference."},400);
  try{
-  const service=firebaseAdmin(),result=await service.auth().listUsers(60,cursor);
-  const refs=result.users.map(u=>service.firestore().doc("users/"+u.uid));
-  const accessRefs=result.users.map(u=>service.firestore().doc("founderAccountGrants/"+u.uid));
-  const [docs,grantDocs]=await Promise.all([
-   refs.length?service.firestore().getAll(...refs):[],
-   accessRefs.length?service.firestore().getAll(...accessRefs):[]
-  ]);
-  const accounts=result.users.map((u,i)=>{
-   const profile=docs[i]?.data()||{},verifiedGrant=grantDocs[i]?.data()||null,grant=manualAccess({founderAccess:verifiedGrant});
-   return {uid:u.uid,email:u.email||"",displayName:u.displayName||"",
-    emailVerified:u.emailVerified===true,disabled:u.disabled===true,
-    createdAt:date(u.metadata.creationTime),lastSignInAt:date(u.metadata.lastSignInTime),
+  const service=firebaseAdmin(),store=service.firestore();
+  let users=[],nextCursor=null,partial=false,issue=null;
+  try{
+   const result=await service.auth().listUsers(60,cursor);
+   users=result.users.map(u=>({
+    uid:u.uid,email:u.email||"",displayName:u.displayName||"",emailVerified:u.emailVerified===true,
+    disabled:u.disabled===true,createdAt:date(u.metadata.creationTime),lastSignInAt:date(u.metadata.lastSignInTime)
+   }));
+   nextCursor=result.pageToken||null;
+  }catch(error){
+   // Some service accounts can read Firestore but lack Authentication user
+   // listing permission. Show the actual customer profiles in that case.
+   issue=String(error.code||error.message||"auth").slice(0,90);
+   if(cursor)return respond({error:"Directory paging requires FUGTH authentication-list permission.",issueCode:"AUTH_LIST_PERMISSION"},503);
+   const docs=await store.collection("users").limit(60).get();
+   users=docs.docs.map(doc=>({
+    uid:doc.id,email:doc.data().email||"",displayName:doc.data().displayName||"",
+    emailVerified:false,disabled:false,
+    createdAt:date(doc.data().createdAt?.toDate?.()||doc.data().createdAt),
+    lastSignInAt:null
+   }));
+   partial=true;
+  }
+  let profiles=[],grants=[];
+  try{
+   const refs=users.map(u=>store.doc("users/"+u.uid));
+   profiles=refs.length?await store.getAll(...refs):[];
+  }catch(error){issue=String(error.code||error.message||"profile").slice(0,90);partial=true;}
+  try{
+   const grantRefs=users.map(u=>store.doc("founderAccountGrants/"+u.uid));
+   grants=grantRefs.length?await store.getAll(...grantRefs):[];
+  }catch{partial=true;}
+  const accounts=users.map((u,i)=>{
+   const profile=profiles[i]?.data()||{};
+   const verifiedGrant=grants[i]?.data()||null,grant=manualAccess({founderAccess:verifiedGrant});
+   return {uid:u.uid,email:u.email||profile.email||"",displayName:u.displayName||profile.displayName||"",
+    emailVerified:u.emailVerified,disabled:u.disabled,createdAt:u.createdAt,lastSignInAt:u.lastSignInAt,
     businessName:String(profile.businessName||"").slice(0,100),
-    tier:accessTier({...profile,founderAccess:verifiedGrant}),paidTier:profile.billingActive===true?profile.planTier||"none":"none",
+    tier:accessTier({...profile,founderAccess:verifiedGrant}),
+    paidTier:profile.billingActive===true?profile.planTier||"none":"none",
     billingActive:profile.billingActive===true,planStatus:profile.planStatus||"none",
     nextChargeAt:profile.billingRenewsAt||profile.billingCurrentPeriodEnd||null,
     grant:grant?{tier:grant.tier,term:grant.term,startsAt:grant.startsAt,expiresAt:grant.expiresAt}:null};
   });
-  return respond({accounts,nextCursor:result.pageToken||null});
+  return respond({accounts,nextCursor,partial,issueCode:partial?"PARTIAL_DIRECTORY":null});
  }catch(error){
   console.error("FUGTH account listing failure",{code:error?.code||"admin"});
-  return respond({error:"Could not load registered accounts. Check the FUGTH server connection."},503);
+   const code=String(error?.code||"unknown");
+  const kind=/permission|denied|403/i.test(code)?"PERMISSION_DENIED":/credential|invalid-argument|unauthenticated|401/i.test(code)?"SERVICE_CREDENTIALS":"DIRECTORY_UNAVAILABLE";
+  return respond({error:"FUGTH cannot load customer records until its server account permissions are repaired.",issueCode:kind},503);
  }
 }
 export async function POST(request){
