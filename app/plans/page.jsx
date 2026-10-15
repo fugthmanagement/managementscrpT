@@ -33,7 +33,7 @@ export default function Plans(){
     body:JSON.stringify({planKey:selected,addons:billable,billingCycle:cycle})});
    const result=await response.json().catch(()=>({}));
    if(!response.ok)throw Error(result.error||"Could not start payment.");
-   if(!result.url||!result.url.startsWith("https://checkout.stripe.com/"))throw Error("Secure Stripe checkout link was not returned.");
+   if(!result.url||!result.url.startsWith("https://checkout.stripe.com/"))throw Error("FUGTH checkout is temporarily unavailable. Please try again.");
    window.location.assign(result.url);
   }catch(e){setError(e.message||"FUGTH checkout unavailable.");setBusy(false);}
  }
@@ -71,7 +71,7 @@ export default function Plans(){
      <p className="mt-2 text-lg font-bold">First checkout: {dollars(plan.setup+total)} before tax or discounts.</p>
      <p className="mt-3 max-w-xl text-xs leading-6 text-[#809180]">Subscriptions renew {cycle==="yearly"?"yearly":"monthly"} until canceled. Setup is billed once; eligible site packages include personalized website preparation within 24 hours after you provide required materials. No call overages or paid upgrade will be charged without authorization.</p>
     </div>
-    <div className="w-full lg:w-[250px]"><button type="button" disabled={!currentUser||busy} onClick={checkout} className="w-full rounded-xl bg-[#2a4833] px-6 py-4 text-sm font-bold text-white disabled:opacity-45">{busy?"Opening Stripe…":"Continue to secure checkout ↗"}</button>
+    <div className="w-full lg:w-[250px]"><button type="button" disabled={!currentUser||busy} onClick={checkout} className="w-full rounded-xl bg-[#2a4833] px-6 py-4 text-sm font-bold text-white disabled:opacity-45">{busy?"Opening payment…":"Continue to secure checkout ↗"}</button>
      {!currentUser&&authReady&&<Link href="/login" className="mt-3 block text-center text-xs font-semibold underline">Log in to subscribe</Link>}
     </div>
    </section>
