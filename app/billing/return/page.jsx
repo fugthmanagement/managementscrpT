@@ -4,13 +4,27 @@ import Link from "next/link";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc,onSnapshot } from "firebase/firestore";
 import {auth,db} from "../../../lib/firebase";
-const date=s=>{if(!s)return "Awaiting payment confirmation";const d=new Date(s);return Number.isFinite(d.getTime())?d.toLocaleString():"Waiting for Stripe confirmation";};
+const date=s=>{if(!s)return "Awaiting payment confirmation";const d=new Date(s);return Number.isFinite(d.getTime())?d.toLocaleString():"Waiting for payment confirmation";};
 export default function BillingReturn(){
   const [profile,setProfile]=useState(null),[loading,setLoading]=useState(true),[signedOut,setSignedOut]=useState(false),[error,setError]=useState("");
   useEffect(()=>{
     if(!auth||!db){setError("Customer authentication is unavailable.");setLoading(false);return;}
     let offDoc=()=>{};
-    const offAuth=onAuthStateChanged(auth,user=>{
+    const offAuth=onAuthStateChanged(auth,async user=>{
+      if(user){
+       const sessionId=new URLSearchParams(window.location.search).get("session_id");
+       if(sessionId){
+        try{
+         const token=await user.getIdToken();
+         const response=await fetch("/api/billing/reconcile",{
+          method:"POST",headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json"},
+          body:JSON.stringify({sessionId}),cache:"no-store"
+         });
+         const result=await response.json().catch(()=>({}));
+         if(!response.ok)setError(result.error||"The purchase is still being verified.");
+        }catch{setError("FUGTH could not check this payment yet. You can refresh safely.");}
+       }
+      }
       offDoc();
       if(!user){setSignedOut(true);setLoading(false);return;}
       setSignedOut(false);
