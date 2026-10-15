@@ -77,7 +77,7 @@ export default function Login(){
    window.location.replace("/plans");
   }catch(err){
    const text=String(err?.code||err?.message||"Could not sign in");
-   setError(text.includes("auth/email-already-in-use")?"An account already exists with this email. Please log in.":text.includes("auth/invalid-credential")?"The email or password is incorrect.":text.includes("auth/weak-password")?"Choose a stronger password.":text.includes("auth/too-many-requests")?"Too many attempts. Try again later.":text.replace(/^Firebase:\s*/,""));
+   setError(text.includes("auth/email-already-in-use")?"An account already exists with this email. Please log in.":text.includes("auth/invalid-credential")?"The email or password is incorrect.":text.includes("auth/weak-password")?"Choose a stronger password.":text.includes("auth/too-many-requests")?"Too many attempts. Try again later.":"FUGTH sign-in could not be completed. Check your details and try again.");
   }finally{setBusy(false);}
  }
  async function reset(){
