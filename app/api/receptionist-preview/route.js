@@ -50,8 +50,10 @@ export async function GET(req){
  const admin=adminView(account,params.get("view"));
  const founderTesting=isFounder(account.user);
  const callId=params.get("callId");
- if(!hasVoice()||(!callId&&!founderTesting&&!customerReady()))
-  return response({available:false,adminMode:admin,reason:unavailableReason(admin)});
+ if(!hasVoice())return response({available:false,adminMode:admin,issueCode:"VOICE_OFFLINE",reason:"The FUGTH demo calling line isn't connected."});
+ if(!numberId()&&!callId)return response({available:false,adminMode:admin,issueCode:"DEMO_NUMBER_MISSING",reason:"The FUGTH outgoing demo line isn't configured."});
+ if(!callId&&!founderTesting&&!customerReady())
+  return response({available:false,adminMode:admin,issueCode:"DEMO_STORAGE_SETUP",reason:"FUGTH demo security needs its customer quota storage connection repaired. You can still enter your phone number below."});
  if(callId){
   if(!/^[0-9a-f-]{36}$/i.test(callId))return response({error:"Invalid call ID."},400);
   try{
@@ -78,8 +80,12 @@ export async function GET(req){
   return response({available:true,adminMode:admin,business:fallbackBusiness,warning:founderTesting&&!numberId()?"Your outgoing FUGTH demo line needs setup.":null,requiresPhoneVerification:false,
    maxDurationSeconds:seconds,focusOptions:DEMO_FOCUS_OPTIONS,scenarioOptions:DEMO_SCENARIOS,
    ...cooldown});
- }catch{
-  return response({available:false,reason:"The secure demo service is unavailable. Please try again later."},503);
+ }catch(error){
+  console.error("FUGTH customer demo quota unavailable",{code:error?.code||"storage"});
+  const code=String(error?.code||"");
+  return response({available:false,
+   issueCode:/permission|denied/i.test(code)?"DEMO_STORAGE_PERMISSION":/credential|invalid|unauthenticated/i.test(code)?"DEMO_STORAGE_CREDENTIALS":"DEMO_STORAGE_READ",
+   reason:"Your FUGTH account is signed in, but secure demo quota storage needs attention. The management team can restore access."},503);
  }
 }
 export async function POST(req){
@@ -97,7 +103,7 @@ export async function POST(req){
  const admin=adminView(account,body.view);
  const founderTesting=isFounder(account.user);
  if(!hasVoice())return response({error:"FUGTH calling is not connected yet. Contact the management team."},503);
- if(!founderTesting&&!customerReady())return response({error:unavailableReason(false)||"Customer demo service unavailable."},503);
+ if(!founderTesting&&!customerReady())return response({error:"The secure FUGTH demo quota connection needs repair. Contact management.",issueCode:"DEMO_STORAGE_SETUP"},503);
  let reservation;
  try{
   const business=await businessFor(account.user,account.token).catch(()=>null);

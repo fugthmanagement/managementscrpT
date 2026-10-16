@@ -14,9 +14,20 @@ export default function Login(){
   if(!auth)return;
   getRedirectResult(auth).then(async result=>{
    if(result?.user){await completeGoogleLogin(result.user);window.location.replace("/dashboard");}
-  }).catch(error=>setError(error?.code==="auth/operation-not-allowed"?
-   "Google sign-in needs to be enabled in the FUGTH login settings.":"Could not complete Google sign-in. Please retry."));
+  }).catch(error=>setError(googleMessage(error)));
  },[]);
+ function googleMessage(error){
+  const code=String(error?.code||"");
+  if(code==="auth/unauthorized-domain")return "Google sign-in is blocked for this website domain. Add fugthmanagement.space and www.fugthmanagement.space under Firebase Authentication → Settings → Authorized domains.";
+  if(code==="auth/operation-not-allowed")return "Google sign-in is not enabled in Firebase Authentication → Sign-in method for this project.";
+  if(code==="auth/invalid-api-key"||code==="auth/configuration-not-found")return "FUGTH's production Google login configuration does not match the Firebase project.";
+  if(code==="auth/account-exists-with-different-credential")return "This email already has a different sign-in method. Log in using your original method to preserve your business account.";
+  if(code==="auth/popup-closed-by-user")return "Google sign-in was cancelled before completion.";
+  if(code==="auth/popup-blocked")return "Your browser blocked the Google sign-in window. Allow popups for FUGTH and retry.";
+  if(code==="auth/network-request-failed")return "Google sign-in couldn't connect. Check your network and try again.";
+  if(code==="auth/cancelled-popup-request")return "Another Google sign-in request interrupted this one. Try once more.";
+  return "Google sign-in failed ("+(code||"connection")+"). Check your Firebase authorized domain and try again.";
+ }
  async function completeGoogleLogin(current){
   if(!db||!current?.uid)return;
   const ref=doc(db,"users",current.uid);
@@ -48,10 +59,7 @@ export default function Login(){
     throw error;
    }
   }catch(error){
-   const code=String(error?.code||"");
-   setError(code==="auth/operation-not-allowed"?"Enable Google sign-in in FUGTH account authentication first.":
-    code==="auth/account-exists-with-different-credential"?"This email already has a different sign-in method. Log in with your password first to link accounts.":
-    code==="auth/popup-closed-by-user"?"The Google sign-in window was closed.":"Google sign-in couldn't finish. Try again.");
+   setError(googleMessage(error));
   }finally{setBusy(false);}
  }
  async function submit(e){e.preventDefault();setBusy(true);setError("");setNotice("");

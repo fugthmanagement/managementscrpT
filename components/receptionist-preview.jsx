@@ -90,6 +90,7 @@ export default function ReceptionistPreview({user,workspace,onGoPhoneSetup,admin
  const business=data?.business?.name||workspace?.businessName||"your business";
  const industry=data?.business?.industryName||workspace?.businessType||"local business";
  const available=data?.available===true;
+ const demoSeconds=data?.maxDurationSeconds||30;
  return <section className="overflow-hidden rounded-[26px] border border-[#292929] bg-[#111111] text-white shadow-[0_28px_80px_rgba(24,42,31,.14)]">
   <div className="grid gap-7 p-6 sm:p-9 lg:grid-cols-[1.2fr_.8fr]">
    <div><p className="text-[11px] font-bold uppercase tracking-[.18em] text-[#cfcfcf]">LIVE RECEPTIONIST DEMO</p>
@@ -100,14 +101,19 @@ export default function ReceptionistPreview({user,workspace,onGoPhoneSetup,admin
    <div className="rounded-[20px] border border-white/15 bg-white/[.07] p-5">
     <p className="text-xs font-bold uppercase tracking-wider text-[#eeeeee]">How it works</p>
     <p className="mt-3 text-sm leading-7 text-[#eeeeee]"><strong>Answer the call and act like you called your business.</strong> The AI will greet you as its receptionist.</p>
-    <p className="mt-4 rounded-xl bg-white/10 p-3 text-xs leading-6 text-[#dddddd]">{adminMode?"Admin test mode · No cooldown · No SMS verification · 30-second calls":"30-second live demo · One test every 3 hours per account and phone number · No SMS verification."}</p>
+    <p className="mt-4 rounded-xl bg-white/10 p-3 text-xs leading-6 text-[#dddddd]">{adminMode?"Admin test mode · No cooldown · No SMS verification · {demoSeconds}-second calls":"{demoSeconds}-second live demo · One test every 3 hours per account and phone number · No SMS verification."}</p>
     <p className="mt-3 text-xs leading-6 text-[#cccccc]">Appointments and prices are examples only. Nothing is booked or charged on the demo.</p>
    </div>
   </div>
   <div className="bg-[#ffffff] px-6 py-7 text-[#262626] sm:px-9 sm:py-9">
-   {loading?<p className="text-sm text-[#78887b]">Loading your live demo…</p>:!available?
-    <div className="rounded-xl border border-[#e6e4dc] bg-[#f8f7f2] p-5"><p className="font-semibold">Your live test needs attention</p><p className="mt-2 text-sm text-[#869184]">{error||data?.reason||"We're checking your FUGTH calling connection."}<button type="button" onClick={load} className="mt-4 block rounded-lg bg-[#304c38] px-4 py-3 text-xs font-bold text-white">Refresh and retry ↗</button></p></div>:
+   {loading?<p className="text-sm text-[#78887b]">Loading your live demo…</p>:
     <>
+     {!available&&<div role="alert" className="mb-5 rounded-xl border border-zinc-300 bg-zinc-100 p-5">
+       <p className="font-semibold text-zinc-900">Live calling temporarily unavailable</p>
+       <p className="mt-2 text-sm text-zinc-600">{error||data?.reason||"FUGTH is checking the demo connection."}</p>
+       {data?.issueCode&&<p className="mt-2 text-xs text-zinc-500">Support reference: {data.issueCode}</p>}
+       <button type="button" onClick={load} className="mt-3 rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-xs font-bold">Refresh connection</button>
+     </div>}
      <div className="grid gap-4 sm:grid-cols-2">
       <label className="text-xs font-semibold text-[#595959]">What should the AI focus on?
        <select value={focus} onChange={e=>setFocus(e.target.value)} className={input}>
@@ -130,13 +136,13 @@ export default function ReceptionistPreview({user,workspace,onGoPhoneSetup,admin
      </label>
      {!adminMode&&remaining>0&&<div className="mt-5 rounded-xl border border-[#e7dfca] bg-[#fdf9ed] p-4 text-sm text-[#806f40]">Your next demo unlocks on <strong>{formatUnlockDate(cooldownUntil)}</strong> (in {formatRemaining(remaining)}). Your administrator may reset the limit.</div>}
      <div className="mt-6 flex flex-wrap gap-3">
-      <button type="button" onClick={startCall} disabled={busy||!consent||(!adminMode&&remaining>0)||!normalize(phone)||Boolean(call?.callId&&!["ended","failed"].includes(call.status))} className="rounded-xl bg-[#111111] px-7 py-4 text-sm font-semibold text-white disabled:opacity-40">{busy?"Connecting…":adminMode&&["ended","failed"].includes(call?.status)?"Run another admin test ↗":"Call me for a live demo ↗"}</button>
+      <button type="button" onClick={startCall} disabled={busy||!available||!consent||(!adminMode&&remaining>0)||!normalize(phone)||Boolean(call?.callId&&!["ended","failed"].includes(call.status))} className="rounded-xl bg-[#111111] px-7 py-4 text-sm font-semibold text-white disabled:opacity-40">{busy?"Connecting…":adminMode&&["ended","failed"].includes(call?.status)?"Run another admin test ↗":"Call me for a live demo ↗"}</button>
       <button type="button" onClick={onGoPhoneSetup} className="rounded-xl border border-[#e1e8db] px-5 py-4 text-sm font-semibold text-[#687d65]">Business phone settings</button>
      </div>
      {message&&<p role="status" className="mt-5 rounded-xl border border-[#d8e5d4] bg-[#f1f7ee] p-4 text-sm text-[#333333]">{message}</p>}
      {error&&<p role="alert" className="mt-5 rounded-xl border border-[#ecd8ca] bg-[#fff5ec] p-4 text-sm text-[#966441]">{error}</p>}
      {call?.callId&&<div className="mt-5 rounded-xl border border-[#dee8d7] bg-[#f3f8ef] p-5"><p className="text-sm font-semibold">Live demo call requested</p><p className="mt-2 text-xs text-[#6e866b]">Status: {call.status||"Connecting"}</p>{call.summary&&<p className="mt-3 text-sm leading-6 text-[#465a49]">{call.summary}</p>}{["ended","failed"].includes(call.status)&&<p className="mt-2 text-xs text-[#617563]">{call.recordingSaved&&call.leadSaved?"Audio and customer lead saved. Open Call Library to listen and review the lead.":call.saved?"Call saved. Open Call Library to retrieve audio and follow-up details while analysis finishes.":"Saving the call summary and customer lead…"}</p>}</div>}
-     <div className="mt-5 rounded-xl border border-[#dbe5d7] bg-[#f6faf3] p-4 text-xs leading-6 text-[#657663]"><strong>Need more than 30 seconds?</strong> <a href="mailto:fugthmanagement@gmail.com?subject=FUGTH%20extended%20AI%20receptionist%20demo" className="font-bold underline underline-offset-2">Request a longer guided demonstration</a> with the FUGTH management team. Email is the quickest way to reach us. Or book an appointment with the management team through the website.</div>
+     <div className="mt-5 rounded-xl border border-[#dbe5d7] bg-[#f6faf3] p-4 text-xs leading-6 text-[#657663]"><strong>Need more than {demoSeconds} seconds?</strong> <a href="mailto:fugthmanagement@gmail.com?subject=FUGTH%20extended%20AI%20receptionist%20demo" className="font-bold underline underline-offset-2">Request a longer guided demonstration</a> with the FUGTH management team. Email is the quickest way to reach us. Or book an appointment with the management team through the website.</div>
      <p className="mt-6 text-xs leading-6 text-[#909b90]">{adminMode?"Founder tests have no customer-demo cooldown, but calls still consume voice credits.":"Live calls use paid calling resources; limits keep demo access fair for everyone."} No SMS verification required.</p>
     </>}
   </div>
