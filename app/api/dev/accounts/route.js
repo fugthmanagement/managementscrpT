@@ -1,6 +1,7 @@
 import {NextResponse} from "next/server";
 import {authenticatedUser,isFounder,firebaseAdmin} from "../../../../lib/server/auth";
 import {TIERS,manualAccess,accessTier} from "../../../../lib/server/account-entitlements";
+import {fromFirestoreValue} from "../../../../lib/server/firestore-admin";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
 const respond=(data,status=200)=>NextResponse.json(data,{status,headers:{"Cache-Control":"private, no-store"}});
@@ -12,62 +13,71 @@ const date=value=>{
  const d=new Date(value||"");
  return Number.isFinite(d.getTime())?d.toISOString():null;
 };
+const projectId=()=>process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID||"fugthmanagement-89c84";
+function account(uid,p,auth=null,verifiedGrant=null){
+ const grant=manualAccess({founderAccess:verifiedGrant});
+ const rawDate=p.createdAt?.toDate?.()||p.createdAt||auth?.metadata?.creationTime||null;
+ return {uid,email:String(auth?.email||p.email||"").slice(0,180),
+  displayName:String(auth?.displayName||p.displayName||"").slice(0,110),
+  emailVerified:auth?.emailVerified===true,disabled:auth?.disabled===true,
+  createdAt:date(rawDate),lastSignInAt:date(auth?.metadata?.lastSignInTime),
+  businessName:String(p.businessName||"").slice(0,100),
+  tier:accessTier({...p,founderAccess:verifiedGrant}),
+  paidTier:p.billingActive===true?p.planTier||"none":"none",
+  billingActive:p.billingActive===true,planStatus:p.planStatus||"none",
+  nextChargeAt:p.billingRenewsAt||p.billingCurrentPeriodEnd||null,
+  grant:grant?{tier:grant.tier,term:grant.term,startsAt:grant.startsAt,expiresAt:grant.expiresAt}:null};
+}
+async function founderTokenDirectory(request,cursor){
+ const token=String(request.headers.get("authorization")||"").replace(/^Bearer\s+/,"");
+ const url=new URL("https://firestore.googleapis.com/v1/projects/"+
+  encodeURIComponent(projectId())+"/databases/(default)/documents/users");
+ url.searchParams.set("pageSize","60");
+ if(cursor)url.searchParams.set("pageToken",cursor);
+ const fields=["businessName","businessType","email","displayName","planTier","planStatus","billingActive","billingRenewsAt","billingCurrentPeriodEnd","createdAt"];
+ for(const field of fields)url.searchParams.append("mask.fieldPaths",field);
+ const res=await fetch(url,{headers:{Authorization:"Bearer "+token},cache:"no-store",signal:AbortSignal.timeout(9000)});
+ if(!res.ok){
+  const issueCode=res.status===403?"FOUNDER_FIRESTORE_RULES":res.status===401?"AUTH_EXPIRED":
+   res.status===404?"FIRESTORE_PROJECT":"FIRESTORE_BACKEND";
+  throw Object.assign(new Error("Verified founder read was denied."),{issueCode});
+ }
+ const data=await res.json();
+ const accounts=(data.documents||[]).map(d=>{
+  const uid=String(d.name||"").split("/").pop();
+  const p=Object.fromEntries(Object.entries(d.fields||{}).map(([k,v])=>[k,fromFirestoreValue(v)]));
+  return account(uid,p);
+ }).filter(u=>/^[\w-]{8,128}$/.test(u.uid));
+ return {accounts,nextCursor:data.nextPageToken||null,partial:true,
+  issueCode:"AUTH_DIRECTORY_UNAVAILABLE",source:"verified_founder_firestore"};
+}
 export async function GET(request){
  const admin=await founder(request);
  if(!admin)return respond({error:"Verified FUGTH management access required."},403);
  const cursor=new URL(request.url).searchParams.get("cursor")||undefined;
  if(cursor&&!/^[\w+/=-]{1,3000}$/.test(cursor))return respond({error:"Invalid page reference."},400);
  try{
-  const service=firebaseAdmin(),store=service.firestore();
-  let users=[],nextCursor=null,partial=false,issue=null;
-  try{
-   const result=await service.auth().listUsers(60,cursor);
-   users=result.users.map(u=>({
-    uid:u.uid,email:u.email||"",displayName:u.displayName||"",emailVerified:u.emailVerified===true,
-    disabled:u.disabled===true,createdAt:date(u.metadata.creationTime),lastSignInAt:date(u.metadata.lastSignInTime)
-   }));
-   nextCursor=result.pageToken||null;
-  }catch(error){
-   // Some service accounts can read Firestore but lack Authentication user
-   // listing permission. Show the actual customer profiles in that case.
-   issue=String(error.code||error.message||"auth").slice(0,90);
-   if(cursor)return respond({error:"Directory paging requires FUGTH authentication-list permission.",issueCode:"AUTH_LIST_PERMISSION"},503);
-   const docs=await store.collection("users").limit(60).get();
-   users=docs.docs.map(doc=>({
-    uid:doc.id,email:doc.data().email||"",displayName:doc.data().displayName||"",
-    emailVerified:false,disabled:false,
-    createdAt:date(doc.data().createdAt?.toDate?.()||doc.data().createdAt),
-    lastSignInAt:null
-   }));
-   partial=true;
-  }
-  let profiles=[],grants=[];
-  try{
-   const refs=users.map(u=>store.doc("users/"+u.uid));
-   profiles=refs.length?await store.getAll(...refs):[];
-  }catch(error){issue=String(error.code||error.message||"profile").slice(0,90);partial=true;}
-  try{
-   const grantRefs=users.map(u=>store.doc("founderAccountGrants/"+u.uid));
-   grants=grantRefs.length?await store.getAll(...grantRefs):[];
-  }catch{partial=true;}
-  const accounts=users.map((u,i)=>{
-   const profile=profiles[i]?.data()||{};
-   const verifiedGrant=grants[i]?.data()||null,grant=manualAccess({founderAccess:verifiedGrant});
-   return {uid:u.uid,email:u.email||profile.email||"",displayName:u.displayName||profile.displayName||"",
-    emailVerified:u.emailVerified,disabled:u.disabled,createdAt:u.createdAt,lastSignInAt:u.lastSignInAt,
-    businessName:String(profile.businessName||"").slice(0,100),
-    tier:accessTier({...profile,founderAccess:verifiedGrant}),
-    paidTier:profile.billingActive===true?profile.planTier||"none":"none",
-    billingActive:profile.billingActive===true,planStatus:profile.planStatus||"none",
-    nextChargeAt:profile.billingRenewsAt||profile.billingCurrentPeriodEnd||null,
-    grant:grant?{tier:grant.tier,term:grant.term,startsAt:grant.startsAt,expiresAt:grant.expiresAt}:null};
-  });
-  return respond({accounts,nextCursor,partial,issueCode:partial?"PARTIAL_DIRECTORY":null});
+  const service=firebaseAdmin(),db=service.firestore();
+  const result=await service.auth().listUsers(60,cursor);
+  const refs=result.users.map(u=>db.doc("users/"+u.uid));
+  const grants=result.users.map(u=>db.doc("founderAccountGrants/"+u.uid));
+  const [profiles,grantDocs]=await Promise.all([
+   refs.length?db.getAll(...refs):[],grants.length?db.getAll(...grants):[]
+  ]);
+  return respond({accounts:result.users.map((u,i)=>account(u.uid,profiles[i]?.data()||{},u,grantDocs[i]?.data()||null)),
+   nextCursor:result.pageToken||null,partial:false,issueCode:null,source:"secure_directory"});
  }catch(error){
-  console.error("FUGTH account listing failure",{code:error?.code||"admin"});
-   const code=String(error?.code||"unknown");
-  const kind=/permission|denied|403/i.test(code)?"PERMISSION_DENIED":/credential|invalid-argument|unauthenticated|401/i.test(code)?"SERVICE_CREDENTIALS":"DIRECTORY_UNAVAILABLE";
-  return respond({error:"FUGTH cannot load customer records until its server account permissions are repaired.",issueCode:kind},503);
+  console.error("FUGTH privileged directory unavailable",{code:error?.code||"server"});
+  try{return respond(await founderTokenDirectory(request,cursor));}
+  catch(fallback){
+   const issueCode=fallback?.issueCode||(/permission|denied/i.test(String(error?.code))?"SERVICE_PERMISSIONS":
+     /credential|invalid/i.test(String(error?.code))?"SERVICE_CREDENTIALS":"DIRECTORY_BACKEND");
+   console.error("FUGTH alternate directory unavailable",{issueCode});
+   return respond({error:issueCode==="FOUNDER_FIRESTORE_RULES"?
+    "FUGTH needs the updated founder-only Firestore read rule before it can show customer accounts.":
+    "FUGTH cannot load customer accounts. Please check its server account permissions and active database.",
+    issueCode,accounts:null},503);
+  }
  }
 }
 export async function POST(request){

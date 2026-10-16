@@ -7,7 +7,7 @@ const input="w-full rounded-xl border border-[#d8e3d5] bg-white px-3 py-3 text-x
 const date=v=>{const d=new Date(v||"");return Number.isFinite(d.getTime())?d.toLocaleString(undefined,{month:"short",day:"numeric",year:"numeric",hour:"numeric",minute:"2-digit"}):"Not set";};
 const clean=v=>String(v||"").trim();
 export default function FounderAccountDirectory(){
- const [accounts,setAccounts]=useState([]),[cursor,setCursor]=useState(null),[loaded,setLoaded]=useState(false);
+ const [accounts,setAccounts]=useState([]),[cursor,setCursor]=useState(null),[loaded,setLoaded]=useState(false),[partial,setPartial]=useState(false);
  const [search,setSearch]=useState(""),[filter,setFilter]=useState("all");
  const [selected,setSelected]=useState(null);
  const [tier,setTier]=useState("starter"),[term,setTerm]=useState("monthly");
@@ -24,9 +24,10 @@ export default function FounderAccountDirectory(){
    const url="/api/dev/accounts"+(pageCursor?"?cursor="+encodeURIComponent(pageCursor):"");
    const res=await fetch(url,{headers:await headers(),cache:"no-store"});
    const data=await res.json().catch(()=>({}));
-   if(!res.ok)throw Error(data.error||"The customer directory couldn't load.");
+   if(!res.ok)throw Error((data.error||"The customer directory could not load.")+(data.issueCode?" ["+data.issueCode+"]":""));
    setAccounts(old=>append?[...old,...(data.accounts||[])]:data.accounts||[]);setLoaded(true);
-   setCursor(data.nextCursor||null);
+   setCursor(data.nextCursor||null);setPartial(Boolean(data.partial));
+   if(data.partial)setMessage("Limited directory: customer profiles are loading from your verified founder account while full account listing is being repaired. Last sign-in and manual grants may be unavailable.");
   }catch(error){setLoaded(false);setMessage(error.message||"Could not load FUGTH accounts.");}
   finally{setBusy("");}
  }

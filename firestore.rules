@@ -2,6 +2,15 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     function isOwner(uid) { return request.auth != null && request.auth.uid == uid; }
+    // Management-only read access. No new write permissions or billing changes.
+    function isFounderReader() {
+      return request.auth != null &&
+        request.auth.token.email_verified == true &&
+        request.auth.token.email in [
+          'fugthmanagement@gmail.com','mepenginestudio@gmail.com',
+          'fugthchat@gmail.com','novaeriahengine@gmail.com'
+        ];
+    }
     function protectedKeys() {
       return [
         'plan','status','planTier','planStatus','billingActive','billingEmail','billingAddons','founderAccess','founderAccessUpdatedAt',
@@ -13,7 +22,7 @@ service cloud.firestore {
       ];
     }
     match /users/{uid} {
-      allow get, list: if isOwner(uid);
+      allow get, list: if isOwner(uid) || isFounderReader();
       allow create: if isOwner(uid) && !request.resource.data.keys().hasAny(protectedKeys());
       allow update: if isOwner(uid) &&
         !request.resource.data.diff(resource.data).affectedKeys().hasAny(protectedKeys());
