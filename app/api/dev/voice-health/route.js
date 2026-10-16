@@ -1,7 +1,7 @@
 import {NextResponse} from "next/server";
 import {authenticatedUser,isFounder,firebaseAdmin} from "../../../../lib/server/auth";
 import {archiveConnection} from "../../../../lib/server/drive-recordings";
-import {DEMO_DURATION} from "../../../../lib/server/voice-preview";
+import {durationForDemo} from "../../../../lib/server/demo-settings";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
 export const maxDuration=25;
@@ -11,17 +11,32 @@ export async function GET(req){
  const voiceKey=process.env.VOICE_PRIVATE_KEY||process.env.VAPI_PRIVATE_KEY||"";
  const numberId=process.env.VAPI_PHONE_NUMBER_ID||process.env.VAPI_PHONE_NUMBER||"";
  const details={
-  testLengthSeconds:DEMO_DURATION,
+  testLengthSeconds:await durationForDemo(user.uid,true),
   voiceKeyPresent:Boolean(voiceKey),outgoingNumberPresent:Boolean(numberId),
   outgoingNumberVerified:false,
-  serverAccountReady:false,recordingArchiveAuthorized:false,
+  serverAccountReady:false,authDirectoryReady:false,recordingArchiveAuthorized:false,
+  accountIssueCode:null,authIssueCode:null,
   ready:false,issues:[]
  };
  try{
   const db=firebaseAdmin().firestore();
   await db.doc("users/"+user.uid).get();
   details.serverAccountReady=true;
- }catch{details.issues.push("FUGTH customer storage needs attention.");}
+ }catch(error){
+  const code=String(error?.code||"");
+  details.accountIssueCode=/permission|denied/i.test(code)?"FIRESTORE_PERMISSION":
+   /credential|invalid|unauthenticated/i.test(code)?"FIRESTORE_CREDENTIALS":"FIRESTORE_CONNECTION";
+  details.issues.push("FUGTH customer database access failed ["+details.accountIssueCode+"].");
+ }
+ try{
+  await firebaseAdmin().auth().listUsers(1);
+  details.authDirectoryReady=true;
+ }catch(error){
+  const code=String(error?.code||"");
+  details.authIssueCode=/permission|denied|insufficient/i.test(code)?"AUTH_LIST_PERMISSION":
+   /credential|invalid/i.test(code)?"AUTH_CREDENTIALS":"AUTH_DIRECTORY";
+  details.issues.push("FUGTH account listing failed ["+details.authIssueCode+"].");
+ }
  if(!voiceKey)details.issues.push("FUGTH voice service credentials are missing.");
  else if(!numberId)details.issues.push("No FUGTH outgoing demo number has been assigned.");
  else{

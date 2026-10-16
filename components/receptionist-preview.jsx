@@ -101,7 +101,7 @@ export default function ReceptionistPreview({user,workspace,onGoPhoneSetup,admin
    <div className="rounded-[20px] border border-white/15 bg-white/[.07] p-5">
     <p className="text-xs font-bold uppercase tracking-wider text-[#eeeeee]">How it works</p>
     <p className="mt-3 text-sm leading-7 text-[#eeeeee]"><strong>Answer the call and act like you called your business.</strong> The AI will greet you as its receptionist.</p>
-    <p className="mt-4 rounded-xl bg-white/10 p-3 text-xs leading-6 text-[#dddddd]">{adminMode?"Admin test mode · No cooldown · No SMS verification · {demoSeconds}-second calls":"{demoSeconds}-second live demo · One test every 3 hours per account and phone number · No SMS verification."}</p>
+    <p className="mt-4 rounded-xl bg-white/10 p-3 text-xs leading-6 text-[#dddddd]">{adminMode?`Admin test mode · No cooldown · No SMS verification · ${demoSeconds}-second calls`:`${demoSeconds}-second live demo · One test every 3 hours per account and phone number · No SMS verification.`}</p>
     <p className="mt-3 text-xs leading-6 text-[#cccccc]">Appointments and prices are examples only. Nothing is booked or charged on the demo.</p>
    </div>
   </div>

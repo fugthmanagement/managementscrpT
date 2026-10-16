@@ -21,6 +21,7 @@ export default function FounderVoiceHealth(){
  const checks=status?[["FUGTH calling account",status.voiceKeyPresent],
   ["Outbound phone number",status.outgoingNumberVerified],
   ["Customer record storage",status.serverAccountReady],
+  ["Account listing access",status.authDirectoryReady],
   ["Private recording archive",status.recordingArchiveAuthorized]]:[];
  return <section className="rounded-[25px] border border-[#d1e4dd] bg-white p-5 sm:p-7">
   <div className="flex flex-wrap items-start justify-between gap-4"><div>
