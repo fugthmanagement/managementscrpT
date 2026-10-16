@@ -44,11 +44,11 @@ export default function ReceptionistPreview({user,workspace,onGoPhoneSetup,admin
   try{
    const res=await fetch("/api/receptionist-preview?view="+(adminMode?"admin":"customer"),{headers:await headers(),cache:"no-store"});
    const json=await res.json().catch(()=>({}));
-   if(!res.ok)throw Error(json.error||"Preview service unavailable.");
+   if(!res.ok){setData({...json,available:false});setError(json.error||json.reason||"FUGTH demo status couldn't be retrieved.");return;}
    setData(json);
    setCooldownUntil(adminMode?null:(json.cooldownUntil||null));
    setPhone(value=>value||workspace?.phoneSetup?.businessPhone||workspace?.phone||"");
-  }catch(e){setError(e.message||"Could not load demo settings.");setData({available:false});}
+  }catch(e){setError(e.message||"Could not load demo settings.");setData(current=>({...current,available:false}));}
   finally{setLoading(false);}
  }
  useEffect(()=>{load()},[user?.uid,adminMode]);
