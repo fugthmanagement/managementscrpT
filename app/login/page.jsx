@@ -34,7 +34,7 @@ export default function Login(){
   try{
    const existing=await getDoc(ref);
    if(!existing.exists())await setDoc(ref,{
-    businessName:businessName.trim(),businessType:detectIndustry(businessName||"local business"),
+    businessName:businessName.trim()||(current.displayName?current.displayName.slice(0,60)+" Business":"My business"),businessType:detectIndustry(businessName||"local business"),
     email:current.email||"",createdAt:serverTimestamp(),updatedAt:serverTimestamp(),signInMethod:"google"
    },{merge:true});
    else if(!existing.data()?.email&&current.email){
