@@ -16,6 +16,11 @@ export async function GET(req){
   outgoingNumberVerified:false,
   serverAccountReady:false,authDirectoryReady:false,recordingArchiveAuthorized:false,
   accountIssueCode:null,authIssueCode:null,
+  firebaseProjectId:process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID||"not_configured",
+  serverEmailConfigured:Boolean(process.env.FIREBASE_CLIENT_EMAIL||process.env.FIREBASE_SERVICE_ACCOUNT),
+  privateKeyConfigured:Boolean(process.env.FIREBASE_PRIVATE_KEY||process.env.FIREBASE_SERVICE_ACCOUNT),
+  privateKeyFormatOk:Boolean((process.env.FIREBASE_PRIVATE_KEY||"").trim().replace(/^["']|["']$/g,"").startsWith("-----BEGIN PRIVATE KEY-----")||
+    process.env.FIREBASE_SERVICE_ACCOUNT),
   ready:false,issues:[]
  };
  try{
@@ -27,6 +32,7 @@ export async function GET(req){
   details.accountIssueCode=/permission|denied/i.test(code)?"FIRESTORE_PERMISSION":
    /credential|invalid|unauthenticated/i.test(code)?"FIRESTORE_CREDENTIALS":"FIRESTORE_CONNECTION";
   details.issues.push("FUGTH customer database access failed ["+details.accountIssueCode+"].");
+  if(!details.privateKeyFormatOk)details.issues.push("FUGTH server private key format appears invalid. Re-enter the full service-account key in Production.");
  }
  try{
   await firebaseAdmin().auth().listUsers(1);
