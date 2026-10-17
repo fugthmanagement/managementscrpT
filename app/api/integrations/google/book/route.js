@@ -49,6 +49,9 @@ export async function POST(req){
  const title=String(body.title||"").replace(/[\r\n<>]/g," ").trim().slice(0,120);
  const name=String(body.customerName||"").replace(/[\r\n<>]/g," ").trim().slice(0,100);
  const phone=String(body.phone||"").replace(/[^+0-9(). -]/g,"").trim().slice(0,32);
+ const customerEmail=String(body.customerEmail||"").trim().toLowerCase().slice(0,180);
+ const inviteProspect=body.inviteProspect===true;
+ if(inviteProspect&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail))return reply({error:"Enter a valid customer email to send an invitation."},400);
  const begin=new Date(body.startTime),finish=new Date(body.endTime);
  const duration=finish.getTime()-begin.getTime();
  if(!title||!Number.isFinite(begin.getTime())||!Number.isFinite(finish.getTime())||
@@ -81,6 +84,7 @@ export async function POST(req){
   // contact email; Google will apply their own notification preferences.
   const attendees=session.central&&user.email_verified&&user.email?
    [{email:user.email}]:[];
+  if(inviteProspect&&customerEmail&&!attendees.some(x=>x.email?.toLowerCase()===customerEmail))attendees.push({email:customerEmail});
   const url="https://www.googleapis.com/calendar/v3/calendars/"+
     encodeURIComponent(session.calendarId)+"/events?sendUpdates=all";
   const created=await fetch(url,{
@@ -111,7 +115,7 @@ export async function POST(req){
    }
   }catch(error){console.warn("FUGTH appointment mirror pending",{code:error?.code||"db"});}
   return reply({created:true,workspaceSynced,eventId:event.id,eventUrl:event.htmlLink||null,
-   notification:"Owner notifications follow their connected calendar settings."});
+   notification:inviteProspect?"Google Calendar was instructed to invite the customer.":"Owner notifications follow their connected calendar settings."});
  }catch(error){
   console.warn("FUGTH booking request failed",{code:error?.code||"calendar"});
   return reply({error:error.message&&error.message.length<100?error.message:
