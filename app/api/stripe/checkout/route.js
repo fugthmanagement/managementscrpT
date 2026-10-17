@@ -25,6 +25,8 @@ export async function POST(req){
   const db=firebaseAdmin().firestore(),userDoc=await db.doc("users/"+user.uid).get();
   if(userDoc.data()?.billingActive&&plan.kind!=="one_time")
    return reply({error:"A subscription is already active. Contact support to change your plan safely."},409);
+  if(plan.kind==="one_time"&&userDoc.data()?.websitePurchased===true)
+   return reply({error:"This account already has a paid website purchase. Contact FUGTH support before placing a second order."},409);
   let monthlyCents=plan.monthly,setupCents=plan.setup,offerId="";
   if(body.useFounderOffer===true){
    const doc=await db.doc("founderOffers/"+user.uid).get();
