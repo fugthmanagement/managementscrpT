@@ -2,12 +2,14 @@ import Stripe from "stripe";
 import { NextResponse } from "next/server";
 import { firebaseAdmin } from "../../../../lib/server/auth";
 import {priceDetails} from "../../../../lib/server/fugth-price-catalog";
+import {BILLING_PLANS} from "../../../../lib/billing-catalog";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const supported = new Set([
   "checkout.session.completed",
+  "checkout.session.async_payment_succeeded",
   "customer.subscription.created",
   "customer.subscription.updated",
   "customer.subscription.deleted",
@@ -15,11 +17,25 @@ const supported = new Set([
   "invoice.payment_failed",
 ]);
 function planForSubscription(subscription){
- // Optional recurring add-ons may be reordered by the billing provider.
- // Identify the tier by a verified FUGTH base price on ANY subscription item.
+ // New checkout sessions create their prices dynamically. Validate their
+ // trusted Stripe-created subscription metadata against the actual base line.
+ const meta=subscription.metadata||{},plan=BILLING_PLANS[meta.planKey];
+ const amount=Number(meta.baseAmountCents);
+ const cycle=meta.billingCycle==="yearly"?"yearly":"monthly";
+ if(plan&&plan.kind!=="one_time"&&meta.kind==="subscription"&&
+    meta.planTier===plan.tier&&Number.isSafeInteger(amount)&&amount>0){
+  const interval=cycle==="yearly"?"year":"month";
+  const matched=(subscription.items?.data||[]).some(line=>{
+   const product=line.price?.product,productMeta=typeof product==="object"?product.metadata||{}:{};
+   return line.price?.active!==false&&line.price?.currency==="usd"&&line.price?.unit_amount===amount&&
+     line.price?.recurring?.interval===interval&&productMeta.brand==="fugth_management"&&productMeta.planKey===meta.planKey;
+  });
+  if(matched)return {tier:plan.tier,cycle,offer:meta.planKey};
+ }
+ // Preserve all existing subscribers on their original Stripe price IDs.
  for(const line of subscription.items?.data||[]){
-  const matched=priceDetails(line.price?.id||"");
-  if(matched)return matched;
+  const legacy=priceDetails(line.price?.id||"");
+  if(legacy)return legacy;
  }
  return null;
 }
@@ -61,9 +77,25 @@ export async function POST(req) {
       subscriptionId=(typeof obj.subscription==="string"?obj.subscription:obj.subscription?.id)
         || obj.parent?.subscription_details?.subscription || "";
     }
+    if ((event.type==="checkout.session.completed"||event.type==="checkout.session.async_payment_succeeded")&&obj.mode==="payment"){
+      if(obj.payment_status!=="paid")return NextResponse.json({received:true,pending:true});
+      const meta=obj.metadata||{},uid=meta.userId||obj.client_reference_id||"";
+      if(meta.planKey!=="website_one_time"||meta.kind!=="one_time"||!/^[a-zA-Z0-9_-]{8,128}$/.test(uid))
+       throw new Error("Unknown one-time payment order.");
+      const db=firebaseAdmin().firestore(),eventRef=db.doc("processedStripeEvents/"+event.id),userRef=db.doc("users/"+uid);
+      await db.runTransaction(async tx=>{
+       const seen=await tx.get(eventRef);if(seen.exists)return;
+       const profile=await tx.get(userRef);
+       if(!profile.exists)throw Error("One-time website buyer account was not found.");
+       tx.set(userRef,{websitePurchased:true,websitePurchasedAt:new Date().toISOString(),
+        websiteOrderStatus:"awaiting_materials",websitePurchaseSessionId:obj.id},{merge:true});
+       tx.create(eventRef,{type:event.type,uid,checkoutSessionId:obj.id,recordedAt:new Date().toISOString()});
+      });
+      return NextResponse.json({received:true,sitePurchase:true});
+    }
     if (!subscriptionId) return NextResponse.json({ received:true, skipped:true, reason:"No subscription reference." });
     // Fresh Stripe subscription state avoids stale or out-of-order webhooks extending access.
-    const subscription=await stripe.subscriptions.retrieve(subscriptionId,{expand:["items.data.price"]});
+    const subscription=await stripe.subscriptions.retrieve(subscriptionId,{expand:["items.data.price.product"]});
     const uid=subscription.metadata?.userId || (event.type==="checkout.session.completed"?obj.client_reference_id:"");
     if (!uid || !/^[a-zA-Z0-9_-]{8,128}$/.test(uid)) throw new Error("Stripe subscription is not associated with a verified Firebase account.");
     const matched=planForSubscription(subscription);
@@ -75,6 +107,7 @@ export async function POST(req) {
     const expiresAt=iso(subscription.cancel_at || subscription.ended_at) || end;
     const data={
       planTier:matched.tier,
+      billingOfferKey:matched.offer||subscription.metadata?.planKey||null,
       billingCycle:matched.cycle,
       billingAddons:String(subscription.metadata?.addons||"").split(",").filter(x=>["website","booking","email","analytics","automation","priority","integration","voice","location","staff","sms"].includes(x)),
       planStatus:status,
@@ -89,6 +122,7 @@ export async function POST(req) {
       stripeCustomerId:typeof subscription.customer==="string"?subscription.customer:subscription.customer?.id||"",
       stripeSubscriptionId:subscription.id,
       billingEmail:subscription.metadata?.email||"",
+      billingBasePriceCents:subscription.metadata?.baseAmountCents?Number(subscription.metadata.baseAmountCents):null,
     };
     const db=firebaseAdmin().firestore();
     const eventRef=db.doc("processedStripeEvents/"+event.id);
