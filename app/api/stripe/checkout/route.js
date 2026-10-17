@@ -27,7 +27,7 @@ export async function POST(req){
    return reply({error:"A subscription is already active. Contact support to change your plan safely."},409);
   if(plan.kind==="one_time"&&userDoc.data()?.websitePurchased===true)
    return reply({error:"This account already has a paid website purchase. Contact FUGTH support before placing a second order."},409);
-  let monthlyCents=plan.monthly,setupCents=plan.setup,offerId="";
+  let monthlyCents=plan.monthly,setupCents=plan.setup,offerId="",billingAnchor=null;
   if(body.useFounderOffer===true){
    const doc=await db.doc("founderOffers/"+user.uid).get();
    const offer=doc.data()||{};
@@ -35,6 +35,12 @@ export async function POST(req){
       !money(offer.monthlyCents)||!money(offer.setupCents)||!offer.createdBy)
     return reply({error:"This personalized FUGTH offer is expired or unavailable. Ask your representative to refresh it."},409);
    monthlyCents=offer.monthlyCents;setupCents=offer.setupCents;offerId=doc.id;
+   if(offer.requestedBillingAt&&plan.kind!=="one_time"){
+    const requested=Date.parse(offer.requestedBillingAt);
+    if(!Number.isFinite(requested)||requested<Date.now()+300000||requested>Date.now()+28*86400000)
+      return reply({error:"The selected renewal date must be at least five minutes away and within 28 days. Ask FUGTH to prepare a new offer."},409);
+    billingAnchor=Math.floor(requested/1000);
+   }
   }
   const recurringCents=(monthlyCents+addons.reduce((a,k)=>a+addonAmount(planKey,k),0))*multiplier;
   const line_items=[{
@@ -56,11 +62,11 @@ export async function POST(req){
    success_url:siteUrl+"/billing/return?session_id={CHECKOUT_SESSION_ID}",
    cancel_url:siteUrl+"/plans?plan="+encodeURIComponent(planKey)+"&cycle="+cycle,
    allow_promotion_codes:true,metadata,
-   ...(plan.kind==="one_time"?{payment_intent_data:{metadata}}:{subscription_data:{metadata}})
+   ...(plan.kind==="one_time"?{payment_intent_data:{metadata}}:{subscription_data:{metadata,...(billingAnchor?{billing_cycle_anchor:billingAnchor,proration_behavior:"create_prorations"}:{})}})
   });
   if(!session.url)return reply({error:"Secure checkout could not be opened."},502);
   return reply({url:session.url,oneTime:plan.kind==="one_time",billingCycle:cycle,
-   setupFeeCents:setupCents,recurringCents:plan.kind==="one_time"?0:recurringCents});
+   setupFeeCents:setupCents,recurringCents:plan.kind==="one_time"?0:recurringCents,billingAnchor});
  }catch(e){
   console.error("FUGTH checkout startup error",{type:e?.type||"backend",code:e?.code||"unknown"});
   return reply({error:e?.code==="resource_missing"?"The FUGTH merchant account rejected this product. No charge was made.":
