@@ -31,7 +31,7 @@ export default function FounderPierreGuide({user}){
  useEffect(()=>{
   function receive(event){
    if(event.origin!==window.location.origin||event.source!==iframe.current?.contentWindow||event.data?.source!=="fugth-pierre-guide"||event.data?.type!=="change")return;
-   const d=event.data;setLead(d.lead||blank);setStep(d.node||"start");setPath(d.history?.map(x=>x.at)||[]);setAnswers(d.history||[]);
+   const d=event.data;setLead(d.lead||blank);setStep(d.node||"start");setPath(d.nodeHistory||[]);setAnswers(d.history||[]);
    if((d.node==="stop"||d.lead?.stage==="Do not call")&&selectedId&&dncDone.current!==selectedId){
     dncDone.current=selectedId;
     updateDoc(doc(db,"users",user.uid,"campaigns",selectedId),{
