@@ -9,7 +9,7 @@ export async function POST(request){
  let body;try{const text=await request.text();if(text.length>2000)throw Error();body=JSON.parse(text);}
  catch{return NextResponse.json({error:"Invalid search."},{status:400});}
  const zipCode=clean(body?.zipCode,16);
- const names=Array.isArray(body?.businessTypes)?body.businessTypes:[body?.businessType];
+ const names=Array.isArray(body?.businessTypes)?body.businessTypes:Array.isArray(body?.categories)?body.categories:[body?.businessType];
  const categories=[...new Set(names.map(v=>clean(v,70)).filter(Boolean))].slice(0,5);
  if(!categories.length||!zipCode)return NextResponse.json({error:"Select at least one business category and a ZIP code."},{status:400});
  const mapsUrl="https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(categories[0]+" in "+zipCode);
@@ -33,7 +33,14 @@ export async function POST(request){
   }));
   const unique=new Map();
   for(const x of calls.flat())if(x.businessName&&!unique.has(x.placeId||x.businessName+"|"+x.phone))unique.set(x.placeId||x.businessName+"|"+x.phone,x);
-  return NextResponse.json({places:[...unique.values()].slice(0,100),mapsUrl,categories,query:categories.join(", ")+" in "+zipCode});
+  const totalRetrieved=unique.size;
+  let places=[...unique.values()];
+  const websiteFilter=String(body?.websiteFilter||"all");
+  if(websiteFilter==="missing")places=places.filter(p=>!p.website);
+  if(websiteFilter==="listed")places=places.filter(p=>Boolean(p.website));
+  const minRating=Number(body?.minRating)||0,minReviews=Number(body?.minReviews)||0;
+  places=places.filter(p=>(!minRating||Number(p.rating||0)>=minRating)&&Number(p.reviewCount||0)>=minReviews);
+  return NextResponse.json({places:places.slice(0,100),totalRetrieved,mapsUrl,categories,query:categories.join(", ")+" in "+zipCode});
  }catch(error){console.error("FUGTH Google Places search failed",{message:String(error?.message||"unavailable").slice(0,170)});
   return NextResponse.json({error:error?.message||"Google Places temporarily unavailable.",mapsUrl,places:[]},{status:503});}
 }
