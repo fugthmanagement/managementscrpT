@@ -73,14 +73,14 @@ export default function Plans(){
     <div><p className="text-xs font-bold uppercase tracking-[.15em] text-[#71876e]">YOUR CHECKOUT SUMMARY</p><h2 className="mt-3 text-2xl font-semibold">{plan.name} + {billable.length} paid add-on(s)</h2>
      <p className="mt-3 text-sm">{plan.kind==="one_time"?"One-time purchase":"Subscription"}: <strong>{dollars(total)} {plan.kind==="one_time"?"once":"/ "+(cycle==="yearly"?"year":"month")}</strong></p>
      <p className="mt-1 text-sm">One-time professional setup: <strong>{dollars(setupFee)}</strong></p>
-     <p className="mt-2 text-lg font-bold">First checkout: {dollars(setupFee+total)} before tax or discounts.</p>
+     <p className="mt-2 text-lg font-bold">{offerApplied&&offer?.requestedBillingAt&&plan.kind!=="one_time"?"Initial charge: Stripe will show prorated subscription charges plus "+dollars(setupFee)+" setup before you approve.":"First checkout: "+dollars(setupFee+total)+" before tax or discounts."}</p>
      <p className="mt-3 max-w-xl text-xs leading-6 text-[#809180]">{plan.kind==="one_time"?"Website purchase does not renew. Hosting and ongoing updates are separate. Delivery begins after the required business materials are provided.":"Subscriptions renew "+(cycle==="yearly"?"yearly":"monthly")+" until canceled. Setup is billed once. Voice/SMS usage has plan limits; no surprise overage charges without authorization."} A personalized founder price is only applied when explicitly displayed in this checkout summary.</p>
     </div>
     <div className="w-full lg:w-[250px]"><button type="button" disabled={!currentUser||busy} onClick={checkout} className="w-full rounded-xl bg-[#2a4833] px-6 py-4 text-sm font-bold text-white disabled:opacity-45">{busy?"Opening payment…":"Continue to secure checkout ↗"}</button>
      {!currentUser&&authReady&&<Link href="/login" className="mt-3 block text-center text-xs font-semibold underline">Log in to subscribe</Link>}
     </div>
    </section>
-   {offerApplied&&<p className="mt-4 rounded-xl border border-[#d4c6ad] bg-[#fff5e5] p-4 text-sm"><strong>Personalized offer for your account.</strong> Price {dollars(planMonthly)} {plan.kind==="one_time"?"once":"/month"} plus {dollars(setupFee)} setup. Your offer expires {new Date(offer.expiresAt).toLocaleDateString()}. If a future Stripe renewal date appears below, the first invoice may be prorated; the exact amount is shown by Stripe before payment.</p>}
+   {offerApplied&&<p className="mt-4 rounded-xl border border-[#d4c6ad] bg-[#fff5e5] p-4 text-sm"><strong>Personalized offer for your account.</strong> Price {dollars(planMonthly)} {plan.kind==="one_time"?"once":"/month"} plus {dollars(setupFee)} setup. Your offer expires {new Date(offer.expiresAt).toLocaleDateString()}. {offer.requestedBillingAt&&plan.kind!=="one_time"?"Full subscription renewals start "+new Date(offer.requestedBillingAt).toLocaleString()+". Stripe will display the prorated first invoice and setup fee before payment.":""}</p>}
    {error&&<p role="alert" className="mt-5 rounded-xl border border-[#e9cfc7] bg-[#fff5ef] p-4 text-sm text-[#97543e]">{error}</p>}
    <p className="mt-6 text-xs text-[#9aab96]">24-hour limited-credit trials are planned separately and will pause when the time or credit allowance ends, whichever comes first. Trial access does not auto-charge customers.</p>
   </div>
