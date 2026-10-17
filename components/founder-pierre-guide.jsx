@@ -53,7 +53,7 @@ export default function FounderPierreGuide({user}){
   return {type:"cold_call_prospect",businessName:lead.business.trim().slice(0,110),ownerName:lead.contact.trim().slice(0,110),
    phone:lead.phone.trim().slice(0,32),email:lead.email.trim().slice(0,180),industry:lead.type.trim().slice(0,80),
    notes:lead.notes.trim().slice(0,5000),pierreStage:lead.stage,guideDate:lead.date,guideTime:lead.time,
-   pierreGuide:{step,path:[],answers:answers.slice(-50),updatedAt:new Date().toISOString()},
+   pierreGuide:{step,path:path.slice(-50),answers:answers.slice(-50),updatedAt:new Date().toISOString()},
    status:statusOf(lead.stage),updatedAt:serverTimestamp()};
  }
  async function persist(markCall=false,forceStage=null){
