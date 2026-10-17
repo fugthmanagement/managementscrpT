@@ -1,6 +1,8 @@
 import Stripe from "stripe";
 import {NextResponse} from "next/server";
 import {authenticatedUser,isFounder,firebaseAdmin} from "../../../../lib/server/auth";
+import {BILLING_PLANS} from "../../../../lib/billing-catalog";
+import {priceDetails} from "../../../../lib/server/fugth-price-catalog";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
 const reply=(x,status=200)=>NextResponse.json(x,{status,headers:{"Cache-Control":"private, no-store"}});
@@ -27,6 +29,9 @@ export async function GET(req){
    for(const sub of batch.data){
     seen++;
     if(sub.status!=="active")continue;
+    const validFugth=(sub.metadata?.kind==="subscription"&&Boolean(BILLING_PLANS[sub.metadata?.planKey]))||
+      (sub.items?.data||[]).some(item=>Boolean(priceDetails(item.price?.id||"")));
+    if(!validFugth)continue;
     result.subscriptions.activeCount++;
     for(const item of sub.items?.data||[]){
      const price=item.price;
