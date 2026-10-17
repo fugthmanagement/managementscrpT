@@ -49,10 +49,12 @@ export async function PUT(request,{params}){
    const profile=userDoc.data()||{};
    // The public preview remains free, but editing/publishing requires
    // an actual website entitlement or a verified founder action.
-   const allowed=profile.websitePurchased===true||
-    (profile.billingActive===true&&["website","starter","growth","elite"].includes(profile.planTier));
+   const hosted=profile.billingActive===true&&["website","starter","growth","elite"].includes(profile.planTier);
+   const allowed=hosted||profile.websitePurchased===true;
    if(!auth.founder&&!allowed)
     throw Object.assign(new Error("Activate a website package before editing or publishing."),{status:403});
+   if(!auth.founder&&!hosted&&["publish","initialize","regenerate"].includes(action))
+    throw Object.assign(new Error("A one-time website purchase does not include managed hosting. Add a hosted website plan to publish."),{status:403});
    const existing=draft.exists?draft.data():pub.exists?pub.data():businessPreset(uid,profile);
    let next,live=null;
    if(action==="initialize"){

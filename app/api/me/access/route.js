@@ -10,7 +10,7 @@ export async function GET(request){
   const doc=await firebaseAdmin().firestore().doc("founderAccountGrants/"+user.uid).get();
   const grant=doc.data();
   const at=Date.now(),from=Date.parse(grant?.startsAt||""),until=Date.parse(grant?.expiresAt||"");
-  if(grant?.source==="founder"&&["starter","growth","elite"].includes(grant?.tier)&&from<=at&&until>at)
+  if(grant?.source==="founder"&&["website","starter","growth","elite"].includes(grant?.tier)&&from<=at&&until>at)
    founderGrant={source:"founder",tier:grant.tier,term:grant.term,startsAt:grant.startsAt,expiresAt:grant.expiresAt};
  }catch{/* Account login is independent of optional founder grants. */}
  return NextResponse.json({isFounder:isFounder(user),accountId:user.uid,founderGrant,
