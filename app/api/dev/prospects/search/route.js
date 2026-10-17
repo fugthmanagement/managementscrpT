@@ -2,54 +2,44 @@ import {NextResponse} from "next/server";
 import {authenticatedUser,isFounder} from "../../../../../lib/server/auth";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
-const clean=(v,max=90)=>String(v||"").replace(/[<>\u0000-\u001f]/g," ").replace(/\s+/g," ").trim().slice(0,max);
+const clean=(value,max=90)=>String(value||"").replace(/[<>\u0000-\u001f]/g," ").replace(/\s+/g," ").trim().slice(0,max);
+const options=new Set(["Roofing contractor","Plumber","HVAC contractor","Electrician","Cleaning service","Landscaping service","Dentist","Dental clinic","Bridal shop","Wedding planner","Real estate agency","Hair salon","Barber shop","Auto repair shop","General contractor","Restaurant","Photographer","Law firm","Pet groomer"]);
 export async function POST(request){
  const user=await authenticatedUser(request);
- if(!isFounder(user))return NextResponse.json({error:"Verified founder access required."},{status:403});
- let body={};try{const text=await request.text();if(text.length>3000)throw Error();body=JSON.parse(text);}catch{return NextResponse.json({error:"Invalid prospect query."},{status:400});}
- const zipCode=clean(body.zipCode,12);
- const requested=Array.isArray(body.categories)?body.categories:[body.businessType];
- const categories=[...new Set(requested.map(x=>clean(x,70)).filter(Boolean))].slice(0,5);
- const websiteFilter=["all","missing","listed"].includes(body.websiteFilter)?body.websiteFilter:"all";
- const minRating=Math.min(5,Math.max(0,Number(body.minRating)||0)),minReviews=Math.min(1000,Math.max(0,Number(body.minReviews)||0));
- if(!/^\d{5}$/.test(zipCode)||!categories.length)return NextResponse.json({error:"Enter a 5-digit U.S. ZIP code and at least one business category."},{status:400});
- const queries=categories.map(category=>category+" in "+zipCode);
- const mapsUrls=queries.map(query=>"https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(query));
+ if(!isFounder(user))return NextResponse.json({error:"Verified FUGTH founder access required."},{status:403});
+ let body;try{const raw=await request.text();if(raw.length>2200)throw Error();body=JSON.parse(raw);}
+ catch{return NextResponse.json({error:"Invalid search request."},{status:400});}
+ const zip=clean(body.zipCode,10);
+ if(!/^[0-9]{5}(?:-[0-9]{4})?$/.test(zip))return NextResponse.json({error:"Enter a valid five-digit ZIP code."},{status:400});
+ const input=Array.isArray(body.categories)&&body.categories.length?body.categories:[body.businessType||"Local businesses"];
+ const categories=[...new Set(input.map(x=>clean(x,65)))].slice(0,5);
+ if(!categories.length||categories.some(c=>!c||(!options.has(c)&&c.length<3)))return NextResponse.json({error:"Choose valid business categories."},{status:400});
+ const mapsUrl="https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(categories.join(" OR ")+" in "+zip);
  const apiKey=process.env.GOOGLE_MAPS_API_KEY;
- if(!apiKey)return NextResponse.json({error:"Google Places is not enabled yet. Enable Places API (New), add a restricted GOOGLE_MAPS_API_KEY to Vercel, and redeploy.",mapsUrl:mapsUrls[0],mapsUrls,places:[],configured:false},{status:503});
- const fieldMask="places.id,places.displayName,places.formattedAddress,places.nationalPhoneNumber,places.websiteUri,places.primaryType,places.types,places.googleMapsUri,places.rating,places.userRatingCount";
+ if(!apiKey)return NextResponse.json({error:"GOOGLE_MAPS_API_KEY is missing from the production Vercel environment. Enable Places API (New) and redeploy after configuration.",mapsUrl,places:[]},{status:503});
  try{
+  const queries=categories.map(category=>category+" in "+zip);
   const results=await Promise.all(queries.map(async textQuery=>{
-   const controller=AbortSignal.timeout(11500);
-   const response=await fetch("https://places.googleapis.com/v1/places:searchText",{
-    method:"POST",headers:{"Content-Type":"application/json","X-Goog-Api-Key":apiKey,"X-Goog-FieldMask":fieldMask},
-    body:JSON.stringify({textQuery,maxResultCount:20,languageCode:"en"}),cache:"no-store",signal:controller});
-   const json=await response.json().catch(()=>({}));
-   if(!response.ok)throw Error(json?.error?.message||"Places API returned "+response.status);
-   return json.places||[];
+   const res=await fetch("https://places.googleapis.com/v1/places:searchText",{
+    method:"POST",headers:{"Content-Type":"application/json","X-Goog-Api-Key":apiKey,
+     "X-Goog-FieldMask":"places.id,places.displayName,places.formattedAddress,places.nationalPhoneNumber,places.websiteUri,places.primaryType,places.types,places.googleMapsUri,places.rating,places.userRatingCount"},
+    body:JSON.stringify({textQuery,maxResultCount:20,languageCode:"en"}),cache:"no-store",signal:AbortSignal.timeout(12500)});
+   const data=await res.json().catch(()=>({}));
+   if(!res.ok)throw Object.assign(new Error(data?.error?.message||"Google Places search failed."),{status:res.status});
+   return data.places||[];
   }));
-  const deduped=new Map();
-  for(const row of results.flat()){
-   const placeId=clean(row.id,180),businessName=clean(row.displayName?.text,110),phone=clean(row.nationalPhoneNumber,35);
-   const dedupeId=placeId||businessName.toLowerCase()+"|"+phone;
-   if(!businessName||deduped.has(dedupeId))continue;
-   const website=clean(row.websiteUri,350);
-   deduped.set(dedupeId,{placeId,businessName,address:clean(row.formattedAddress,190),phone,website,
-    hasWebsiteListed:Boolean(website),websiteStatus:website?"listed":"not_listed",
-    googleMapsUrl:clean(row.googleMapsUri,350),primaryType:clean(row.primaryType,80),
-    rating:Number.isFinite(row.rating)?row.rating:null,reviewCount:Number.isInteger(row.userRatingCount)?row.userRatingCount:0,
-    types:Array.isArray(row.types)?row.types.slice(0,14).map(x=>clean(x,50)):[]});
+  const unique=new Map();
+  for(const place of results.flat()){
+   const id=clean(place.id,160);if(!id||unique.has(id))continue;
+   unique.set(id,{placeId:id,businessName:clean(place.displayName?.text,110),address:clean(place.formattedAddress,180),
+    phone:clean(place.nationalPhoneNumber,32),website:clean(place.websiteUri,300),hasWebsite:Boolean(place.websiteUri),
+    googleMapsUrl:clean(place.googleMapsUri,350),rating:Number.isFinite(place.rating)?place.rating:null,
+    reviewCount:Number.isFinite(place.userRatingCount)?place.userRatingCount:0,
+    primaryType:clean(place.primaryType,80),types:Array.isArray(place.types)?place.types.slice(0,12).map(t=>clean(t,50)):[]});
   }
-  let places=[...deduped.values()];
-  if(websiteFilter==="missing")places=places.filter(p=>!p.hasWebsiteListed);
-  if(websiteFilter==="listed")places=places.filter(p=>p.hasWebsiteListed);
-  if(minRating>0)places=places.filter(p=>p.rating!=null&&p.rating>=minRating);
-  if(minReviews>0)places=places.filter(p=>p.reviewCount>=minReviews);
-  return NextResponse.json({places,mapsUrl:mapsUrls[0],mapsUrls,queries,searchedCategories:categories,
-   totalRetrieved:deduped.size,returned:places.length,configured:true,notice:"Missing website in Google Places is only a lead signal, not proof that the business has no website."},
-   {headers:{"Cache-Control":"private, no-store"}});
- }catch(error){
-  console.error("FUGTH Places search failed",{code:error?.code||"upstream"});
-  return NextResponse.json({error:"Google Places search failed. Check the Places API, billing, allowed IP/API restrictions, and quota.",places:[],mapsUrl:mapsUrls[0],mapsUrls},{status:503});
- }
+  return NextResponse.json({places:[...unique.values()].filter(p=>p.businessName),mapsUrl,queries,complete:false,
+   note:"Google Places returns a ranked subset, not an exhaustive list of all businesses in a ZIP code. No website listed does not prove a company has no website."});
+ }catch(e){console.warn("FUGTH Places category search",{status:e.status||"network"});
+  return NextResponse.json({error:e.status===403?"Google Places rejected this API key. Confirm Places API (New), billing, quotas and server-key restrictions.":"Google Places search failed. "+String(e.message||"Try again.").slice(0,160),
+   mapsUrl,places:[]},{status:503});}
 }
