@@ -28,8 +28,8 @@ export default function FounderOfferEditor({account}){
    <label className="text-xs font-semibold">{BILLING_PLANS[planKey]?.kind==="one_time"?"Website price ($)":"Base monthly price ($)"}<input type="number" min="10" max="20000" step="0.01" className={"mt-2 "+field} value={price} onChange={e=>setPrice(e.target.value)}/></label>
    <label className="text-xs font-semibold">One-time setup ($)<input type="number" min="0" max="20000" step="0.01" className={"mt-2 "+field} value={setup} onChange={e=>setSetup(e.target.value)}/></label>
   </div>
-  <label className="mt-4 block text-xs font-semibold">Requested future billing date/time (planning only)<input type="datetime-local" className={"mt-2 "+field} value={requestedBillingAt} onChange={e=>setRequestedBillingAt(e.target.value)}/></label>
-  <p className="mt-2 text-[11px] leading-5 text-[#8b745b]">The date is saved for follow-up, not silently applied to Stripe. Stripe controls actual charge and renewal timing. We will need an approved subscription scheduling flow to honor custom renewal dates.</p>
+  <label className="mt-4 block text-xs font-semibold">Stripe renewal date/time (next 28 days)<input type="datetime-local" className={"mt-2 "+field} value={requestedBillingAt} onChange={e=>setRequestedBillingAt(e.target.value)}/></label>
+  <p className="mt-2 text-[11px] leading-5 text-[#8b745b]">If you set a valid date within the next 28 days, Stripe Checkout aligns future full subscription renewals to it. The customer still pays any setup fee and the prorated initial subscription amount at checkout. The customer must approve the exact total in Stripe.</p>
   <div className="mt-4 flex flex-wrap gap-3"><button type="button" disabled={busy} onClick={save} className="rounded-xl bg-[#4b4032] px-4 py-3 text-xs font-bold text-white">{busy?"Saving…":"Save customer offer"}</button>
    {url&&<button type="button" onClick={()=>navigator.clipboard?.writeText(url)} className="rounded-xl border border-[#c8b79f] px-4 py-3 text-xs font-semibold">Copy plan link</button>}
   </div>
