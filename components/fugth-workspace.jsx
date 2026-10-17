@@ -13,6 +13,7 @@ import ReceptionistPreview from "./receptionist-preview";
 import CallInbox from "./call-inbox";
 import FounderColdCall from "./founder-cold-call";
 import FounderProspectImport from "./founder-prospect-import";
+import FounderRevenuePlanner from "./founder-revenue-planner";
 import FounderBillingHealth from "./founder-billing-health";
 import FounderVoiceHealth from "./founder-voice-health";
 import FounderDemoControls from "./founder-demo-controls";
@@ -200,6 +201,7 @@ export default function FugthWorkspace(){
      {page==="accounts"&&!founder&&<Empty title="This area is private" description="Accounts can only be managed by verified FUGTH administrators."/>}
      {page==="admin"&&founder&&<div><SectionHeading eyebrow="FUGTH INTERNAL" title="Operations center." description="Your accounts, founding customers, live payments and sales operations in one private workspace."/><div className="space-y-6">
        <div className="rounded-[24px] border border-[#e2dbce] bg-[#faf5ea] p-4 text-sm text-[#6d5b45]"><strong>Customer accounts & website assignment</strong><p className="mt-1 text-xs leading-6">Every registered Firebase account appears below, including free prospects. Choose a customer to grant temporary demo access or open their private website in Website Studio. Paid subscriptions are only activated by verified Stripe payments.</p></div><FounderAccountDirectory/>
+       <FounderRevenuePlanner/>
        <FounderVoiceHealth/>
        <FounderDemoControls/>
        <FounderBillingHealth/>
