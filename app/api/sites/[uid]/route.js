@@ -47,6 +47,12 @@ export async function PUT(request,{params}){
    const [pub,draft,userDoc]=await Promise.all([tx.get(pubRef),tx.get(draftRef),tx.get(db.doc("users/"+uid))]);
    if(!pub.exists&&!draft.exists&&!userDoc.exists&&!isFounder(auth.user))throw Object.assign(new Error("Business account does not exist."),{status:404});
    const profile=userDoc.data()||{};
+   // The public preview remains free, but editing/publishing requires
+   // an actual website entitlement or a verified founder action.
+   const allowed=profile.websitePurchased===true||
+    (profile.billingActive===true&&["website","starter","growth","elite"].includes(profile.planTier));
+   if(!auth.founder&&!allowed)
+    throw Object.assign(new Error("Activate a website package before editing or publishing."),{status:403});
    const existing=draft.exists?draft.data():pub.exists?pub.data():businessPreset(uid,profile);
    let next,live=null;
    if(action==="initialize"){
