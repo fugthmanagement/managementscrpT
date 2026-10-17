@@ -198,7 +198,7 @@ export default function FugthWorkspace(){
      {page==="accounts"&&founder&&<div><SectionHeading eyebrow="FUGTH OPERATIONS" title="Accounts & access." description="Review FUGTH members, account tiers, last sign-ins and founder-authorized access."/><FounderAccountDirectory/></div>}
      {page==="accounts"&&!founder&&<Empty title="This area is private" description="Accounts can only be managed by verified FUGTH administrators."/>}
      {page==="admin"&&founder&&<div><SectionHeading eyebrow="FUGTH INTERNAL" title="Operations center." description="Your accounts, founding customers, live payments and sales operations in one private workspace."/><div className="space-y-6">
-       <div className="flex justify-end"><button type="button" onClick={()=>navigate("accounts")} className="rounded-xl border border-[#6b9994] bg-[#174044] px-5 py-3 text-xs font-bold text-[#aef8ec]">Manage all registered accounts ↗</button></div>
+       <div className="rounded-[24px] border border-[#e2dbce] bg-[#faf5ea] p-4 text-sm text-[#6d5b45]"><strong>Customer accounts & website assignment</strong><p className="mt-1 text-xs leading-6">Every registered Firebase account appears below, including free prospects. Choose a customer to grant temporary demo access or open their private website in Website Studio. Paid subscriptions are only activated by verified Stripe payments.</p></div><FounderAccountDirectory/>
        <FounderVoiceHealth/>
        <FounderDemoControls/>
        <FounderBillingHealth/>
