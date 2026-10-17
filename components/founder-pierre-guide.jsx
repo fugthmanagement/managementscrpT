@@ -30,7 +30,9 @@ export default function FounderPierreGuide({user}){
  useEffect(()=>{if(loaded){const found=prospects.find(p=>p.id===selectedId);send(found||null);setNotice(found?"Loaded "+found.businessName+". Previous call details are available.":"New unsaved lead.");}},[selectedId,loaded]);
  useEffect(()=>{
   function receive(event){
-   if(event.origin!==window.location.origin||event.source!==iframe.current?.contentWindow||event.data?.source!=="fugth-pierre-guide"||event.data?.type!=="change")return;
+   if(event.origin!==window.location.origin||event.source!==iframe.current?.contentWindow||event.data?.source!=="fugth-pierre-guide")return;
+   if(event.data.type==="new"){setSelectedId("");setNotice("New blank prospect. Save it before moving to the next call.");return;}
+   if(event.data.type!=="change")return;
    const d=event.data;setLead(d.lead||blank);setStep(d.node||"start");setPath(d.nodeHistory||[]);setAnswers(d.history||[]);
    if((d.node==="stop"||d.lead?.stage==="Do not call")&&selectedId&&dncDone.current!==selectedId){
     dncDone.current=selectedId;
