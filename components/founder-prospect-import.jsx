@@ -6,17 +6,17 @@ import {db} from "../lib/firebase";
 const field="w-full rounded-xl border border-[#e0d6c8] bg-white px-3 py-2.5 text-sm text-[#40372e] outline-none focus:border-[#977c5c]";
 const normalizePhone=v=>String(v??"").replace(/[^0-9+]/g,"").slice(0,24);
 const value=(item,names)=>{for(const name of names){const key=Object.keys(item).find(k=>k.toLowerCase().replace(/[^a-z0-9]/g,"")===name);if(key!=null&&item[key]!=null)return String(item[key]).trim();}return "";};
-const clean=(v,max=200)=>String(v??"").replace(/[\\u0000-\\u001f]/g," ").trim().slice(0,max);
+const clean=(v,max=200)=>String(v??"").replace(/[\u0000-\u001f]/g," ").trim().slice(0,max);
 function parseDelimited(text,separator=","){
  const rows=[];let row=[],cell="",quoted=false;
  for(let i=0;i<text.length;i++){
   const c=text[i];if(c==='"'){if(quoted&&text[i+1]==='"'){cell+='"';i++;}else quoted=!quoted;}
   else if(!quoted&&c===separator){row.push(cell);cell="";}
-  else if(!quoted&&(c==="\\n"||c==="\\r")){if(c==="\\r"&&text[i+1]==="\\n")i++;row.push(cell);if(row.some(x=>x.trim()))rows.push(row);row=[];cell="";}
+  else if(!quoted&&(c==="\n"||c==="\r")){if(c==="\r"&&text[i+1]==="\n")i++;row.push(cell);if(row.some(x=>x.trim()))rows.push(row);row=[];cell="";}
   else cell+=c;
  }
  row.push(cell);if(row.some(x=>x.trim()))rows.push(row);
- const head=(rows.shift()||[]).map(x=>x.replace(/^\\uFEFF/,"").trim());
+ const head=(rows.shift()||[]).map(x=>x.replace(/^\uFEFF/,"").trim());
  return rows.map(cells=>Object.fromEntries(head.map((name,i)=>[name,cells[i]||""])));
 }
 function normalize(item){
@@ -57,8 +57,8 @@ export default function FounderProspectImport({user}){
   if(file.size>3_000_000){setMessage("Select a CSV or JSON file smaller than 3 MB.");return;}
   setBusy(true);setMessage("");
   try{
-   const text=await file.text();const isJson=/\\.json$/i.test(file.name);
-   const parsed=isJson?JSON.parse(text):parseDelimited(text,/\\.tsv$/i.test(file.name)?"\\t":",");
+   const text=await file.text();const isJson=/\.json$/i.test(file.name);
+   const parsed=isJson?JSON.parse(text):parseDelimited(text,/\.tsv$/i.test(file.name)?"\t":",");
    const raw=Array.isArray(parsed)?parsed:Array.isArray(parsed?.prospects)?parsed.prospects:Array.isArray(parsed?.rows)?parsed.rows:[];
    if(!raw.length)throw Error("No prospect rows found. Include businessName (or Business) and Phone columns.");
    const existing=new Set(rows.map(x=>normalizePhone(x.phone)).filter(Boolean));
