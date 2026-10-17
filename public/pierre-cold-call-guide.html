@@ -77,7 +77,7 @@ let current='start',history=[],answers=[];const $=id=>document.getElementById(id
     const p=e.data.lead||{};
     fieldNames.forEach(k=>{const input=document.getElementById(k);if(input)input.value=String(p[k]||'').slice(0,2000)});
     if(!p.stage)document.getElementById('stage').value='New prospect';
-    save();current='start';history=[];answers=[];render();
+    save();current=(typeof e.data.step==='string'&&Object.prototype.hasOwnProperty.call(N,e.data.step))?e.data.step:'start';history=Array.isArray(e.data.path)?e.data.path.filter(id=>Object.prototype.hasOwnProperty.call(N,id)).slice(-40):[];answers=[];render();
     suppress=false;send();
    }
    if(e.data.type==='snapshot')send();
