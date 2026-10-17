@@ -82,6 +82,16 @@ let current='start',history=[],answers=[];const $=id=>document.getElementById(id
    }
    if(e.data.type==='snapshot')send();
   });
+  const newCall=document.getElementById('newLead');const originalNewCall=newCall.onclick;
+  newCall.onclick=function(event){
+    const before=snapshot().lead;
+    if(typeof originalNewCall==='function')originalNewCall.call(this,event);
+    const after=snapshot().lead;
+    if((before.business||before.phone||before.email)&&!after.business&&!after.phone&&!after.email){
+      window.parent.postMessage({source:'fugth-pierre-guide',type:'new'},window.location.origin);
+      send();
+    }
+  };
   updateProgress();setTimeout(send,250);
 })();
 </script></body></html>
