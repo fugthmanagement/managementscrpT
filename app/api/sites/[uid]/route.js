@@ -22,7 +22,7 @@ async function viewer(request,uid) {
  if(!validUid(uid))return {error:NextResponse.json({error:"Invalid site reference."},{status:400})};
  if(user.uid!==uid&&!isFounder(user))return {error:NextResponse.json({error:"This website belongs to another account."},{status:403})};
  if(!hasAdminCredentials())return {error:NextResponse.json({error:"Website editing requires secure Firebase server configuration."},{status:503})};
- return {user,founder:user.uid!==uid};
+ return {user,founder:isFounder(user)};
 }
 export async function GET(request,{params}) {
  const uid=params.uid,auth=await viewer(request,uid);if(auth.error)return auth.error;
