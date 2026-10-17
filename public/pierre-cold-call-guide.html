@@ -59,7 +59,7 @@ let current='start',history=[],answers=[];const $=id=>document.getElementById(id
   const nodeLevels={start:0,who:5,referral:10,honest:10,refcheck:10,reveal:20,positive:40,link:40,now:45,features:40,gotemail:65,emailhes:50,schedule:78,morning:82,afternoon:82,confirm:90,booked:100,finish:100,sendonly:68,callback:40,followup:55,busy:15,existing:25,tech:25,price:30,priceinfo:35,budget:30,softno:15,endno:20,wrong:0,stop:0};
   const fieldNames=['business','contact','phone','email','type','date','time','stage','notes'];
   let suppress=false;
-  function snapshot(){const lead={};fieldNames.forEach(k=>lead[k]=document.getElementById(k)?.value||'');return {lead,node:typeof current==='string'?current:'start',history:typeof answers==='object'?answers.slice(-75):[]};}
+  function snapshot(){const lead={};fieldNames.forEach(k=>lead[k]=document.getElementById(k)?.value||'');return {lead,node:typeof current==='string'?current:'start',nodeHistory:typeof history==='object'?history.slice(-40):[],history:typeof answers==='object'?answers.slice(-75):[]};}
   function updateProgress(){const id=typeof current==='string'?current:'start';const pct=nodeLevels[id]||0;
    const stage=document.getElementById('stage')?.value||'New prospect';
    const levels={'Email collected':68,'Interested':45,'Meeting booked':100,'Follow up':45,'Contacted':20,'Not interested':20,'Do not call':0};
