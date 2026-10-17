@@ -80,7 +80,7 @@ export default function Plans(){
      {!currentUser&&authReady&&<Link href="/login" className="mt-3 block text-center text-xs font-semibold underline">Log in to subscribe</Link>}
     </div>
    </section>
-   {offerApplied&&<p className="mt-4 rounded-xl border border-[#d4c6ad] bg-[#fff5e5] p-4 text-sm"><strong>Personalized offer for your account.</strong> Price {dollars(planMonthly)} {plan.kind==="one_time"?"once":"/month"} plus {dollars(setupFee)} setup. Your offer expires {new Date(offer.expiresAt).toLocaleDateString()}. Requested billing dates are not automatically scheduled by this checkout.</p>}
+   {offerApplied&&<p className="mt-4 rounded-xl border border-[#d4c6ad] bg-[#fff5e5] p-4 text-sm"><strong>Personalized offer for your account.</strong> Price {dollars(planMonthly)} {plan.kind==="one_time"?"once":"/month"} plus {dollars(setupFee)} setup. Your offer expires {new Date(offer.expiresAt).toLocaleDateString()}. If a future Stripe renewal date appears below, the first invoice may be prorated; the exact amount is shown by Stripe before payment.</p>}
    {error&&<p role="alert" className="mt-5 rounded-xl border border-[#e9cfc7] bg-[#fff5ef] p-4 text-sm text-[#97543e]">{error}</p>}
    <p className="mt-6 text-xs text-[#9aab96]">24-hour limited-credit trials are planned separately and will pause when the time or credit allowance ends, whichever comes first. Trial access does not auto-charge customers.</p>
   </div>
