@@ -21,7 +21,7 @@ export async function POST(req){
  const requestedBillingAt=String(body.requestedBillingAt||"");
  if(!validUid(uid)||!plan||!Number.isSafeInteger(monthlyCents)||monthlyCents<1000||monthlyCents>2000000||
   !Number.isSafeInteger(setupCents)||setupCents<0||setupCents>2000000||
-  (requestedBillingAt&&(!Number.isFinite(Date.parse(requestedBillingAt))||Date.parse(requestedBillingAt)<=Date.now())))
+  (requestedBillingAt&&(!Number.isFinite(Date.parse(requestedBillingAt))||Date.parse(requestedBillingAt)<=Date.now()+300000||Date.parse(requestedBillingAt)>Date.now()+28*86400000)))
   return send({error:"Choose a real customer, package, valid prices, and a future date if requested."},400);
  try{
   const admin=firebaseAdmin(),customer=await admin.auth().getUser(uid);
