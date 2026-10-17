@@ -11,7 +11,7 @@ const voiceKey=()=>process.env.VOICE_PRIVATE_KEY||process.env.VAPI_PRIVATE_KEY||
 const numberId=()=>process.env.VAPI_PHONE_NUMBER_ID||process.env.VAPI_PHONE_NUMBER||"";
 const secret=()=>process.env.DEMO_COOLDOWN_SECRET||voiceKey();
 const storageReady=()=>Boolean(process.env.FIREBASE_SERVICE_ACCOUNT||(process.env.FIREBASE_CLIENT_EMAIL&&process.env.FIREBASE_PRIVATE_KEY));
-const configured=()=>Boolean(voiceKey()&&numberId()&&storageReady()&&process.env.TURNSTILE_SECRET_KEY&&process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY);
+const configured=()=>Boolean(process.env.PUBLIC_DEMO_ENABLED==="true"&&voiceKey()&&numberId()&&storageReady()&&process.env.TURNSTILE_SECRET_KEY&&process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY);
 function remoteAddress(req){
  const ip=req.headers.get("x-real-ip")||req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()||"";
  return ip.slice(0,100);
@@ -27,10 +27,10 @@ async function verifyHuman(token,req){
 export async function GET(){
  const {seconds}=await getGlobalDemoSettings();
  return reply({available:configured(),lengthSeconds:seconds,cooldownHours:3,
-  reason:configured()?null:"Guest calling is awaiting the secure anti-abuse and voice configuration. You can still use the demo from a free FUGTH account."});
+  reason:configured()?null:"Guest calling is turned off until the founder enables it. Account demos require founder approval or a paid AI plan."});
 }
 export async function POST(req){
- if(!configured())return reply({error:"Guest calling is not ready yet. Create a free FUGTH account to access the customer demo."},503);
+ if(!configured())return reply({error:"Public calling is disabled. Ask FUGTH for an approved test invitation."},503);
  let body;
  try{const raw=await req.text();if(raw.length>4000)throw Error();body=JSON.parse(raw);}catch{return reply({error:"Invalid demo request."},400);}
  const number=usNumber(body.phone);

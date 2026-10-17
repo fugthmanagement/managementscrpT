@@ -3,7 +3,9 @@ import {useEffect,useMemo,useState} from "react";
 import {auth} from "../lib/firebase";
 import FounderDemoControls from "./founder-demo-controls";
 import FounderPhoneAssignment from "./founder-phone-assignment";
-const planOptions=[["none","Zero"],["starter","Low · $49"],["growth","Mid · $149"],["elite","High · $499"]];
+import FounderOfferEditor from "./founder-offer-editor";
+import FounderDemoAccess from "./founder-demo-access";
+const planOptions=[["none","Zero"],["starter","Essential · $149 founding"],["growth","Growth · $399"],["elite","Elite · $799"]];
 const input="w-full rounded-xl border border-[#d8e3d5] bg-white px-3 py-3 text-xs text-[#314836] outline-none focus:border-[#53735b]";
 const date=v=>{const d=new Date(v||"");return Number.isFinite(d.getTime())?d.toLocaleString(undefined,{month:"short",day:"numeric",year:"numeric",hour:"numeric",minute:"2-digit"}):"Not set";};
 const clean=v=>String(v||"").trim();
@@ -86,8 +88,10 @@ export default function FounderAccountDirectory(){
   {cursor&&<button type="button" disabled={busy!==""} onClick={()=>load(cursor,true)} className="mt-4 w-full rounded-xl border border-[#d4e0d0] px-4 py-3 text-xs font-bold text-[#416348] disabled:opacity-50">Load more registered accounts ↘</button>}
   {selected&&<div className="mt-6 rounded-2xl border border-[#bed7b9] bg-[#f1f7ee] p-5 sm:p-6">
    <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-[10px] font-bold uppercase tracking-widest text-[#688366]">ACCOUNT ACCESS CONTROLS</p><h4 className="mt-2 text-lg font-bold">{selected.businessName||selected.email||"Customer"}</h4><p className="mt-1 break-all text-[11px] text-[#768876]">{selected.uid}</p></div><button type="button" onClick={()=>setSelected(null)} className="text-xs font-bold underline">Close</button></div>
-   <div className="mt-5"><FounderDemoControls uid={selected.uid}/></div>
+   <div className="mt-5"><FounderDemoAccess uid={selected.uid}/><FounderDemoControls uid={selected.uid}/></div>
    <FounderPhoneAssignment uid={selected.uid} onAssigned={()=>load()}/>
+   <FounderOfferEditor key={selected.uid} account={selected}/>
+   <p className="mt-4 text-xs"><a className="font-bold text-[#45654c] underline" href={"/sites/"+encodeURIComponent(selected.uid)+"?edit=1"} target="_blank" rel="noopener noreferrer">Open and edit this customer’s website ↗</a></p>
    <div className="mt-5 grid gap-3 sm:grid-cols-2">
     <label className="text-xs font-bold">Access tier<select value={tier} onChange={e=>setTier(e.target.value)} className={"mt-2 "+input}>{planOptions.filter(([value])=>value!=="none").map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>
     <label className="text-xs font-bold">Duration<select value={term} onChange={e=>setTerm(e.target.value)} className={"mt-2 "+input}><option value="monthly">One month from now</option><option value="yearly">One year from now</option></select></label>

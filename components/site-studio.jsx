@@ -6,6 +6,7 @@ import {doc,getDoc,setDoc,serverTimestamp} from "firebase/firestore";
 import SiteImageLibrary from "./site-image-library";
 import {buildStarterSite,getIndustry,SITE_THEMES,siteFields} from "../lib/site-presets";
 import SiteRenderer from "./site-renderer";
+import ClientPresentationStudio from "./client-presentation-studio";
 
 export const LOCAL_SITE_DRAFT="fugth-site-draft-v1";
 const paletteFields=[
@@ -113,6 +114,7 @@ export default function SiteStudio({user,workspace={},targetUid=null,locked=fals
    <div className="mt-4 flex flex-wrap items-stretch gap-3"><textarea readOnly rows={2} aria-label="Copy the chatbot embed script" value={'<script async src="https://www.fugthmanagement.space/api/embed/widget/'+encodeURIComponent(uid)+'"></script>'} className="min-w-[200px] flex-1 rounded-xl border border-[#cddfc9] bg-white p-3 font-mono text-xs text-[#344a36]"/><button type="button" onClick={()=>navigator.clipboard?.writeText('<script async src="https://www.fugthmanagement.space/api/embed/widget/'+encodeURIComponent(uid)+'"></script>')} className="rounded-xl bg-[#2d4936] px-5 py-3 text-xs font-bold text-white">Copy embed code</button></div>
    <p className="mt-2 text-[11px] leading-5 text-[#829780]">Paste before the closing body tag of your existing site. The chat uses the business website profile and requires a published or preview site profile to load. It does not confirm appointments without a real booking integration.</p>
   </section>
+  {!locked&&["wedding","realestate"].includes(site?.industry)&&<ClientPresentationStudio uid={uid} industry={site.industry}/>}
   <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white"><div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-5 py-4 sm:px-7"><div><p className="text-[10px] font-black uppercase tracking-[.18em] text-slate-500">LIVE PREVIEW</p><p className="mt-1 text-sm font-bold text-slate-900">{SITE_THEMES.find(x=>x.id===site.template)?.name} · {industry.label}</p></div><Link href={`/sites/${encodeURIComponent(uid)}?preview=1`} target="_blank" className="rounded-lg border border-slate-200 px-4 py-2.5 text-xs font-black">Full-screen preview ↗</Link></div><div className="max-h-[800px] overflow-y-auto"><SiteRenderer data={site} preview/></div></section>
  </div>;
 }

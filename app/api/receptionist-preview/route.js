@@ -1,6 +1,6 @@
 import {durationForDemo,getGlobalDemoSettings} from "../../../lib/server/demo-settings";
 import {NextResponse} from "next/server";
-import {authenticatedUser,isFounder} from "../../../lib/server/auth";
+import {authenticatedUser,isFounder,firebaseAdmin} from "../../../lib/server/auth";
 import {fromFirestoreValue} from "../../../lib/server/firestore-admin";
 import {demoBusiness,demoAssistant,DEMO_DURATION,DEMO_FOCUS_OPTIONS,DEMO_SCENARIOS,focusChoice,scenarioChoice,usNumber} from "../../../lib/server/voice-preview";
 import {getDemoCooldown,reserveDemo,recordDemoCall} from "../../../lib/server/demo-cooldown";
@@ -18,6 +18,16 @@ const hasAdminCredentials=()=>Boolean(process.env.FIREBASE_SERVICE_ACCOUNT||(pro
 const hasVoice=()=>Boolean(voiceKey());
 const adminView=(account,view)=>view==="admin"&&isFounder(account.user);
 const customerReady=()=>Boolean(hasVoice()&&numberId()&&hasAdminCredentials());
+async function hasCustomerDemoPermission(uid){
+ try{
+  const db=firebaseAdmin().firestore();
+  const [profile,override]=await Promise.all([db.doc("users/"+uid).get(),db.doc("demoAccountPermissions/"+uid).get()]);
+  const p=profile.data()||{},d=override.data()||{};
+  const paid=p.billingActive===true&&["starter","growth","elite"].includes(p.planTier);
+  const limited=d.enabled===true&&Date.parse(d.expiresAt||"")>Date.now();
+  return paid||limited;
+ }catch{return false;} // Fail closed: never create billable calls when authorization storage fails.
+}
 const unavailableReason=(admin)=>!hasVoice()?"FUGTH calling is not connected yet.":admin?null:!numberId()?"The FUGTH outgoing demo line is not configured.":"The FUGTH demo protection service is temporarily unavailable.";
 const root=()=> "https://firestore.googleapis.com/v1/projects/"+encodeURIComponent(projectId())+"/databases/(default)/documents";
 function response(data,status=200){return NextResponse.json(data,{status,headers:{"Cache-Control":"no-store"}});}
@@ -52,6 +62,8 @@ export async function GET(req){
  const callId=params.get("callId");
  if(!hasVoice())return response({available:false,adminMode:admin,issueCode:"VOICE_OFFLINE",reason:"The FUGTH demo calling line isn't connected."});
  if(!numberId()&&!callId)return response({available:false,adminMode:admin,issueCode:"DEMO_NUMBER_MISSING",reason:"The FUGTH outgoing demo line isn't configured."});
+ if(!callId&&!founderTesting&&!(await hasCustomerDemoPermission(account.user.uid)))
+  return response({available:false,adminMode:admin,issueCode:"DEMO_NOT_ENABLED",reason:"Live AI test calls need an active voice package or a temporary FUGTH founder invitation."});
  if(!callId&&!founderTesting&&!customerReady())
   return response({available:false,adminMode:admin,issueCode:"DEMO_STORAGE_SETUP",reason:"FUGTH demo security needs its customer quota storage connection repaired. You can still enter your phone number below."});
  if(callId){
@@ -103,6 +115,8 @@ export async function POST(req){
  const admin=adminView(account,body.view);
  const founderTesting=isFounder(account.user);
  if(!hasVoice())return response({error:"FUGTH calling is not connected yet. Contact the management team."},503);
+ if(!founderTesting&&!(await hasCustomerDemoPermission(account.user.uid)))
+  return response({error:"AI test calls are not enabled for this free account. Ask your FUGTH representative to open a temporary demo window.",issueCode:"DEMO_NOT_ENABLED"},403);
  if(!founderTesting&&!customerReady())return response({error:"The secure FUGTH demo quota connection needs repair. Contact management.",issueCode:"DEMO_STORAGE_SETUP"},503);
  let reservation;
  try{
