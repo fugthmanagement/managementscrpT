@@ -1,7 +1,6 @@
 "use client";
-import {useMemo,useState} from "react";
+import {useEffect,useState} from "react";
 import Link from "next/link";
-import {useSearchParams} from "next/navigation";
 const templates={
  electrician:{label:"Electrical contractor",icon:"⚡",en:{hero:"Reliable power. Expert electrical work.",sub:"Electrical solutions for homes and businesses.",services:["EV charger installation","Generator & transfer switch installation","Panel upgrades & electrical repairs"],cta:"Request a free consultation",about:"Professional electrical services for your next project."},es:{hero:"Energía confiable. Trabajo eléctrico profesional.",sub:"Soluciones eléctricas para hogares y negocios.",services:["Instalación de cargadores para vehículos eléctricos","Instalación de generadores e interruptores de transferencia","Actualización de paneles y reparaciones eléctricas"],cta:"Solicitar una consulta",about:"Servicios eléctricos profesionales para su próximo proyecto."}},
  mechanic:{label:"Auto repair",icon:"🔧",en:{hero:"Back on the road, with confidence.",sub:"Straightforward car care and dependable repairs.",services:["Diagnostics & check-engine lights","Brakes, suspension & maintenance","Engine and transmission service"],cta:"Request an appointment",about:"Auto service focused on clear communication and reliable workmanship."},es:{hero:"De vuelta a la carretera con confianza.",sub:"Mantenimiento y reparación confiables para su vehículo.",services:["Diagnóstico y luces de advertencia","Frenos, suspensión y mantenimiento","Servicio de motor y transmisión"],cta:"Solicitar una cita",about:"Servicio automotriz con comunicación clara y trabajo confiable."}},
@@ -9,10 +8,12 @@ const templates={
 };
 function safe(value,max){return (value||"").replace(/[<>]/g,"").trim().slice(0,max);}
 export default function ProspectDemo({params}){
- const search=useSearchParams(), industry=params.industry,template=templates[industry];
+ const industry=params.industry,template=templates[industry];
+ const [query,setQuery]=useState({});
+ useEffect(()=>{setQuery(Object.fromEntries(new URLSearchParams(window.location.search)))},[]);
  const [language,setLanguage]=useState("en");
- const name=safe(search.get("name"),75)||({electrician:"Your Electrical Company",mechanic:"Your Auto Repair Shop",plumber:"Your Plumbing Company"}[industry]||"Your Business");
- const phone=safe(search.get("phone"),30),email=safe(search.get("email"),100);
+ const name=safe(query.name,75)||({electrician:"Your Electrical Company",mechanic:"Your Auto Repair Shop",plumber:"Your Plumbing Company"}[industry]||"Your Business");
+ const phone=safe(query.phone,30),email=safe(query.email,100);
  if(!template)return <main className="p-12">Unknown demo template. <Link href="/demo">Open templates</Link></main>;
  const t=template[language],urlPhone=phone.replace(/[^+0-9]/g,"");
  return <main className="min-h-screen bg-[#f6f3ee] text-[#182b2b]">
