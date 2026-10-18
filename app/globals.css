@@ -22,8 +22,7 @@ body {
 .fugth-app *:not(.fugth-generated-site *),
 .fugth-app *:not(.fugth-generated-site *)::before,
 .fugth-app *:not(.fugth-generated-site *)::after {
-  border-color: #c9c9c9 !important;
-  box-shadow: none !important;
+  border-color: #111 !important;
   text-shadow: none !important;
 }
 .fugth-app [class*="bg-"]:not(.fugth-generated-site *) {
@@ -56,6 +55,18 @@ body {
 .fugth-app :where(button, a):not(.fugth-generated-site *):hover {
   text-decoration: underline;
   text-underline-offset: 4px;
+}
+.fugth-app [class*="shadow"]:not(.fugth-generated-site *) {
+  box-shadow: 5px 5px 0 #111 !important;
+}
+.fugth-app :where(button, a)[class*="border"]:not(.fugth-generated-site *),
+.fugth-app :where(article, aside)[class*="border"]:not(.fugth-generated-site *),
+.fugth-app main > section[class*="border"]:not(.fugth-generated-site *) {
+  box-shadow: 4px 4px 0 #111;
+}
+.fugth-app :where(button, a)[class*="border"]:not(.fugth-generated-site *):active {
+  box-shadow: 1px 1px 0 #111;
+  transform: translate(3px, 3px);
 }
 .fugth-app input::placeholder,
 .fugth-app textarea::placeholder {
@@ -1611,6 +1622,9 @@ body {
 .fugth-generated-site {
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+}
+.fugth-generated-site header.text-white {
+  background: #09090b;
 }
 .fugth-generated-site figure {
   margin: 0;
