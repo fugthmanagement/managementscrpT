@@ -168,7 +168,7 @@ export default function Home() {
                 {productAreas.map(([number, title, copy]) => (
                   <article
                     key={number}
-                    className={"grid grid-cols-[52px_1fr] border-b border-black p-5 last:border-b-0 sm:grid-cols-[72px_1fr] sm:p-8"
+                    className="grid grid-cols-[52px_1fr] border-b border-black p-5 last:border-b-0 sm:grid-cols-[72px_1fr] sm:p-8"
                   >
                     <p className="text-xs font-bold">{number}</p>
                     <div>
