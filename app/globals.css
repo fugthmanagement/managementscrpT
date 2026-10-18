@@ -1668,3 +1668,39 @@ body {
     transition: none !important;
   }
 }
+
+/* FUGTH 2026: sky-blue used sparingly for emphasis, not a blanket recolor. */
+.fugth-app {
+  --fugth-baby-blue: #b9e4fb;
+  --fugth-baby-blue-soft: #ebf8ff;
+  --fugth-deep-blue: #155b7d;
+}
+.fugth-app :where(button, a, input, select, textarea):not(.fugth-generated-site *):focus-visible {
+  outline-color: #3e9ecb !important;
+}
+.fugth-app [aria-pressed="true"]:not(.fugth-generated-site *),
+.fugth-app [data-selected="true"]:not(.fugth-generated-site *) {
+  border-color: #5ba7d1 !important;
+  background-color: #e5f5ff !important;
+  color: #155b7d !important;
+}
+.fugth-app :where(input, textarea, select):not(.fugth-generated-site *):focus {
+  border-color: #80c9f4 !important;
+  box-shadow: 0 0 0 3px #b9e4fb6b !important;
+}
+.fugth-app :where(a, button)[data-fugth-accent="blue"]:not(.fugth-generated-site *) {
+  background: #b9e4fb !important;
+  border-color: #76badd !important;
+  color: #133d54 !important;
+  border-radius: 12px !important;
+}
+.fugth-app :where(button, a)[data-fugth-accent="blue"]:not(.fugth-generated-site *):hover {
+  background: #95d6f8 !important;
+}
+.fugth-app .fugth-blue-panel:not(.fugth-generated-site *) {
+  background: #f0faff !important;
+  border-color: #b9e4fb !important;
+  border-radius: 18px !important;
+}
+.fugth-generated-site { color-scheme: light; }
+.fugth-generated-site ::selection { background: #b9e4fb; color: #173e57; }
