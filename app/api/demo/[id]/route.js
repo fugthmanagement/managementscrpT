@@ -1,5 +1,5 @@
 import {NextResponse} from "next/server";
-import {authenticatedUser,firebaseAdmin,isFounder} from "../../../../../lib/server/auth";
+import {authenticatedUser,firebaseAdmin,isFounder} from "../../../../lib/server/auth";
 export const runtime="nodejs";export const dynamic="force-dynamic";
 const noStore={"Cache-Control":"no-store"};
 export async function GET(req,{params}){
