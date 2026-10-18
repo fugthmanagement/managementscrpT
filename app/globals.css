@@ -1704,3 +1704,23 @@ body {
 }
 .fugth-generated-site { color-scheme: light; }
 .fugth-generated-site ::selection { background: #b9e4fb; color: #173e57; }
+
+.fugth-app .fugth-blue-underline {
+  position: relative;
+  white-space: nowrap;
+  z-index: 0;
+}
+.fugth-app .fugth-blue-underline::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  height: .16em;
+  bottom: .04em;
+  left: .03em;
+  right: .02em;
+  background: #b9e4fb;
+  transform: skewX(-9deg);
+}
+@media (max-width: 540px) {
+ .fugth-app .fugth-blue-underline {white-space: normal;}
+}
