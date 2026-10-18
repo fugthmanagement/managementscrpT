@@ -85,6 +85,7 @@ export default function Home() {
             </Link>
             <Link
               href="/login?signup=1"
+              data-fugth-accent="blue"
               className="border border-black px-4 py-3 text-xs font-bold uppercase tracking-[.12em]"
             >
               Create account
@@ -134,7 +135,7 @@ export default function Home() {
               <h1 className="text-[clamp(3.8rem,9vw,8.6rem)] font-black leading-[.82] tracking-[-.085em]">
                 One place.
                 <br />
-                Every next step.
+                <span className="fugth-blue-underline">Every next step.</span>
               </h1>
               <p className="mt-10 max-w-2xl text-base leading-8 sm:text-lg">
                 FUGTH brings calls, customers, appointments, outreach, and your
@@ -144,6 +145,7 @@ export default function Home() {
             <div className="flex flex-col gap-3 sm:flex-row">
               <Link
                 href="/login?signup=1"
+                data-fugth-accent="blue"
                 className="flex min-h-14 items-center justify-between border border-black px-5 text-sm font-bold sm:min-w-64"
               >
                 Start your workspace <Arrow />
@@ -166,7 +168,7 @@ export default function Home() {
                 {productAreas.map(([number, title, copy]) => (
                   <article
                     key={number}
-                    className="grid grid-cols-[52px_1fr] border-b border-black p-5 last:border-b-0 sm:grid-cols-[72px_1fr] sm:p-8"
+                    className={"grid grid-cols-[52px_1fr] border-b border-black p-5 last:border-b-0 sm:grid-cols-[72px_1fr] sm:p-8"
                   >
                     <p className="text-xs font-bold">{number}</p>
                     <div>
@@ -366,6 +368,7 @@ export default function Home() {
           </h2>
           <Link
             href="/login?signup=1"
+            data-fugth-accent="blue"
             className="flex min-h-16 shrink-0 items-center gap-16 border border-black px-6 text-sm font-bold"
           >
             Create your account <Arrow />
