@@ -4,7 +4,7 @@ import Link from "next/link";
 import {onAuthStateChanged} from "firebase/auth";
 import {doc,getDoc} from "firebase/firestore";
 import {auth,db} from "../../../lib/firebase";
-import {buildStarterSite} from "../../../lib/site-presets";
+import {buildStarterSite,getIndustryThemes} from "../../../lib/site-presets";
 import SiteStudio from "../../../components/site-studio";
 import SiteRenderer from "../../../components/site-renderer";
 
@@ -48,6 +48,12 @@ export default function SitePage({params}){
      if(photos.heroImageId||photos.galleryImageIds)site={...site,
       ...(photos.heroImageId?{heroImageId:photos.heroImageId}:{}),
       ...(photos.galleryImageIds?{galleryImageIds:photos.galleryImageIds}:{}),ownerId:uid};
+    }
+    // Let owners inspect a chosen template full-screen before saving or publishing.
+    if(site&&canEdit&&preview){
+     const requested=new URLSearchParams(window.location.search).get("template");
+     const theme=getIndustryThemes(site.industry).find(item=>item.id===requested);
+     if(theme)site={...site,template:theme.id,theme:theme.id,...theme.palette};
     }
     if(!cancelled)setPage({loading:false,site,owner:canEdit,preview,error:site?"":"This website isn't available yet."});
    }catch{
