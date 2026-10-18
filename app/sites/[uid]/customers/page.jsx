@@ -1,0 +1,46 @@
+"use client";
+import {useEffect,useState} from "react";
+import Link from "next/link";
+import {onAuthStateChanged} from "firebase/auth";
+import {auth} from "../../../../lib/firebase";
+const input="mt-2 w-full rounded-xl border border-sky-200 bg-white px-3 py-3 text-sm outline-none focus:border-sky-400";
+const blank={customerUid:"",title:"",description:"",status:"scheduled",total:"0",paid:"0",serviceDate:"",recordId:""};
+const money=c=>new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(Number(c||0)/100);
+export default function BusinessCustomers({params}){
+ const uid=params.uid;
+ const [user,setUser]=useState(null),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState(""),[info,setInfo]=useState(null),[draft,setDraft]=useState(blank);
+ async function fetchData(u){
+  if(!u){setError("Sign in with the account that owns this website.");setLoading(false);return}
+  setLoading(true);try{
+   const token=await u.getIdToken(),res=await fetch("/api/sites/"+encodeURIComponent(uid)+"/portal",{headers:{Authorization:"Bearer "+token},cache:"no-store"}),data=await res.json();
+   if(!res.ok)throw Error(data.error||"Could not load");
+   if(data.role!=="owner")throw Error("Only this business's owner can manage customer records.");
+   setInfo(data);setError("");
+  }catch(e){setError(e.message)}
+  finally{setLoading(false)}
+ }
+ useEffect(()=>{if(!auth){setError("Login unavailable");setLoading(false);return;}return onAuthStateChanged(auth,u=>{setUser(u);fetchData(u)})},[uid]);
+ async function save(e){
+  e.preventDefault();if(!user)return;setBusy(true);setError("");
+  try{
+   const convert=x=>Math.round(Number(x)*100);
+   if(!Number.isFinite(Number(draft.total))||!Number.isFinite(Number(draft.paid)))throw Error("Enter valid dollar amounts.");
+   const token=await user.getIdToken();
+   const res=await fetch("/api/sites/"+encodeURIComponent(uid)+"/portal",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+token},body:JSON.stringify({action:"record",customerUid:draft.customerUid,title:draft.title,description:draft.description,status:draft.status,serviceDate:draft.serviceDate,totalCents:convert(draft.total),paidCents:convert(draft.paid),recordId:draft.recordId})});
+   const data=await res.json();if(!res.ok)throw Error(data.error||"Could not save");
+   setDraft(blank);await fetchData(user);
+  }catch(e){setError(e.message)}finally{setBusy(false)}
+ }
+ const members=info?.members||[],records=info?.records||[];
+ const nameFor=x=>members.find(m=>m.id===x)?.displayName||"Unknown customer";
+ return <main className="min-h-screen bg-[#f3faff] px-4 py-8 text-[#1a3649] sm:py-12"><div className="mx-auto max-w-6xl">
+  <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[.22em] text-[#478bb3]">FUGTH / BUSINESS PORTAL</p><h1 className="mt-2 text-3xl font-black tracking-tight sm:text-5xl">Your customers</h1><p className="mt-2 text-sm text-slate-600">Customers who joined your published site, service history and manual payment records.</p></div><div className="flex flex-wrap gap-2"><Link href={"/sites/"+uid} className="rounded-xl border border-sky-200 bg-white px-4 py-3 text-xs font-bold">View site</Link><Link href="/dashboard" className="rounded-xl bg-[#195b7d] px-4 py-3 text-xs font-bold text-white">Main dashboard</Link></div></div>
+  {error&&<p role="alert" className="mt-6 rounded-xl border border-red-200 bg-white p-4 text-sm text-red-700">{error}</p>}
+  {loading?<p className="mt-8">Opening your business records…</p>:info&&<><div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3"><div className="rounded-2xl bg-white p-5"><p className="text-xs text-slate-500">Registered customers</p><p className="mt-2 text-3xl font-black">{members.length}</p></div><div className="rounded-2xl bg-white p-5"><p className="text-xs text-slate-500">Work records</p><p className="mt-2 text-3xl font-black">{records.length}</p></div><div className="col-span-2 rounded-2xl bg-[#dff2ff] p-5 sm:col-span-1"><p className="text-xs text-slate-600">Payments recorded (not processed)</p><p className="mt-2 text-3xl font-black">{money(records.reduce((a,x)=>a+Number(x.paidCents||0),0))}</p></div></div>
+   <div className="mt-6 grid items-start gap-6 lg:grid-cols-[.8fr_1.2fr]">
+    <div className="space-y-6"><section className="rounded-3xl border border-sky-100 bg-white p-6"><h2 className="text-xl font-black">Registered customers</h2><p className="mt-2 text-xs text-slate-500">Customers join themselves on their own site; their addresses are not publicly visible.</p>{members.length?<div className="mt-5 divide-y divide-sky-100">{members.map(m=><div key={m.id} className="py-3"><p className="text-sm font-bold">{m.displayName||"Customer"}</p><p className="mt-1 break-all text-xs text-slate-600">{m.email||"Email not verified"} {m.phone&&" · "+m.phone}</p>{m.address&&<p className="mt-1 text-xs text-slate-500">{m.address}</p>}<button onClick={()=>setDraft({...blank,customerUid:m.id})} className="mt-2 text-xs font-bold text-[#227da9] underline">Add job for this customer</button></div>)}</div>:<p className="mt-5 rounded-xl bg-[#eff8ff] p-4 text-sm">No customers yet. Share the customer account link on your published website.</p>}</section>
+     <section className="rounded-3xl border border-sky-100 bg-white p-6"><h2 className="text-xl font-black">New job or payment record</h2><p className="mt-2 text-xs text-slate-500">Keep a clear, honest ledger. Enter only work and payments you've confirmed.</p><form className="mt-5 space-y-3" onSubmit={save}><label className="block text-xs font-semibold">Customer<select required value={draft.customerUid} onChange={e=>setDraft({...draft,customerUid:e.target.value,recordId:""})} className={input}><option value="">Choose customer</option>{members.map(m=><option key={m.id} value={m.id}>{m.displayName||m.email||m.id}</option>)}</select></label><label className="block text-xs font-semibold">Work title<input required maxLength={110} value={draft.title} onChange={e=>setDraft({...draft,title:e.target.value})} className={input} placeholder="Electrical panel upgrade"/></label><label className="block text-xs font-semibold">Details<textarea rows={3} maxLength={700} value={draft.description} onChange={e=>setDraft({...draft,description:e.target.value})} className={input}/></label><label className="block text-xs font-semibold">Status<select value={draft.status} onChange={e=>setDraft({...draft,status:e.target.value})} className={input}>{["scheduled","in_progress","completed","cancelled"].map(x=><option key={x} value={x}>{x.replaceAll("_"," ")}</option>)}</select></label><label className="block text-xs font-semibold">Service date<input type="date" value={draft.serviceDate} onChange={e=>setDraft({...draft,serviceDate:e.target.value})} className={input}/></label><div className="grid grid-cols-2 gap-3"><label className="block text-xs font-semibold">Total ($)<input type="number" min="0" step=".01" required value={draft.total} onChange={e=>setDraft({...draft,total:e.target.value})} className={input}/></label><label className="block text-xs font-semibold">Amount paid ($)<input type="number" min="0" step=".01" required value={draft.paid} onChange={e=>setDraft({...draft,paid:e.target.value})} className={input}/></label></div><button disabled={busy||!members.length} className="w-full rounded-xl bg-[#195b7d] px-4 py-3 text-sm font-bold text-white disabled:opacity-50">{busy?"Saving…":draft.recordId?"Update customer record":"Save record"}</button>{draft.recordId&&<button type="button" onClick={()=>setDraft(blank)} className="text-xs text-slate-600 underline">Cancel editing</button>}</form></section></div>
+    <section className="rounded-3xl border border-sky-100 bg-white p-6"><h2 className="text-xl font-black">Work and payments</h2><p className="mt-2 text-xs text-slate-500">Visible only to this business and to the customer associated with each record.</p>{records.length?<div className="mt-5 space-y-3">{records.map(r=><article key={r.id} className="rounded-2xl border border-sky-100 p-4"><div className="flex justify-between gap-3"><div><p className="font-bold">{r.title}</p><p className="mt-1 text-xs text-slate-500">{nameFor(r.customerUid)} · {r.serviceDate||"No date"} · {r.status?.replaceAll("_"," ")}</p></div><button className="self-start text-xs font-bold text-[#227da9] underline" onClick={()=>{setDraft({customerUid:r.customerUid,title:r.title,description:r.description||"",status:r.status,total:String(Number(r.totalCents||0)/100),paid:String(Number(r.paidCents||0)/100),serviceDate:r.serviceDate||"",recordId:r.id});window.scrollTo({top:0,behavior:"smooth"})}}>Edit</button></div><p className="mt-2 text-xs text-slate-500">{r.description}</p><p className="mt-3 text-sm">Total <strong>{money(r.totalCents)}</strong> · Recorded paid <strong>{money(r.paidCents)}</strong></p></article>)}</div>:<p className="mt-5 rounded-xl bg-[#eff8ff] p-4 text-sm">No work records yet.</p>}</section>
+   </div><p className="mt-6 text-xs text-slate-500">This is an internal record-keeping tool, not a payment processor or verified receipt system. Do not store card numbers or sensitive identity documents here.</p></>}
+ </div></main>;
+}
