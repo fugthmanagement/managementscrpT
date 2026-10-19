@@ -6,7 +6,7 @@ import FounderPhoneAssignment from "./founder-phone-assignment";
 import FounderOfferEditor from "./founder-offer-editor";
 import FounderDemoAccess from "./founder-demo-access";
 const planOptions=[["none","Zero"],["starter","Essential · $149 founding"],["growth","Growth · $399"],["elite","Elite · $799"]];
-const input="w-full rounded-xl border border-[#d8e3d5] bg-white px-3 py-3 text-xs text-[#314836] outline-none focus:border-[#53735b]";
+const input="w-full rounded-xl border border-[#d7e9f3] bg-white px-3 py-3 text-xs text-[#264f67] outline-none focus:border-[#4e829b]";
 const date=v=>{const d=new Date(v||"");return Number.isFinite(d.getTime())?d.toLocaleString(undefined,{month:"short",day:"numeric",year:"numeric",hour:"numeric",minute:"2-digit"}):"Not set";};
 const clean=v=>String(v||"").trim();
 export default function FounderAccountDirectory(){
@@ -62,17 +62,17 @@ export default function FounderAccountDirectory(){
   return [a.email,a.displayName,a.businessName,a.uid,a.tier].join(" ").toLowerCase().includes(search.toLowerCase());
  }),[accounts,filter,search]);
  const paying=accounts.filter(a=>a.billingActive).length,manual=accounts.filter(a=>a.grant).length;
- return <section className="rounded-[28px] border border-[#dce4d7] bg-white p-5 shadow-[0_18px_55px_rgba(27,54,35,.06)] sm:p-7">
+ return <section className="rounded-[28px] border border-[#d9eaf3] bg-white p-5 shadow-[0_18px_55px_rgba(27,54,35,.06)] sm:p-7">
   <div className="flex flex-wrap items-start justify-between gap-4">
-   <div><p className="text-[10px] font-black uppercase tracking-[.2em] text-[#7b947c]">FUGTH ADMINISTRATION · CUSTOMER DIRECTORY</p>
-    <h3 className="mt-3 text-2xl font-semibold tracking-[-.05em] text-[#2a4130]">Every registered business.</h3>
-    <p className="mt-2 max-w-3xl text-xs leading-6 text-[#768776]">Accounts come directly from FUGTH authentication, including those without a paid plan. Plan permissions and actual subscription charges are tracked separately.</p></div>
-   <button type="button" onClick={()=>load()} disabled={busy!==""} className="rounded-xl border border-[#c9d9c6] bg-[#edf4eb] px-4 py-3 text-xs font-bold text-[#30533a] disabled:opacity-50">{busy==="load"?"Loading…":"Refresh accounts ↗"}</button>
+   <div><p className="text-[10px] font-black uppercase tracking-[.2em] text-[#7693a5]">FUGTH ADMINISTRATION · CUSTOMER DIRECTORY</p>
+    <h3 className="mt-3 text-2xl font-semibold tracking-[-.05em] text-[#1b3e54]">Every registered business.</h3>
+    <p className="mt-2 max-w-3xl text-xs leading-6 text-[#6d8d9f]">Accounts come directly from FUGTH authentication, including those without a paid plan. Plan permissions and actual subscription charges are tracked separately.</p></div>
+   <button type="button" onClick={()=>load()} disabled={busy!==""} className="rounded-xl border border-[#c7e2f1] bg-[#e7f6ff] px-4 py-3 text-xs font-bold text-[#23688a] disabled:opacity-50">{busy==="load"?"Loading…":"Refresh accounts ↗"}</button>
   </div>
   <div className="mt-6"><FounderDemoControls/></div>
-  <div className="mt-6 grid grid-cols-3 gap-3">{[["Accounts loaded",loaded?accounts.length:"—"],["Paid subscriptions",loaded?paying:"—"],["Founder access",loaded?manual:"—"]].map(([label,value])=><div key={label} className="rounded-2xl bg-[#f3f6ef] p-4"><p className="text-2xl font-semibold tracking-tight">{value}</p><p className="mt-2 text-[10px] leading-4 text-[#7d8d7b]">{label}</p></div>)}</div>
+  <div className="mt-6 grid grid-cols-3 gap-3">{[["Accounts loaded",loaded?accounts.length:"—"],["Paid subscriptions",loaded?paying:"—"],["Founder access",loaded?manual:"—"]].map(([label,value])=><div key={label} className="rounded-2xl bg-[#f4faff] p-4"><p className="text-2xl font-semibold tracking-tight">{value}</p><p className="mt-2 text-[10px] leading-4 text-[#7d8d7b]">{label}</p></div>)}</div>
   <div className="mt-5 flex flex-wrap gap-3"><input type="search" value={search} onChange={event=>setSearch(event.target.value)} placeholder="Find account, customer email, business…" className={input+" min-w-48 flex-1"}/><select value={filter} onChange={event=>setFilter(event.target.value)} className={input+" max-w-[180px]"}><option value="all">All accounts</option><option value="paying">Paying</option><option value="founding">Founder access</option><option value="free">Free</option></select></div>
-  {message&&<p role="status" className="mt-5 rounded-xl border border-[#d6e5d0] bg-[#f1f7ee] p-4 text-xs text-[#526b51]">{message}</p>}
+  {message&&<p role="status" className="mt-5 rounded-xl border border-[#d6e5d0] bg-[#ecf8ff] p-4 text-xs text-[#526b51]">{message}</p>}
   <div className="mt-4 max-h-[460px] divide-y divide-[#ecf0e9] overflow-y-auto">
    {filtered.map(a=><article key={a.uid} className="flex flex-wrap items-start justify-between gap-3 py-4">
     <div className="min-w-0 flex-1"><p className="text-sm font-bold text-[#304733]">{a.businessName||a.displayName||"New FUGTH customer"}</p>
@@ -86,7 +86,7 @@ export default function FounderAccountDirectory(){
    {loaded&&!filtered.length&&<p className="py-9 text-center text-xs text-[#8b9989]">No matching accounts in this page of the directory.</p>}{!loaded&&<p className="py-9 text-center text-xs text-zinc-500">Customer account records have not loaded. This does not mean there are zero accounts.</p>}
   </div>
   {cursor&&<button type="button" disabled={busy!==""} onClick={()=>load(cursor,true)} className="mt-4 w-full rounded-xl border border-[#d4e0d0] px-4 py-3 text-xs font-bold text-[#416348] disabled:opacity-50">Load more registered accounts ↘</button>}
-  {selected&&<div className="mt-6 rounded-2xl border border-[#bed7b9] bg-[#f1f7ee] p-5 sm:p-6">
+  {selected&&<div className="mt-6 rounded-2xl border border-[#bed7b9] bg-[#ecf8ff] p-5 sm:p-6">
    <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-[10px] font-bold uppercase tracking-widest text-[#688366]">ACCOUNT ACCESS CONTROLS</p><h4 className="mt-2 text-lg font-bold">{selected.businessName||selected.email||"Customer"}</h4><p className="mt-1 break-all text-[11px] text-[#768876]">{selected.uid}</p></div><button type="button" onClick={()=>setSelected(null)} className="text-xs font-bold underline">Close</button></div>
    <div className="mt-5"><FounderDemoAccess uid={selected.uid}/><FounderDemoControls uid={selected.uid}/></div>
    <FounderPhoneAssignment uid={selected.uid} onAssigned={()=>load()}/>
