@@ -13,7 +13,7 @@ import {
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "../../lib/firebase";
 import { detectIndustry } from "../../lib/site-presets";
-import {getIndustryPhotos} from "../../lib/site-images";
+import BrandSignalArt from "../../components/brand-signal-art";
 const safeNext=(fallback)=>{if(typeof window==="undefined")return fallback;const next=new URLSearchParams(window.location.search).get("next");return next==="/plans"?"/plans":fallback;};
 const field =
   "mt-2 w-full rounded-xl border border-[#d2e4ef] bg-white px-4 py-3.5 text-[15px] text-[#183b52] outline-none focus:border-[#66b8e5] focus:ring-2 focus:ring-[#e2f5ff]";
@@ -238,27 +238,15 @@ export default function Login() {
             <h1 className="mt-12 max-w-md text-[64px] font-semibold leading-[1.02] tracking-[-.08em]">
               Run the business.
               <br />
-              Make every call count.
+              <em>Keep the connections.</em>
             </h1>
             <p className="mt-9 max-w-sm text-[15px] leading-8 text-[#bdcfdb]">
               Calls, customers, appointments, outreach, and your website—kept
               together without the clutter.
             </p>
           </div>
-          <div className="relative z-10 my-6 h-[185px] overflow-hidden rounded-2xl border border-white/15 bg-[#2b576d]"><img src={(getIndustryPhotos("contractor")[1]||getIndustryPhotos("roofing")[0])?.src} alt="Professional trade work showing FUGTH's service-business focus" className="h-full w-full object-cover" loading="lazy"/><div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#0f2534]/95 via-[#0f2534]/50 to-transparent p-4 pt-14"><p className="text-[10px] font-black uppercase tracking-[.16em] text-[#b9e5fb]">Your day keeps moving</p><p className="mt-1 text-sm font-bold">Make room for every next customer.</p></div></div>
-          <div className="relative z-10 grid grid-cols-3 gap-2 border-t border-white/10 pt-4">
-            {["Stay connected", "Stay organized", "Look your best"].map(
-              (x, i) => (
-                <div
-                  key={x}
-                  className="min-h-32 rounded-xl border border-[#3d5c71] bg-[#203c50]/80 p-4"
-                >
-                  <p className="text-[10px]">0{i + 1}</p>
-                  <p className="mt-6 text-xs font-semibold leading-5">{x}</p>
-                </div>
-              ),
-            )}
-          </div>
+          <div className="relative z-10 my-7"><BrandSignalArt compact/></div>
+          <div className="relative z-10 mt-4 flex items-center justify-between gap-4 border-t border-white/15 pt-5 text-[10px] font-bold uppercase tracking-[.15em] text-[#b9e5fb]"><span>Independent businesses, connected.</span><span>FUGTH © 2026</span></div>
           <div className="absolute inset-x-0 bottom-0 -z-0 h-56 bg-gradient-to-t from-[#32637d]/60 via-[#32637d]/10 to-transparent"/><span aria-hidden="true" className="absolute -right-20 top-10 h-64 w-64 rounded-full border-[40px] border-[#9bdcfb]/10"/></aside>
         <section className="flex min-h-[570px] flex-col justify-center rounded-[28px] border border-[#cde3f1] bg-white shadow-[0_22px_55px_rgba(26,73,111,.08)] p-6 sm:p-10 lg:p-12">
           <div className="relative mb-7 overflow-hidden rounded-2xl bg-[#173449] px-5 py-6 text-white lg:hidden">
@@ -290,7 +278,7 @@ export default function Login() {
               Create account
             </button>
           </div>
-          <h2 className="text-[36px] font-semibold tracking-[-.07em] sm:text-[46px]">
+          <h2 className="text-[36px] font-black tracking-[-.07em] sm:text-[46px]">
             {mode === "login" ? "Welcome back." : "Start something good."}
           </h2>
           <p className="mt-3 text-sm leading-7 text-[#638398]">
