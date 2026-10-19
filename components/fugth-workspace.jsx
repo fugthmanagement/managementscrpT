@@ -1247,7 +1247,6 @@ export default function FugthWorkspace() {
                 description="Administration is available only to authorized FUGTH team accounts."
               />
             )}
-        </div>
         <footer className="mt-9 flex flex-wrap items-center justify-between gap-3 border-t border-[#d9e8f1] pt-6 text-[11px] text-[#708b9a]">
           <span>© 2026 FUGTH Chat LLC · One business. One connected workspace.</span>
           <div className="flex flex-wrap gap-4"><Link href="/privacy" className="hover:underline">Privacy</Link><Link href="/terms" className="hover:underline">Terms</Link><Link href="/cookies" className="hover:underline">Cookies</Link><Link href="/plans" className="font-bold hover:underline">Subscriptions ↗</Link></div>
