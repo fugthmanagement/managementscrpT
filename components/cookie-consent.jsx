@@ -49,4 +49,4 @@ export default function CookieConsent(){
   <p className="mt-4 text-xs text-[#657f8e]"><Link href="/privacy" className="font-bold underline">Privacy policy</Link> · <Link href="/cookies" className="font-bold underline">Cookie policy</Link> · <Link href="/terms" className="font-bold underline">Terms</Link></p>
  </div>;
 }
-export function CookieSettingsButton({className=""}){return <button type="button" className={className} onClick={()=>window.dispatchEvent(new Event("fugth:open-cookie-settings"))}>Cookie settings</button>}
+export function CookieSettingsButton({className="",children}){return <button type="button" className={className} onClick={()=>window.dispatchEvent(new Event("fugth:open-cookie-settings"))}>{children||"Cookie settings"}</button>}
