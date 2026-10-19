@@ -49,6 +49,18 @@ const scripts=[
  }
 ];
 export const pitchOptions=scripts.map(({id,name})=>({id,name}));
+export function trainingPitch(id,lead={}){
+ const selected=scripts.find(s=>s.id===id)||scripts[0];
+ const business=lead.business||lead.businessName||"your business",referral=lead.referral||"";
+ const message=text=>replace(text,{business},referral);
+ // Keep the original Pierre approach honest: a referral needs a real name.
+ return {...selected,
+  opener:id==="referral"&&!referral?
+   "Hey, is this "+business+"? I'm Pierre with FUGTH Management. Could I ask a quick question about your business?":message(selected.opener),
+  bridge:message(selected.bridge),yes:message(selected.yes),no:message(selected.no),
+  busy:message(selected.busy),close:message(selected.close)};
+}
+
 const replace=(text,lead,referral)=>text.replaceAll("{business}",lead?.business||lead?.businessName||"your business").replaceAll("{referral}",referral||"someone who knows the area");
 function TextSnippet({label,text}){return <div className="rounded-xl border border-[#ddeaf2] bg-white p-4"><p className="text-[10px] font-black uppercase tracking-[.15em] text-[#397e9e]">{label}</p><p className="mt-2 text-sm leading-6 text-[#27475b]">{text}</p></div>}
 export default function FounderPitchSwitcher({lead={},value="referral",onChange}){
