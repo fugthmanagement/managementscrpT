@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import {CookieSettingsButton} from "../../components/cookie-consent";
 import { useEffect, useMemo, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "../../lib/firebase";
@@ -36,7 +37,7 @@ export default function Plans() {
         if(Array.isArray(saved.addons))setAddons(saved.addons.filter(x=>x in BILLING_ADDONS));
       }
     }catch{}
-    if (BILLING_PLANS[requested]) setSelected(requested);
+    if (BILLING_PLANS[requested]) { setSelected(requested); if(BILLING_PLANS[requested].kind==="one_time")setCycle("monthly"); }
     if (new URLSearchParams(window.location.search).get("cycle") === "yearly")
       setCycle("yearly");
     return () => unsub();
@@ -152,33 +153,27 @@ export default function Plans() {
     }
   }
   return (
-    <main className="fugth-app min-h-screen bg-white text-black">
-      <header className="border-b border-[#e7ddd0] bg-[#faf7f1]">
-        <div className="mx-auto flex h-20 max-w-6xl items-center justify-between px-5">
-          <Link href="/" className="text-2xl font-bold tracking-tight">
-            fugth.
-          </Link>
-          <Link
-            href={currentUser ? "/dashboard" : "/login"}
-            className="rounded-xl border bg-white px-5 py-3 text-xs font-semibold"
-          >
-            Back to workspace ↗
-          </Link>
-        </div>
+    <main className="fugth-checkout-page min-h-screen bg-[#f4faff] text-[#152f42]">
+      <header className="sticky top-0 z-50 border-b border-white/10 bg-[#101923]/95 text-white backdrop-blur-xl">
+       <div className="mx-auto flex min-h-[76px] max-w-6xl items-center justify-between gap-3 px-5">
+        <Link href="/" className="flex items-center gap-3"><span className="grid h-9 w-9 place-items-center rounded-xl bg-[#b9e5fb] text-xl font-black text-[#19465b]">F</span><span className="text-sm font-black">FUGTH <span className="font-medium text-[#b6d4e4]">Management</span></span></Link>
+        <nav className="hidden items-center gap-2 rounded-full border border-white/20 bg-white/10 p-1.5 sm:flex"><Link href="/#platform" className="rounded-full px-4 py-2 text-xs font-bold">Platform</Link><Link href="/#studio" className="rounded-full px-4 py-2 text-xs font-bold">Website Maker</Link><a href="#packages" className="rounded-full bg-[#b9e5fb] px-4 py-2 text-xs font-black text-[#19475c]">Plans</a></nav>
+        <Link href={currentUser?"/dashboard":"/login?next=%2Fplans"} className="rounded-full border border-white/20 px-4 py-2.5 text-xs font-bold text-white">{currentUser?"My workspace ↗":"Log in ↗"}</Link>
+       </div>
       </header>
-      <div className="mx-auto max-w-6xl px-5 pb-24 pt-14">
-        <p className="text-xs font-bold uppercase tracking-[.18em] text-[#799077]">
+      <div id="packages" className="mx-auto max-w-6xl scroll-mt-28 px-5 pb-24 pt-14">
+        <p className="text-xs font-bold uppercase tracking-[.18em] text-[#3c86aa]">
           PLANS + PROFESSIONAL SETUP
         </p>
         <h1 className="mt-4 text-4xl font-semibold tracking-[-.07em] sm:text-6xl">
           Build your business command center.
         </h1>
-        <p className="mt-4 max-w-3xl text-sm leading-7 text-[#738672]">
+        <p className="mt-4 max-w-3xl text-sm leading-7 text-[#5d7c90]">
           Your FUGTH subscription powers the software. A separate one-time setup
           fee pays for your business-specific onboarding, receptionist
           configuration, integrations and implementation.
         </p>
-        <div className="mt-7 flex w-fit rounded-xl border border-[#dce7d9] bg-white p-1">
+        <div className="mt-7 flex w-fit rounded-xl border border-[#d3e6f1] bg-white p-1">
           <button
             type="button"
             aria-pressed={cycle === "monthly"}
@@ -186,8 +181,8 @@ export default function Plans() {
             className={
               "rounded-lg px-5 py-3 text-xs font-bold " +
               (cycle === "monthly"
-                ? "bg-[#2c4934] text-white"
-                : "text-[#758b73]")
+                ? "bg-[#234d67] text-white"
+                : "text-[#657f91]")
             }
           >
             Monthly billing
@@ -200,14 +195,14 @@ export default function Plans() {
             className={
               "rounded-lg px-5 py-3 text-xs font-bold " +
               (cycle === "yearly"
-                ? "bg-[#2c4934] text-white"
-                : "text-[#758b73]")
+                ? "bg-[#234d67] text-white"
+                : "text-[#657f91]")
             }
           >
             Yearly billing
           </button>
         </div>
-        <p className="mt-2 text-xs text-[#819581]">
+        <p className="mt-2 text-xs text-[#7d98a8]">
           Annual billing is twelve monthly payments in one yearly charge;
           one-time website purchases never renew.
         </p>
@@ -219,8 +214,8 @@ export default function Plans() {
               className={
                 "flex flex-col rounded-[24px] border p-6 sm:p-7 " +
                 (selected === p.key
-                  ? "border-[#2a4633] bg-[#263f2e] text-white shadow-xl"
-                  : "border-[#e2e8df] bg-white text-[#29392d]")
+                  ? "border-[#498fb7] bg-[#173344] text-white shadow-xl"
+                  : "border-[#dce9f2] bg-white text-[#1a3446]")
               }
             >
               <div className="flex items-center justify-between">
@@ -272,8 +267,8 @@ export default function Plans() {
                 className={
                   "rounded-xl px-5 py-4 text-sm font-semibold " +
                   (selected === p.key
-                    ? "bg-white text-[#263f2e]"
-                    : "bg-[#eef4e9] text-[#33513a]")
+                    ? "bg-white text-[#173344]"
+                    : "bg-[#e5f5ff] text-[#1d6489]")
                 }
               >
                 {selected === p.key ? "Selected ✓" : "Choose " + p.name + " ↗"}
@@ -282,14 +277,14 @@ export default function Plans() {
           ))}
         </div>
         {plan.kind !== "one_time" && plan.key !== "website" && (
-          <section className="mt-10 rounded-[24px] border border-[#e0e6de] bg-white p-6 sm:p-8">
-            <p className="text-xs font-bold uppercase tracking-[.16em] text-[#859985]">
+          <section className="mt-10 rounded-[24px] border border-[#d9e8f1] bg-white p-6 sm:p-8">
+            <p className="text-xs font-bold uppercase tracking-[.16em] text-[#5b8dab]">
               FLEXIBLE ADD-ONS
             </p>
             <h2 className="mt-2 text-2xl font-semibold">
               Customize your {plan.name} plan.
             </h2>
-            <p className="mt-2 max-w-3xl text-xs leading-6 text-[#819080]">
+            <p className="mt-2 max-w-3xl text-xs leading-6 text-[#71899b]">
               Mid and High include more features by default. Buying several
               Low-plan upgrades can cost more than moving up to Mid or High.
               Voice minutes, text messages and other third-party usage have
@@ -306,8 +301,8 @@ export default function Plans() {
                     className={
                       "flex items-start justify-between gap-3 rounded-xl border p-4 " +
                       (included
-                        ? "border-[#deebd7] bg-[#f3f8ef]"
-                        : "border-[#e1e8df]")
+                        ? "border-[#cfe7f5] bg-[#edf9ff]"
+                        : "border-[#dceaf3]")
                     }
                   >
                     <div className="flex items-start gap-3">
@@ -316,16 +311,16 @@ export default function Plans() {
                         checked={checked}
                         disabled={included}
                         onChange={() => toggle(key)}
-                        className="mt-1 h-4 w-4 accent-[#34563b]"
+                        className="mt-1 h-4 w-4 accent-[#245c7a]"
                       />
                       <span>
                         <strong className="block text-sm">{item.name}</strong>
-                        <span className="mt-1 block text-xs leading-5 text-[#889487]">
+                        <span className="mt-1 block text-xs leading-5 text-[#7c95a5]">
                           {item.description}
                         </span>
                       </span>
                     </div>
-                    <span className="shrink-0 text-xs font-bold text-[#36563d]">
+                    <span className="shrink-0 text-xs font-bold text-[#235d7a]">
                       {included
                         ? "Included"
                         : "+" +
@@ -337,15 +332,15 @@ export default function Plans() {
                 );
               })}
             </div>
-            <p className="mt-5 text-xs leading-6 text-[#8b9987]">
+            <p className="mt-5 text-xs leading-6 text-[#849bac]">
               {customSetupLabel} Extra implementation or usage beyond your
               chosen package requires a separate quote.
             </p>
           </section>
         )}
-        <section className="mt-8 grid gap-6 rounded-[24px] border border-[#d8e3d5] bg-[#eef5e9] p-6 sm:p-8 lg:grid-cols-[1fr_auto] lg:items-center">
+        <section className="mt-8 grid gap-6 rounded-[24px] border border-[#cee3f0] bg-[#e8f6ff] p-6 sm:p-8 lg:grid-cols-[1fr_auto] lg:items-center">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[.15em] text-[#71876e]">
+            <p className="text-xs font-bold uppercase tracking-[.15em] text-[#3c83a9]">
               YOUR CHECKOUT SUMMARY
             </p>
             <h2 className="mt-3 text-2xl font-semibold">
@@ -374,7 +369,7 @@ export default function Plans() {
                   dollars(setupFee + total) +
                   " before tax or discounts."}
             </p>
-            <p className="mt-3 max-w-xl text-xs leading-6 text-[#809180]">
+            <p className="mt-3 max-w-xl text-xs leading-6 text-[#5d7f92]">
               {plan.kind === "one_time"
                 ? "Website purchase does not renew. Hosting and ongoing updates are separate. Delivery begins after the required business materials are provided."
                 : "Subscriptions renew " +
@@ -389,10 +384,11 @@ export default function Plans() {
               type="button"
               disabled={!authReady || busy}
               onClick={checkout}
-              className="w-full rounded-xl bg-[#2a4833] px-6 py-4 text-sm font-bold text-white disabled:opacity-45"
+              className="w-full rounded-xl bg-[#16384c] px-6 py-4 text-sm font-bold text-white disabled:opacity-45"
             >
               {busy ? "Opening payment…" : !currentUser ? "Sign in to complete checkout ↗" : "Continue to secure checkout ↗"}
             </button>
+            <p className="mt-3 text-center text-[11px] leading-5 text-[#6d8999]">By proceeding you agree to the <Link className="font-bold underline" href="/terms">Terms</Link> and acknowledge the <Link href="/privacy" className="font-bold underline">Privacy Policy</Link>.</p>
             {!currentUser && authReady && (
               <Link
                 href="/login?next=%2Fplans"
@@ -427,12 +423,13 @@ export default function Plans() {
             {error}
           </p>
         )}
-        <p className="mt-6 text-xs text-[#9aab96]">
+        <p className="mt-6 text-xs text-[#8298a7]">
           24-hour limited-credit trials are planned separately and will pause
           when the time or credit allowance ends, whichever comes first. Trial
           access does not auto-charge customers.
         </p>
       </div>
+      <footer className="border-t border-[#d9e8f2] bg-white px-5 py-8"><div className="mx-auto flex max-w-6xl flex-wrap justify-between gap-4 text-xs text-[#6a8394]"><span>FUGTH Chat LLC · Florida operations, United States</span><nav className="flex flex-wrap gap-5"><Link href="/privacy">Privacy</Link><Link href="/terms">Terms</Link><Link href="/cookies">Cookies</Link><CookieSettingsButton className="underline"/><a href="mailto:fugthmanagement@gmail.com">Billing support</a></nav></div></footer>
     </main>
   );
 }
