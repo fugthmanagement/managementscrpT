@@ -1,3 +1,4 @@
+import {businessEntitlement} from "../../../../lib/server/feature-entitlement";
 import {NextResponse} from "next/server";
 import {authenticatedUser} from "../../../../lib/server/auth";
 import {validCallId,fetchOwnedVapiCall,fetchVapiAudio} from "../../../../lib/server/vapi-recordings";
@@ -16,6 +17,7 @@ const audioReply=(audio,backend)=>new Response(audio.data,{
 export async function GET(req){
  const user=await authenticatedUser(req);
  if(!user?.uid)return failure("Sign in to listen to your recordings.",401);
+ const permit=await businessEntitlement(user,"voice");if(!permit.allowed)return failure(permit.reason,403);
  const callId=new URL(req.url).searchParams.get("callId")||"";
  if(!validCallId(callId))return failure("Invalid call recording reference.",400);
  let driveError=null;
