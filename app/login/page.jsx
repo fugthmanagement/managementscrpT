@@ -13,9 +13,10 @@ import {
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "../../lib/firebase";
 import { detectIndustry } from "../../lib/site-presets";
+import {getIndustryPhotos} from "../../lib/site-images";
 const safeNext=(fallback)=>{if(typeof window==="undefined")return fallback;const next=new URLSearchParams(window.location.search).get("next");return next==="/plans"?"/plans":fallback;};
 const field =
-  "mt-2 w-full rounded-xl border border-[#dfe4db] bg-white px-4 py-3.5 text-[15px] text-[#283629] outline-none focus:border-[#70866b] focus:ring-2 focus:ring-[#e6ede0]";
+  "mt-2 w-full rounded-xl border border-[#d2e4ef] bg-white px-4 py-3.5 text-[15px] text-[#183b52] outline-none focus:border-[#66b8e5] focus:ring-2 focus:ring-[#e2f5ff]";
 
 export default function Login() {
   const [mode, setMode] = useState("login"),
@@ -220,40 +221,36 @@ export default function Login() {
     }
   }
   return (
-    <main className="fugth-app min-h-screen bg-white text-black">
-      <header className="mx-auto flex h-[82px] max-w-6xl items-center justify-between px-5 sm:px-8">
-        <Link href="/" className="flex items-center gap-2.5">
-          <span className="grid h-9 w-9 place-items-center rounded-xl bg-[#2b3c2c] text-xl font-black text-white">
-            F
-          </span>
-          <b className="text-[22px] font-semibold tracking-[-.08em]">fugth.</b>
-        </Link>
-        <Link href="/" className="text-xs font-semibold text-[#778674]">
-          ← Return to website
-        </Link>
+    <main className="fugth-login min-h-screen bg-[#f2f9fd] text-[#193348]">
+      <header className="sticky top-0 z-50 border-b border-white/10 bg-[#101923]/95 text-white backdrop-blur-xl">
+       <div className="mx-auto flex min-h-[76px] max-w-6xl items-center justify-between gap-3 px-5 sm:px-8">
+        <Link href="/" className="flex items-center gap-3"><span className="grid h-9 w-9 place-items-center rounded-xl bg-[#b9e5fb] text-xl font-black text-[#17435b]">F</span><span className="text-sm font-black tracking-tight">FUGTH <span className="font-medium text-[#a8c8d9]">Management</span></span></Link>
+        <nav className="hidden items-center gap-1 rounded-full border border-white/20 bg-white/10 p-1.5 md:flex" aria-label="FUGTH navigation"><Link href="/#platform" className="rounded-full px-4 py-2.5 text-xs font-bold text-[#d8e8f3] hover:bg-white/15">Platform</Link><Link href="/#studio" className="rounded-full px-4 py-2.5 text-xs font-bold text-[#d8e8f3] hover:bg-white/15">Website Maker</Link><Link href="/plans" className="rounded-full px-4 py-2.5 text-xs font-bold text-[#d8e8f3] hover:bg-white/15">Plans</Link></nav>
+        <Link href="/" className="rounded-full border border-white/25 px-4 py-2.5 text-xs font-bold text-white hover:bg-white/10">← Home</Link>
+       </div>
       </header>
       <div className="mx-auto grid max-w-6xl items-stretch gap-8 px-5 pb-14 pt-5 sm:px-8 lg:grid-cols-[1fr_1fr] lg:pb-20 lg:pt-12">
-        <aside className="hidden min-h-[640px] flex-col justify-between border border-black px-12 py-14 lg:flex">
+        <aside className="relative hidden min-h-[640px] flex-col justify-between overflow-hidden rounded-[28px] border border-[#1f445b] bg-[#142636] px-12 py-14 text-white shadow-[0_24px_60px_rgba(30,75,115,.12)] lg:flex">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[.25em]">
-              ONE WORKSPACE. CLEAR NEXT STEPS.
+              FUGTH / YOUR BUSINESS DESK
             </p>
             <h1 className="mt-12 max-w-md text-[64px] font-semibold leading-[1.02] tracking-[-.08em]">
               Run the business.
               <br />
-              Keep it clear.
+              Make every call count.
             </h1>
-            <p className="mt-9 max-w-sm text-[15px] leading-8">
+            <p className="mt-9 max-w-sm text-[15px] leading-8 text-[#bdcfdb]">
               Calls, customers, appointments, outreach, and your website—kept
               together without the clutter.
             </p>
           </div>
-          <div className="grid grid-cols-3 border-l border-t border-black">
+          <div className="relative z-10 grid grid-cols-3 gap-2 border-t border-white/10 pt-4">
             {["Stay connected", "Stay organized", "Look your best"].map(
               (x, i) => (
                 <div
                   key={x}
-                  className="min-h-32 border-b border-r border-black p-4"
+                  className="min-h-32 rounded-xl border border-[#3d5c71] bg-[#203c50]/80 p-4"
                 >
                   <p className="text-[10px]">0{i + 1}</p>
                   <p className="mt-6 text-xs font-semibold leading-5">{x}</p>
@@ -261,9 +258,9 @@ export default function Login() {
               ),
             )}
           </div>
-        </aside>
-        <section className="flex min-h-[570px] flex-col justify-center rounded-[28px] border border-[#e3e9e0] bg-white p-6 sm:p-10 lg:p-12">
-          <div className="mb-9 inline-flex w-fit gap-1 rounded-xl bg-[#f1f4ee] p-1">
+          <div className="absolute inset-x-0 bottom-0 -z-0 h-56 bg-gradient-to-t from-[#32637d]/60 via-[#32637d]/10 to-transparent"/><span aria-hidden="true" className="absolute -right-20 top-10 h-64 w-64 rounded-full border-[40px] border-[#9bdcfb]/10"/></aside>
+        <section className="flex min-h-[570px] flex-col justify-center rounded-[28px] border border-[#cde3f1] bg-white shadow-[0_22px_55px_rgba(26,73,111,.08)] p-6 sm:p-10 lg:p-12">
+          <div className="mb-9 inline-flex w-fit gap-1 rounded-xl bg-[#edf8ff] p-1">
             <button
               type="button"
               aria-pressed={mode === "login"}
@@ -271,7 +268,7 @@ export default function Login() {
                 setMode("login");
                 setError("");
               }}
-              className={`rounded-lg px-5 py-2.5 text-xs font-semibold ${mode === "login" ? "bg-[#293c2d] text-white" : "text-[#788974]"}`}
+              className={`rounded-lg px-5 py-2.5 text-xs font-semibold ${mode === "login" ? "bg-[#17384d] text-white" : "text-[#60829a]"}`}
             >
               Log in
             </button>
@@ -290,14 +287,14 @@ export default function Login() {
           <h2 className="text-[36px] font-semibold tracking-[-.07em] sm:text-[46px]">
             {mode === "login" ? "Welcome back." : "Start something good."}
           </h2>
-          <p className="mt-3 text-sm leading-7 text-[#89998a]">
+          <p className="mt-3 text-sm leading-7 text-[#638398]">
             {mode === "login"
               ? "Pick up right where your business left off."
               : "A workspace of your own, built in just a few steps."}
           </p>
           <form onSubmit={submit} className="mt-8 space-y-5">
             {mode === "signup" && (
-              <label className="block text-xs font-semibold text-[#566857]">
+              <label className="block text-xs font-semibold text-[#385b71]">
                 Business name
                 <input
                   required
@@ -356,7 +353,7 @@ export default function Login() {
             <button
               type="submit"
               disabled={busy}
-              className="w-full rounded-xl bg-[#293b2b] px-6 py-4 text-sm font-semibold text-white transition hover:bg-[#405740] disabled:opacity-50"
+              className="w-full rounded-xl bg-[#17384d] px-6 py-4 text-sm font-semibold text-white transition hover:bg-[#2e627f] disabled:opacity-50"
             >
               {busy
                 ? "One moment…"
@@ -367,7 +364,7 @@ export default function Login() {
           </form>
           <div className="my-6 flex items-center gap-3">
             <div className="h-px flex-1 bg-[#e6e9e1]" />
-            <span className="text-[11px] font-semibold uppercase tracking-widest text-[#91a18f]">
+            <span className="text-[11px] font-semibold uppercase tracking-widest text-[#8da5b4]">
               or continue with
             </span>
             <div className="h-px flex-1 bg-[#e6e9e1]" />
@@ -376,14 +373,14 @@ export default function Login() {
             type="button"
             onClick={googleLogin}
             disabled={busy}
-            className="flex w-full items-center justify-center gap-3 rounded-xl border border-[#d6e2d2] bg-[#f8faf5] px-6 py-4 text-sm font-bold text-[#2b4633] transition hover:border-[#9bb798] hover:bg-[#eef5e9] disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-3 rounded-xl border border-[#d6e2d2] bg-[#f4faff] px-6 py-4 text-sm font-bold text-[#245d7d] transition hover:border-[#9bb798] hover:bg-[#e6f5ff] disabled:opacity-50"
           >
             <span className="grid h-6 w-6 place-items-center rounded-md bg-white text-base font-black text-[#4673c2]">
               G
             </span>
             Continue with Google
           </button>
-          <p className="mt-3 text-xs leading-6 text-[#869785]">
+          <p className="mt-3 text-xs leading-6 text-[#738e9f]">
             After sign-in, connect your FUGTH business calendar in Settings to
             approve appointment syncing. Your login alone never grants access to
             private calendar events.
@@ -392,14 +389,13 @@ export default function Login() {
             <button
               type="button"
               onClick={reset}
-              className="mt-5 self-start text-xs font-semibold text-[#688069] underline underline-offset-4"
+              className="mt-5 self-start text-xs font-semibold text-[#417e9e] underline underline-offset-4"
             >
               Forgot your password?
             </button>
           )}
-          <p className="mt-10 border-t border-[#eef0e9] pt-6 text-xs leading-6 text-[#a1aaa0]">
-            Your workspace belongs to you. Keep your account information
-            private.
+          <p className="mt-10 border-t border-[#e1edf5] pt-6 text-xs leading-6 text-[#7e94a3]">
+            Your workspace belongs to you. Please review our <Link href="/terms" className="font-bold underline">Terms</Link> and <Link href="/privacy" className="font-bold underline">Privacy Policy</Link>.
           </p>
         </section>
       </div>
