@@ -37,14 +37,60 @@ export default function IntegrationsHub(){
   const [documentForm,setDocumentForm]=useState({title:"Business notes",content:""});
   const [message,setMessage]=useState("");
   const [busy,setBusy]=useState("");
+  const [health,setHealth]=useState(null);
+  const [sync,setSync]=useState(null);
   const [event,setEvent]=useState({title:"Customer consultation",startTime:"",endTime:""});
   async function status(){
-    try{const r=await fetch("/api/integrations/google",{headers:await secureHeaders(),cache:"no-store"});const data=await r.json();if(r.ok)setGoogle(data);}catch(e){setMessage(e.message);}
+    try{
+      const r=await fetch("/api/integrations/google",{headers:await secureHeaders(),cache:"no-store"});
+      const data=await r.json();
+      setGoogle(data);
+      if(!r.ok)setMessage(data.error||"Google status is unavailable.");
+    }catch(e){setMessage(e.message);}
   }
-  useEffect(()=>{status();const q=new URLSearchParams(window.location.search).get("integration");if(q)setMessage(q==="google-connected"?"Google connected successfully. Your approved tools are ready to use.":q==="authorization-cancelled"?"Connection cancelled.":"Calendar authorization could not be completed.");},[]);
-  async function connect(){
+  useEffect(()=>{
+    status();
+    const q=new URLSearchParams(window.location.search).get("integration");
+    const messages={
+      "google-connected":"Google authorization saved. Run Check Google connection below to confirm Calendar and Drive APIs are working.",
+      "authorization-cancelled":"Google connection was cancelled. Check whether your account is allowed on the Google OAuth consent screen.",
+      "authorization-expired":"Google connection expired or switched hostnames. Retry from the official FUGTH site.",
+      "google-refresh-missing":"Google did not provide offline access. Reconnect your account and approve the permissions.",
+      "google-invalid-client":"Google OAuth credentials were rejected. Check Google Cloud client ID and secret in Vercel.",
+      "google-authorization-expired":"Google's authorization code expired. Start the connection again.",
+      "authorization-error":"Google authorization failed. Check consent-screen users, enabled APIs and redirect URI.",
+      "google-oauth-denied":"Google blocked the requested permissions. Check the Google Cloud consent screen."
+    };
+    if(q)setMessage(messages[q]||"Google authorization could not be completed.");
+  },[]);
+  useEffect(()=>{
+    if(!google.connected||!google.calendarServiceReady)return;
+    const id=window.setInterval(()=>{
+      if(document.visibilityState==="visible")syncAppointments({automatic:true});
+    },125000);
+    return()=>window.clearInterval(id);
+  },[google.connected,google.calendarServiceReady]);
+  async function checkGoogle(){
+    setBusy("health");setMessage("");
+    try{
+      const r=await fetch("/api/integrations/google/health",{headers:await secureHeaders(),cache:"no-store"});
+      const data=await r.json();setHealth(data);
+      if(!r.ok||!data.ready)setMessage(data.error||"A Google service needs attention. See the connection diagnostics below.");
+      else setMessage("Google Calendar and Drive permissions are working for this account.");
+    }catch(e){setMessage(e.message);}finally{setBusy("");}
+  }
+  async function syncAppointments({automatic=false}={}){
+    if(!automatic)setBusy("sync");
+    try{
+      const r=await fetch("/api/integrations/google/sync",{method:"POST",headers:await secureHeaders(),cache:"no-store"});
+      const data=await r.json();
+      if(r.ok){setSync(data);if(!automatic)setMessage(data.message||"Google Calendar synchronized.");}
+      else if(!automatic)setMessage(data.error||"Google Calendar sync failed.");
+    }catch(e){if(!automatic)setMessage(e.message);}finally{if(!automatic)setBusy("");}
+  }
+  async function connect(feature="core"){
     setBusy("connect");setMessage("");
-    try{const r=await fetch("/api/integrations/google",{method:"POST",headers:await secureHeaders()});const data=await r.json();if(!r.ok||!data.url)throw Error(data.error||"Could not begin calendar connection.");window.location.assign(data.url);}
+    try{const r=await fetch("/api/integrations/google",{method:"POST",headers:await secureHeaders(),body:JSON.stringify({feature:typeof feature==="string"?feature:"core"})});const data=await r.json();if(!r.ok||!data.url)throw Error(data.error||"Could not begin calendar connection.");window.location.assign(data.url);}
     catch(e){setMessage(e.message);setBusy("");}
   }
   async function disconnect(){
@@ -56,6 +102,7 @@ export default function IntegrationsHub(){
     setBusy("sheet");setMessage("");
     try{
       if(google.operationsSheetUrl){window.open(google.operationsSheetUrl,"_blank","noopener,noreferrer");return;}
+      if(!google.sheetsConnected){await connect("sheets");return;}
       const response=await fetch("/api/integrations/google/sheets",{method:"POST",headers:await secureHeaders()});
       const data=await response.json();if(!response.ok)throw Error(data.error||"Could not create the operations workbook.");
       setGoogle({...google,operationsSheetUrl:data.url,sheetsConnected:true});window.open(data.url,"_blank","noopener,noreferrer");setMessage("Your FUGTH operations workbook is ready in Google Sheets.");
@@ -95,6 +142,12 @@ export default function IntegrationsHub(){
   return <section className="space-y-5 text-zinc-950">
     <div className="rounded-3xl border border-zinc-200 bg-white p-6 sm:p-8"><p className="text-[10px] font-black uppercase tracking-[.16em] text-zinc-500">YOUR BUSINESS CONNECTIONS</p><h2 className="mt-4 text-3xl font-black tracking-tight">Connect the tools you already know.</h2><p className="mt-3 max-w-3xl text-sm leading-7 text-zinc-600">A simple place to authorize calendars, connect automation tools and see which integrations are ready. We don't mark providers as connected until authorization succeeds.</p></div>
     {message&&<div role="status" className="rounded-xl border border-zinc-300 bg-zinc-100 p-4 text-sm text-zinc-800">{message}</div>}
+    {!google.configured&&<section className="rounded-2xl border border-[#e7c7a0] bg-[#fff8e9] p-5 text-sm text-[#744b19]"><strong>Google connection setup is incomplete</strong><p className="mt-2 leading-6">The site administrator must configure the official OAuth client and Firebase Admin settings in Vercel, then authorize the exact callback URL in Google Cloud.</p>{google.missing?.length>0&&<p className="mt-2 text-xs font-bold">Missing server settings: {google.missing.join(", ")}</p>}<p className="mt-2 text-xs">Use the official URL: https://www.fugthmanagement.space/api/integrations/google/callback</p></section>}
+    {google.configured&&<section className="rounded-2xl border border-[#bfdfef] bg-[#f2faff] p-5"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-[10px] font-black uppercase tracking-[.15em] text-[#36799d]">LIVE GOOGLE CONNECTION</p><h3 className="mt-2 text-lg font-black text-[#21485f]">Calendar + Drive for this business</h3><p className="mt-1 text-xs text-[#67899b]">{google.connectedEmail?"Connected: "+google.connectedEmail:google.connected?"Google account authorized":"No Google account linked yet"} · {google.connected?"Reconnect to update permissions anytime.":"Connect to enable real scheduling and Drive archiving."}</p></div><div className="flex flex-wrap gap-2"><button type="button" disabled={busy!==""} onClick={()=>connect("core")} className="rounded-xl bg-[#173e55] px-4 py-3 text-xs font-black text-white disabled:opacity-40">{google.connected?"Reconnect Google ↗":"Connect Google ↗"}</button><button type="button" disabled={!google.connected||busy!==""} onClick={checkGoogle} className="rounded-xl border border-[#a9d3e9] bg-white px-4 py-3 text-xs font-black text-[#286d8d] disabled:opacity-40">{busy==="health"?"Checking…":"Check Google connection"}</button></div></div>
+      {health&&<div className="mt-4 grid gap-2 text-xs sm:grid-cols-2"><p className="rounded-xl bg-white p-3"><strong>Google Calendar:</strong> {health.calendar?.ok?"Working ✓":health.calendar?.message||health.error||"Not connected"}</p><p className="rounded-xl bg-white p-3"><strong>Google Drive:</strong> {health.drive?.ok?"Working ✓":health.drive?.message||health.error||"Not connected"}</p></div>}
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#d0e7f3] bg-white p-3"><p className="text-xs leading-6 text-[#557b92]">Live booking uses Google free/busy checks. Changes to this business's dedicated Google Calendar are mirrored into FUGTH when the dashboard is open or Sync is pressed. Existing personal calendar events are used for conflict checking, not copied into customer records.</p><button disabled={!google.calendarServiceReady||busy!==""} onClick={()=>syncAppointments()} type="button" className="shrink-0 rounded-lg bg-[#e1f3fe] px-4 py-2.5 text-xs font-bold text-[#22688c] disabled:opacity-40">{busy==="sync"?"Syncing…":"Sync appointments now ↻"}</button></div>
+      {sync?.lastSyncedAt&&<p className="mt-2 text-[11px] text-[#65869a]">Last Google sync: {new Date(sync.lastSyncedAt).toLocaleString()} · {sync.updated||0} changed · {sync.imported||0} imported</p>}
+    </section>}
     <div className="rounded-3xl border border-[#d4e8f3] bg-[#edf8ff] p-5 sm:p-7">
       <div className="flex flex-wrap items-start justify-between gap-4">
        <div><p className="text-[10px] font-black uppercase tracking-[.16em] text-[#718fa2]">PRIVATE CALL RECORDINGS</p>
@@ -104,7 +157,7 @@ export default function IntegrationsHub(){
        <span className={"rounded-full px-3 py-2 text-[10px] font-bold "+(google.recordingDriveAuthorized?"bg-[#d7f0ff] text-[#2b7599]":"bg-white text-[#8a744b]")}>{google.recordingDriveAuthorized?"Drive permission connected":"Google authorization needed"}</span>
       </div>
       {!google.recordingDriveAuthorized&&<div className="mt-4 flex flex-wrap items-center gap-3">
-       <button type="button" disabled={!google.configured||busy!==""} onClick={connect} className="rounded-xl bg-[#1e516b] px-5 py-3 text-xs font-bold text-white disabled:opacity-45">Connect Google Drive ↗</button>
+       <button type="button" disabled={!google.configured||busy!==""} onClick={()=>connect("core")} className="rounded-xl bg-[#1e516b] px-5 py-3 text-xs font-bold text-white disabled:opacity-45">Connect Google Drive ↗</button>
        <p className="text-xs text-[#7797a7]">Your existing Google connection may need reconnection to approve Drive access.</p>
       </div>}
       {google.recordingDriveAuthorized&&<p className="mt-3 text-xs text-[#4e849f]">Authorization is present. The recording folder is created automatically after the first completed call is archived.</p>}
@@ -116,7 +169,7 @@ export default function IntegrationsHub(){
     <section className="rounded-3xl border border-zinc-200 bg-white p-6 sm:p-8"><div className="flex flex-wrap items-start justify-between gap-5"><div><p className="text-[10px] font-black uppercase tracking-[.16em] text-zinc-500">FUGTH OPERATIONS WORKBOOK</p><h3 className="mt-3 text-2xl font-black">Your Google Sheet, ready for the business.</h3><p className="mt-3 max-w-2xl text-sm leading-7 text-zinc-600">When a business connects its Google account, FUGTH creates one private Operations workbook in that account with Overview, Leads and Appointments tabs. FUGTH stores only the secure link reference — it does not create a Google account or see the rest of their Drive.</p></div>{google.operationsSheetUrl?<a href={google.operationsSheetUrl} target="_blank" rel="noopener noreferrer" className="rounded-xl bg-zinc-950 px-5 py-3 text-sm font-black text-white">Open operations sheet ↗</a>:<button type="button" disabled={!google.connected||busy!==""} onClick={openOperationsSheet} className="rounded-xl bg-zinc-950 px-5 py-3 text-sm font-black text-white disabled:opacity-40">{busy==="sheet"?"Setting up…":"Set up Google Sheet"}</button>}</div>{!google.connected&&<p className="mt-4 text-xs leading-6 text-amber-800">Connect the customer’s Google account first. They remain the owner of the workbook.</p>}{google.connected&&!google.sheetsConnected&&<p className="mt-4 text-xs leading-6 text-amber-800">Reconnect Google once to approve the Google Sheets permission, then this workbook can be created automatically.</p>}</section>
     <section className="rounded-3xl border border-zinc-200 bg-white p-6 sm:p-8">
       <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-[10px] font-black uppercase tracking-[.16em] text-zinc-500">GOOGLE DOCS & FILE LINKS</p><h3 className="mt-3 text-2xl font-black text-zinc-950">Keep your business notes in Google.</h3><p className="mt-3 max-w-2xl text-sm leading-7 text-zinc-600">Create simple business notes as Google Docs and open their Drive links from FUGTH. Your existing documents are not copied into the website or shown to customers.</p></div><span className="rounded-full border border-zinc-200 px-3 py-2 text-[11px] font-bold text-zinc-700">{google.docsConnected?"Connected":google.configured?"Connection available":"Setup needed"}</span></div>
-      {!google.docsConnected?<div className="mt-5 rounded-xl border border-zinc-200 bg-zinc-50 p-4"><p className="text-sm text-zinc-700">Connect your Google account to enable Docs and Drive links. You may need to approve a new permission even if Calendar was connected previously.</p><button type="button" disabled={!google.configured||busy!==""} onClick={connect} className="mt-3 rounded-xl bg-zinc-950 px-5 py-3 text-sm font-semibold text-white disabled:opacity-40">Connect Google services ↗</button></div>:<div className="mt-6 grid gap-7 xl:grid-cols-2"><form onSubmit={createDocument} className="space-y-4"><h4 className="text-sm font-bold text-zinc-950">Create a document</h4><label className="block text-xs font-semibold text-zinc-600">Document title<input required maxLength={100} value={documentForm.title} onChange={e=>setDocumentForm({...documentForm,title:e.target.value})} className="mt-2 block w-full rounded-xl border border-zinc-300 px-4 py-3 text-sm text-zinc-900"/></label><label className="block text-xs font-semibold text-zinc-600">Notes<textarea required maxLength={8000} value={documentForm.content} onChange={e=>setDocumentForm({...documentForm,content:e.target.value})} placeholder="Services, opening hours, a customer-safe checklist..." className="mt-2 block min-h-36 w-full rounded-xl border border-zinc-300 px-4 py-3 text-sm text-zinc-900"/></label><button disabled={busy!==""} className="rounded-xl bg-zinc-950 px-5 py-3 text-sm font-semibold text-white disabled:opacity-40">{busy==="docs"?"Saving to Google...":"Create Google Doc ↗"}</button></form>
+      {!google.docsConnected?<div className="mt-5 rounded-xl border border-zinc-200 bg-zinc-50 p-4"><p className="text-sm text-zinc-700">Connect your Google account to enable Docs and Drive links. You may need to approve a new permission even if Calendar was connected previously.</p><button type="button" disabled={!google.configured||busy!==""} onClick={()=>connect("core")} className="mt-3 rounded-xl bg-zinc-950 px-5 py-3 text-sm font-semibold text-white disabled:opacity-40">Connect Google services ↗</button></div>:<div className="mt-6 grid gap-7 xl:grid-cols-2"><form onSubmit={createDocument} className="space-y-4"><h4 className="text-sm font-bold text-zinc-950">Create a document</h4><label className="block text-xs font-semibold text-zinc-600">Document title<input required maxLength={100} value={documentForm.title} onChange={e=>setDocumentForm({...documentForm,title:e.target.value})} className="mt-2 block w-full rounded-xl border border-zinc-300 px-4 py-3 text-sm text-zinc-900"/></label><label className="block text-xs font-semibold text-zinc-600">Notes<textarea required maxLength={8000} value={documentForm.content} onChange={e=>setDocumentForm({...documentForm,content:e.target.value})} placeholder="Services, opening hours, a customer-safe checklist..." className="mt-2 block min-h-36 w-full rounded-xl border border-zinc-300 px-4 py-3 text-sm text-zinc-900"/></label><button disabled={busy!==""} className="rounded-xl bg-zinc-950 px-5 py-3 text-sm font-semibold text-white disabled:opacity-40">{busy==="docs"?"Saving to Google...":"Create Google Doc ↗"}</button></form>
         <div><div className="flex items-center justify-between gap-3"><h4 className="text-sm font-bold text-zinc-950">Documents available to FUGTH</h4><button type="button" disabled={docsLoading} onClick={loadDocuments} className="rounded-lg border border-zinc-300 px-3 py-2 text-xs font-semibold">{docsLoading?"Loading...":"Refresh list"}</button></div><p className="mt-3 text-xs leading-6 text-zinc-500">Only documents this FUGTH connection is allowed to access appear here, not your whole Google Drive.</p><div className="mt-4 max-h-72 divide-y divide-zinc-200 overflow-auto">{docs.map(d=><a key={d.id} href={d.url} target="_blank" rel="noopener noreferrer" className="block py-3 text-sm font-semibold text-zinc-800 hover:underline">{d.name} ↗</a>)}{!docs.length&&<p className="py-4 text-sm text-zinc-500">No documents loaded. Choose Refresh list, or create your first document.</p>}</div></div>
       </div>}
       <p className="mt-5 text-xs leading-6 text-zinc-500">For business notes only. Do not upload private patient records, legal case files, or sensitive customer identifiers without appropriate agreements and controls.</p>
