@@ -49,7 +49,7 @@ export default function SiteStudio({user,workspace={},targetUid=null,locked=fals
       ...(facts.about?{aboutDetail:facts.about}:{}),services:facts.services};
     // A free account sees its latest business details, not a stale paid site.
     let next=fromProfile;
-    if(published?.exists() && details.billingActive && details.websitePurchased)
+    if(published?.exists() && (details.billingActive===true||details.websitePurchased===true))
      next=published.data();
     const chosen=details.sitePreviewImages||{};
     if(chosen.heroImageId||chosen.galleryImageIds)next={...next,
