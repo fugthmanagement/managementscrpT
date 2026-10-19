@@ -36,7 +36,7 @@ function Thumbnail({kind}) {
  </div>;
 }
 function TextField({label,value,onChange,maxLength=160,textarea=false,help=""}){
- return <label className="block text-xs font-bold text-[#345061]"><span>{label}</span>{textarea?<textarea rows={3} maxLength={maxLength} value={value||""} onChange={e=>onChange(e.target.value)} className={styles.field}/>:<input maxLength={maxLength} value={value||""} onChange={e=>onChange(e.target.value)} className={styles.field}/ >}{help&&<span className="mt-1 block text-[11px] font-normal text-slate-500">{help}</span>}</label>
+ return <label className="block text-xs font-bold text-[#345061]"><span>{label}</span>{textarea?<textarea rows={3} maxLength={maxLength} value={value||""} onChange={e=>onChange(e.target.value)} className={styles.field}/>:<input maxLength={maxLength} value={value||""} onChange={e=>onChange(e.target.value)} className={styles.field}/>}{help&&<span className="mt-1 block text-[11px] font-normal text-slate-500">{help}</span>}</label>
 }
 export default function SiteStudioBuilder({site,locked=false,uid,onChange,onTemplate,onSave,onPublish,onUnpublish,busy="",published=false}){
  const [stage,setStage]=useState("design"),[device,setDevice]=useState("desktop"),[page,setPage]=useState("home");
@@ -54,7 +54,7 @@ export default function SiteStudioBuilder({site,locked=false,uid,onChange,onTemp
  };
  const patch=(field,value)=>onChange({[field]:value});
  const previewUrl="/sites/"+encodeURIComponent(uid)+"?preview=1&template="+encodeURIComponent(site.template);
- return <section className="overflow-hidden rounded-[28px] border border-[#d9eaf5] bg-[#f8fcff] shadow-[0_22px_70px_rgba(16,48,72,.10)]">
+ return <section className="fugth-builder overflow-hidden rounded-[28px] border border-[#d9eaf5] bg-[#f8fcff] shadow-[0_22px_70px_rgba(16,48,72,.10)]">
   <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#d6e9f5] bg-[#101d2a] px-5 py-5 text-white sm:px-7">
    <div className="flex items-center gap-4"><span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-white/25 bg-[#b9e5fb] text-lg font-black text-[#173b50]">F</span><div><p className="text-[10px] font-black uppercase tracking-[.24em] text-[#8ed0ef]">FUGTH / WEBSITE MAKER</p><h2 className="mt-1 text-xl font-black tracking-tight sm:text-2xl">Make it yours.</h2><p className="mt-1 text-xs text-[#b3c3cf]">Real layouts. Live editing. A site made for your business.</p></div></div>
    <div className="flex flex-wrap items-center gap-2"><span className={"rounded-full border px-3 py-2 text-[11px] font-bold "+(published?"border-emerald-300 text-emerald-200":"border-white/20 text-[#b9e5fb]")}>{published?"Published":"Draft preview"}</span><a href={previewUrl} target="_blank" rel="noopener noreferrer" className="rounded-xl border border-white/25 bg-white/10 px-3 py-2.5 text-xs font-bold text-white hover:bg-white/20">Full screen ↗</a></div>
