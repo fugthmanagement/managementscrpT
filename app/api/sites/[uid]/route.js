@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { authenticatedUser,firebaseAdmin,isFounder } from "../../../../lib/server/auth";
 import {buildStarterSite,siteFields,cleanText} from "../../../../lib/site-presets";
+import {siteFactsFromProfile} from "../../../../lib/business-profile";
 
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
@@ -12,9 +13,14 @@ function sanitized(data,uid,old={},visibility="preview"){
    createdAt:old.createdAt||now,updatedAt:now};
 }
 function businessPreset(uid,profile={}){
- return buildStarterSite(uid,profile.businessName||profile.displayName||"Your business",profile.businessType||profile.industry||"general",{
+ const facts=siteFactsFromProfile(profile);
+ const preset=buildStarterSite(uid,profile.businessName||profile.displayName||"Your business",facts.industry,{
   phone:profile.phone||profile.businessPhone||"",contactEmail:profile.contactEmail||profile.email||"",serviceArea:profile.serviceArea||"",hours:profile.hours||profile.businessHours||""
  });
+ // No speculative copy. Use only information the owner supplied.
+ return {...preset,...(facts.lead?{description:facts.lead}:{}),
+  ...(facts.about?{aboutDetail:facts.about}:{}),
+  ...(facts.services.length?{services:facts.services}:{})};
 }
 async function viewer(request,uid) {
  const user=await authenticatedUser(request);
