@@ -95,19 +95,19 @@ export default function IntegrationsHub(){
   return <section className="space-y-5 text-zinc-950">
     <div className="rounded-3xl border border-zinc-200 bg-white p-6 sm:p-8"><p className="text-[10px] font-black uppercase tracking-[.16em] text-zinc-500">YOUR BUSINESS CONNECTIONS</p><h2 className="mt-4 text-3xl font-black tracking-tight">Connect the tools you already know.</h2><p className="mt-3 max-w-3xl text-sm leading-7 text-zinc-600">A simple place to authorize calendars, connect automation tools and see which integrations are ready. We don't mark providers as connected until authorization succeeds.</p></div>
     {message&&<div role="status" className="rounded-xl border border-zinc-300 bg-zinc-100 p-4 text-sm text-zinc-800">{message}</div>}
-    <div className="rounded-3xl border border-[#d4e5cf] bg-[#f0f7ec] p-5 sm:p-7">
+    <div className="rounded-3xl border border-[#d4e8f3] bg-[#edf8ff] p-5 sm:p-7">
       <div className="flex flex-wrap items-start justify-between gap-4">
-       <div><p className="text-[10px] font-black uppercase tracking-[.16em] text-[#81947a]">PRIVATE CALL RECORDINGS</p>
-        <h3 className="mt-2 text-xl font-bold text-[#2d4832]">Google Drive audio archive</h3>
-        <p className="mt-2 max-w-2xl text-xs leading-6 text-[#708170]">FUGTH securely archives call audio in a private business recording folder. The recordings never have public sharing links, and customers play them directly in their FUGTH Call Library.</p>
+       <div><p className="text-[10px] font-black uppercase tracking-[.16em] text-[#718fa2]">PRIVATE CALL RECORDINGS</p>
+        <h3 className="mt-2 text-xl font-bold text-[#214d65]">Google Drive audio archive</h3>
+        <p className="mt-2 max-w-2xl text-xs leading-6 text-[#6b8a9b]">FUGTH securely archives call audio in a private business recording folder. The recordings never have public sharing links, and customers play them directly in their FUGTH Call Library.</p>
        </div>
-       <span className={"rounded-full px-3 py-2 text-[10px] font-bold "+(google.recordingDriveAuthorized?"bg-[#d2e8d1] text-[#356442]":"bg-white text-[#8a744b]")}>{google.recordingDriveAuthorized?"Drive permission connected":"Google authorization needed"}</span>
+       <span className={"rounded-full px-3 py-2 text-[10px] font-bold "+(google.recordingDriveAuthorized?"bg-[#d7f0ff] text-[#2b7599]":"bg-white text-[#8a744b]")}>{google.recordingDriveAuthorized?"Drive permission connected":"Google authorization needed"}</span>
       </div>
       {!google.recordingDriveAuthorized&&<div className="mt-4 flex flex-wrap items-center gap-3">
-       <button type="button" disabled={!google.configured||busy!==""} onClick={connect} className="rounded-xl bg-[#2f5237] px-5 py-3 text-xs font-bold text-white disabled:opacity-45">Connect Google Drive ↗</button>
-       <p className="text-xs text-[#7c8c79]">Your existing Google connection may need reconnection to approve Drive access.</p>
+       <button type="button" disabled={!google.configured||busy!==""} onClick={connect} className="rounded-xl bg-[#1e516b] px-5 py-3 text-xs font-bold text-white disabled:opacity-45">Connect Google Drive ↗</button>
+       <p className="text-xs text-[#7797a7]">Your existing Google connection may need reconnection to approve Drive access.</p>
       </div>}
-      {google.recordingDriveAuthorized&&<p className="mt-3 text-xs text-[#527455]">Authorization is present. The recording folder is created automatically after the first completed call is archived.</p>}
+      {google.recordingDriveAuthorized&&<p className="mt-3 text-xs text-[#4e849f]">Authorization is present. The recording folder is created automatically after the first completed call is archived.</p>}
     </div>
     <div className="grid gap-5 xl:grid-cols-2">
       <div className="rounded-3xl border border-zinc-200 bg-white p-6"><div className="flex items-center justify-between gap-3"><h3 className="text-lg font-black">Google Calendar</h3><span className="rounded-full border border-zinc-200 bg-zinc-50 px-3 py-2 text-[10px] font-black">{google.calendarServiceReady?"Calendar ready":google.configured?"Available to connect":"Configuration needed"}</span></div><p className="mt-3 text-sm leading-7 text-zinc-600">FUGTH uses a separate calendar for every business. Your connected calendar can also be checked for conflicts and receive appointment invitations. Booking confirmations are stored in your workspace.</p><div className="mt-6 flex flex-wrap gap-2">{!google.connected?<button type="button" disabled={!google.configured||busy!==""} onClick={connect} className="rounded-xl bg-zinc-950 px-5 py-3 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-40">{busy==="connect"?"Connecting...":"Connect Google Calendar"}</button>:<button type="button" disabled={busy!==""} onClick={disconnect} className="rounded-xl border border-zinc-300 px-5 py-3 text-sm font-black">Disconnect</button>}</div>{!google.configured&&<p className="mt-4 text-xs leading-6 text-amber-800">Google connections are being prepared. Please contact FUGTH support if you need this connected today.</p>}</div>
