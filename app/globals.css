@@ -1775,3 +1775,37 @@ body {
 .fugth-generated-site[data-site-density="spacious"] main#top > section h1 {
   line-height: .99;
 }
+
+
+/* Public marketing redesign: a distinct visual system from the authenticated dashboard. */
+.fugth-public {
+  --ink:#112130;--baby-blue:#b9e5fb;--blue:#478fb8;
+  min-height:100vh;
+  font-family:Arial,Helvetica,sans-serif;
+  font-feature-settings:"kern";
+}
+.fugth-public * {box-sizing:border-box;}
+.fugth-public a,.fugth-public button {transition:transform .19s ease,background-color .19s ease,box-shadow .19s ease,color .19s ease;}
+.fugth-public a:focus-visible,.fugth-public button:focus-visible {outline:3px solid #b9e5fb;outline-offset:3px;}
+.fugth-public-header {box-shadow:0 7px 30px rgba(15,30,46,.12);}
+.fugth-public-pill {box-shadow:inset 0 0 0 1px rgba(255,255,255,.04);}
+.fugth-public-mobile-nav {scrollbar-width:none;}
+.fugth-public-mobile-nav::-webkit-scrollbar {display:none;}
+.fugth-public-hero {background-image:radial-gradient(circle at 85% 35%,rgba(101,169,206,.18),transparent 36%),linear-gradient(122deg,#111b28 2%,#192e40 100%);}
+.fugth-public-orb {position:absolute;right:-250px;top:90px;height:650px;width:650px;border-radius:50%;border:1px solid rgba(164,224,255,.13);box-shadow:0 0 0 90px rgba(164,224,255,.035),0 0 0 180px rgba(164,224,255,.018);pointer-events:none;}
+.fugth-public-sky-text {color:#b9e5fb;text-shadow:0 0 60px rgba(87,180,232,.13);}
+.fugth-public-dashboard {transform:rotate(.35deg);}
+.fugth-public-feature {box-shadow:0 10px 32px rgba(28,74,109,.035);transition:transform .2s,box-shadow .2s;}
+.fugth-public-feature:hover {transform:translateY(-5px);box-shadow:0 23px 58px rgba(28,74,109,.11);}
+.fugth-public-kicker {font-size:10px;letter-spacing:.21em;font-weight:900;color:#4389ab;text-transform:uppercase;}
+.fugth-public img {display:block;}
+.legal-prose h2 {font-weight:900;font-size:1.25rem;letter-spacing:-.025em;color:#1d445c;margin-top:2rem;margin-bottom:.75rem;}
+.legal-prose h2:first-child {margin-top:0;}
+.legal-prose p {font-size:.91rem;line-height:1.9;color:#526d7e;margin:.8rem 0;}
+.legal-prose a {color:#146f9c;text-decoration:underline;text-underline-offset:3px;font-weight:700;}
+.legal-prose table {border-collapse:collapse;margin:1.25rem 0;}
+.legal-prose th,.legal-prose td {border:1px solid #e1edf5;padding:.8rem;vertical-align:top;}
+.legal-prose th {background:#eaf7ff;color:#173e54;}
+@media(max-width:1023px){.fugth-public-dashboard{transform:none;}}
+@media(max-width:640px){.fugth-public-hero h1 {font-size:clamp(3.1rem,13.3vw,4.7rem)}.fugth-public-feature:hover{transform:none;}.fugth-public-orb{right:-450px;}}
+@media(prefers-reduced-motion:reduce){.fugth-public *{transition:none!important;scroll-behavior:auto!important;}}
