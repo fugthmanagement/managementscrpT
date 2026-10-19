@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { authenticatedUser,firebaseAdmin } from "../../../../lib/server/auth";
-import { buildGoogleUrl, decrypt, integrationConfigured, integrationDoc } from "../../../../lib/server/google-calendar";
+import { buildGoogleUrl, decrypt, googleOAuthPublicSettings, integrationConfigured, integrationDoc } from "../../../../lib/server/google-calendar";
 import {archiveConnection} from "../../../../lib/server/drive-recordings";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,7 +20,7 @@ export async function GET(req) {
   if (!user) return NextResponse.json({ error: "Sign in required." }, { status: 401 });
   const missing=configurationIssues();
   if(missing.length||!integrationConfigured())
-    return NextResponse.json({connected:false,configured:false,missing,
+    return NextResponse.json({connected:false,configured:false,missing,oauth:googleOAuthPublicSettings(),
       error:"Google connections need server setup. Ask the FUGTH administrator to check Vercel environment variables and authorized Google redirect URI."});
 
   try {
@@ -40,7 +40,7 @@ export async function GET(req) {
         calendarServiceReady=calendarServiceReady||centralCalendarReady;
       }catch{/* Central setup is incomplete; customer can still connect their own calendar. */}
     }
-    return NextResponse.json({ configured:true,missing:[],connected:snap.exists,
+    return NextResponse.json({ configured:true,missing:[],oauth:googleOAuthPublicSettings(),connected:snap.exists,
       calendarAuthorized,calendarServiceReady,centralCalendarReady,
       driveAuthorized,recordingDriveAuthorized:recordingArchive.connected,
       recordingArchiveCentral:recordingArchive.sharedArchive,
