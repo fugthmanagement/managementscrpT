@@ -1,3 +1,4 @@
+import {businessEntitlement} from "../../../../../lib/server/feature-entitlement";
 import {NextResponse} from "next/server";
 import {authenticatedUser,firebaseAdmin} from "../../../../../lib/server/auth";
 import {businessCalendarSession,integrationDoc} from "../../../../../lib/server/google-calendar";
@@ -22,6 +23,7 @@ async function eventsForBusiness(session,uid){
 export async function POST(req){
  const user=await authenticatedUser(req);
  if(!user?.uid)return json({error:"Sign in to sync your business calendar."},401);
+ const permit=await businessEntitlement(user,"bookings");if(!permit.allowed)return json({error:permit.reason,tier:permit.tier},403);
  try{
   const integration=integrationDoc(user.uid);
   const connected=await integration.get();
