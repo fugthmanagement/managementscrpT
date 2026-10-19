@@ -5,14 +5,15 @@ import {BILLING_PLANS,BILLING_ADDONS,addonAmount,validAddons} from "../../../../
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
 const siteUrl="https://www.fugthmanagement.space";
+const EXPECTED_FUGTH_MERCHANT="acct_1QYiGDHGcNIhcRMj";
 const reply=(data,status=200)=>NextResponse.json(data,{status,headers:{"Cache-Control":"private, no-store"}});
 const money=n=>Number.isInteger(n)&&n>=0&&n<=100000000;
 export async function POST(req){
  const user=await authenticatedUser(req);
  if(!user?.uid||!user.email)return reply({error:"Please sign in to select a FUGTH offer."},401);
- if(!process.env.STRIPE_SECRET_KEY||!process.env.STRIPE_WEBHOOK_SECRET)return reply({error:"Secure payments are unavailable. Contact FUGTH support."},503);
+ if(!process.env.STRIPE_SECRET_KEY||!process.env.STRIPE_WEBHOOK_SECRET)return reply({error:"Checkout is not ready: the Stripe merchant key or signed payment-confirmation webhook is missing. No charge started. Contact FUGTH support."},503);
  if(!process.env.FIREBASE_SERVICE_ACCOUNT&&!(process.env.FIREBASE_CLIENT_EMAIL&&process.env.FIREBASE_PRIVATE_KEY))
-  return reply({error:"Account activation is unavailable until secure Firebase service credentials are restored."},503);
+  return reply({error:"Checkout is not ready: secure Firebase activation credentials are missing. No charge started. Contact FUGTH support."},503);
  let body;try{const txt=await req.text();if(txt.length>2500)throw Error();body=JSON.parse(txt);}catch{return reply({error:"Invalid plan selection."},400);}
  const planKey=String(body?.planKey||""),plan=BILLING_PLANS[planKey];
  if(!plan)return reply({error:"Choose a valid package."},400);
@@ -22,7 +23,13 @@ export async function POST(req){
  if(plan.kind==="one_time"&&cycle==="yearly")return reply({error:"Website purchases are one-time payments."},400);
  try{
   const stripe=new Stripe(process.env.STRIPE_SECRET_KEY,{apiVersion:"2024-06-20"});
+  // Never collect funds in an unrelated Stripe workspace after a credential migration.
+  const account=await stripe.accounts.retrieve();
+  if(account.id!==EXPECTED_FUGTH_MERCHANT){
+    return reply({error:"Checkout is connected to the wrong FUGTH merchant account. No payment started. Ask FUGTH support to reconnect the correct Stripe account."},503);
+  }
   const db=firebaseAdmin().firestore(),userDoc=await db.doc("users/"+user.uid).get();
+  if(!userDoc.exists)return reply({error:"We couldn't find your FUGTH account profile. Sign out and back in, then finish the account setup before checkout."},409);
   if(userDoc.data()?.billingActive&&plan.kind!=="one_time")
    return reply({error:"A subscription is already active. Contact support to change your plan safely."},409);
   if(plan.kind==="one_time"&&userDoc.data()?.websitePurchased===true)
@@ -69,7 +76,7 @@ export async function POST(req){
    setupFeeCents:setupCents,recurringCents:plan.kind==="one_time"?0:recurringCents,billingAnchor});
  }catch(e){
   console.error("FUGTH checkout startup error",{type:e?.type||"backend",code:e?.code||"unknown"});
-  return reply({error:e?.code==="resource_missing"?"The FUGTH merchant account rejected this product. No charge was made.":
+  return reply({error:e?.type==="StripeAuthenticationError"?"Stripe rejected FUGTH merchant credentials. No charge started. Contact support.":e?.code==="resource_missing"?"The FUGTH merchant account rejected this product. No charge was made.":
    "Unable to start FUGTH secure checkout. Open Administration → Billing health for account diagnostics."},503);
  }
 }
