@@ -389,6 +389,7 @@ export default function Plans() {
               {busy ? "Opening payment…" : !currentUser ? "Sign in to complete checkout ↗" : "Continue to secure checkout ↗"}
             </button>
             <p className="mt-3 text-center text-[11px] leading-5 text-[#6d8999]">By proceeding you agree to the <Link className="font-bold underline" href="/terms">Terms</Link> and acknowledge the <Link href="/privacy" className="font-bold underline">Privacy Policy</Link>.</p>
+            {error&&<p role="alert" className="mt-3 rounded-xl border border-[#e7bdb9] bg-[#fff5f2] p-3 text-xs font-bold leading-5 text-[#9a4b37]">{error}</p>}
             {!currentUser && authReady && (
               <Link
                 href="/login?next=%2Fplans"
@@ -413,14 +414,6 @@ export default function Plans() {
                 new Date(offer.requestedBillingAt).toLocaleString() +
                 ". Stripe will display the prorated first invoice and setup fee before payment."
               : ""}
-          </p>
-        )}
-        {error && (
-          <p
-            role="alert"
-            className="mt-5 rounded-xl border border-[#e9cfc7] bg-[#fff5ef] p-4 text-sm text-[#97543e]"
-          >
-            {error}
           </p>
         )}
         <p className="mt-6 text-xs text-[#8298a7]">
