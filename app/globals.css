@@ -1809,3 +1809,58 @@ body {
 @media(max-width:1023px){.fugth-public-dashboard{transform:none;}}
 @media(max-width:640px){.fugth-public-hero h1 {font-size:clamp(3.1rem,13.3vw,4.7rem)}.fugth-public-feature:hover{transform:none;}.fugth-public-orb{right:-450px;}}
 @media(prefers-reduced-motion:reduce){.fugth-public *{transition:none!important;scroll-behavior:auto!important;}}
+
+
+/* Signed-in FUGTH workspace, intentionally isolated from legacy .fugth-app
+   monochrome forced overrides that flattened every dashboard tab. */
+.fugth-workspace {
+  --workspace-ink:#17384d;
+  --workspace-blue:#b9e5fb;
+  --workspace-soft:#eff8fd;
+  background:radial-gradient(ellipse at 91% 0%,rgba(188,232,255,.29),transparent 29rem),#f6fbff;
+  color:var(--workspace-ink);
+  color-scheme:light;
+  font-family:Arial,Helvetica,sans-serif;
+  font-feature-settings:"kern";
+  min-height:100vh;
+}
+.fugth-workspace * {box-sizing:border-box;}
+.fugth-workspace :is(a,button,input,select,textarea):focus-visible {
+  outline:3px solid #6ebce7;outline-offset:3px;
+}
+.fugth-workspace :where(input,select,textarea):not([type="checkbox"]):not([type="radio"]){
+  accent-color:#5aa9d5;
+}
+.fugth-workspace :where(button, a) {transition:background-color .18s ease,color .18s ease,border-color .18s ease,transform .18s ease,box-shadow .18s ease;}
+.fugth-workspace :where(button):disabled {cursor:not-allowed;opacity:.58;}
+.fugth-workspace ::selection {background:#b9e5fb;color:#163b53;}
+.fugth-workspace-content>div {min-width:0;}
+.fugth-workspace-content .fugth-workspace-section-heading {scroll-margin-top:90px;}
+.fugth-workspace-nav {
+  will-change:transform;
+  transition:transform .38s cubic-bezier(.22,1,.36,1),box-shadow .2s ease;
+}
+.fugth-workspace-nav[data-hidden="true"] {
+  transform:translateY(calc(-100% + 13px));
+  box-shadow:none;
+}
+.fugth-workspace-nav[data-hidden="true"] .fugth-nav-peek {display:block;}
+.fugth-workspace-nav[data-hidden="true"]:hover,
+.fugth-workspace-nav[data-hidden="true"]:focus-within {transform:translateY(0);}
+.fugth-workspace-tab-list {scrollbar-width:none;scroll-snap-type:x proximity;}
+.fugth-workspace-tab-list::-webkit-scrollbar {display:none;}
+.fugth-workspace-tab-list button {scroll-snap-align:center;}
+.fugth-workspace-masthead {background-image:radial-gradient(circle at 86% -30%,rgba(134,212,252,.15),transparent 25rem),linear-gradient(116deg,#101b28,#1c3445);}
+.fugth-workspace [role="tab"][aria-selected="true"] {border-color:#a8daf5;}
+.fugth-workspace-hero {background-image:radial-gradient(circle at 85% -10%,rgba(166,227,255,.15),transparent 45%),linear-gradient(115deg,#102030,#1b384c);}
+.fugth-workspace .fugth-workspace-content :where(article,section)[class*="bg-white"] {background-clip:padding-box;}
+.fugth-workspace details>summary:focus-visible {outline:2px solid #7dbfe0;outline-offset:4px;}
+@media(max-width:720px) {
+  .fugth-workspace-nav {padding-top:6px;padding-bottom:6px;}
+  .fugth-workspace-tab-list button {font-size:11px;padding:9px 12px;}
+  .fugth-workspace-masthead h1{font-size:1.12rem;}
+  .fugth-workspace-content {padding-top:20px;}
+}
+@media(prefers-reduced-motion:reduce){
+  .fugth-workspace-nav,.fugth-workspace * {transition:none!important;scroll-behavior:auto!important;}
+}
