@@ -108,6 +108,25 @@ body {
 .fugth-app .fugth-blue-label {
   color: #075f84 !important;
 }
+.fugth-app header.fugth-topbar { background:#101216 !important; color:#fff !important; border-color:#101216 !important; }
+.fugth-app header.fugth-topbar :is(a,span,p) { color:#fff !important; }
+.fugth-app header.fugth-topbar .fugth-topbar-cta { background:#b9e5fb !important; color:#101216 !important; border-color:#b9e5fb !important; box-shadow:3px 3px 0 #fff !important; }
+.fugth-app header.fugth-topbar button { background:transparent !important; color:#fff !important; border-color:#fff !important; }
+.fugth-home-hero { position: relative; padding-top: 32px; }
+.fugth-center-tabs { position: absolute; z-index: 20; top: -24px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 3px; width: max-content; max-width: calc(100% - 28px); overflow-x: auto; padding: 6px; border: 1px solid #d7dbe0; border-radius: 999px; background: #fff; box-shadow: 0 10px 24px rgb(16 18 22 / 14%); }
+.fugth-center-tabs a { flex: 0 0 auto; padding: 11px 16px; border-radius: 999px; color: #3c424a; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; }
+.fugth-center-tabs a.is-active { background: #101216; color: #fff; box-shadow: 2px 2px 0 #b9e5fb; }
+.fugth-preview-shell { background: linear-gradient(145deg,#effaff 0%,#fff 58%); }
+.fugth-metric { min-height: 112px; padding: 15px; border: 1px solid #101216; background: #fff; box-shadow: 3px 3px 0 rgb(16 18 22 / 14%); }
+.fugth-metric span,.fugth-metric small { display: block; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; }
+.fugth-metric strong { display: block; margin: 12px 0 5px; font-size: 34px; line-height: .8; letter-spacing: -.08em; }
+.fugth-metric-blue { background: #b9e5fb; }
+.fugth-call-card { min-height: 245px; padding: 20px; border: 1px solid #101216; background: #101216; color: #fff; box-shadow: 5px 5px 0 #77c9ed; }
+.fugth-call-card h2 { margin: 32px 0 12px; font-size: 27px; line-height: .95; letter-spacing: -.06em; }.fugth-call-card h2 span { color: #b9e5fb; }.fugth-call-card p { color: #cdd2d9; font-size: 13px; line-height: 1.55; }.fugth-call-card button { padding: 9px 12px; border: 1px solid #fff; background: #b9e5fb; color: #101216; font-size: 11px; font-weight: 900; }.fugth-call-card .fugth-quiet-button { background: transparent; color: #fff; }
+.fugth-status-dot::before { content:""; display:inline-block; width:7px; height:7px; margin-right:6px; border-radius:50%; background:#66c493; }.fugth-status-dot { font-size:10px; font-weight:900; text-transform:uppercase; letter-spacing:.12em; }
+.fugth-photo-card { position: relative; min-height: 245px; overflow: hidden; border: 1px solid #101216; background: #101216; }.fugth-photo-card img { width:100%; height:245px; object-fit:cover; filter:saturate(.65) contrast(1.08); }.fugth-photo-card::after { content:""; position:absolute; inset:0; background:linear-gradient(0deg,#101216 2%,transparent 80%); }.fugth-photo-card div { position:absolute; z-index:1; right:16px; bottom:15px; left:16px; color:#fff; }.fugth-photo-card p,.fugth-photo-card span { margin:0; display:block; font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.12em; }.fugth-photo-card strong { display:block; margin:7px 0; max-width:240px; font-size:16px; line-height:1.05; }.fugth-photo-card span { color:#b9e5fb; }
+.fugth-lead-list { border:1px solid #101216; background:#fff; }.fugth-lead-list > div:first-child { padding:12px 14px; border-bottom:1px solid #101216; }.fugth-lead-list > div:first-child p { margin:0; font-size:10px; font-weight:900; text-transform:uppercase; letter-spacing:.14em; }.fugth-lead-list > div:first-child button { border:0; background:transparent; font-size:11px; font-weight:900; text-decoration:underline; }.fugth-lead-list > div:not(:first-child) { display:flex; align-items:center; gap:10px; padding:11px 14px; border-bottom:1px solid #d6dce0; }.fugth-lead-list > div:last-child { border-bottom:0; }.fugth-lead-list p { flex:1; margin:0; }.fugth-lead-list strong,.fugth-lead-list small { display:block; }.fugth-lead-list strong { font-size:12px; }.fugth-lead-list small,.fugth-lead-list em { font-size:10px; color:#5d6670; font-style:normal; }.fugth-avatar { display:grid; width:30px; height:30px; place-items:center; border:1px solid #101216; border-radius:50%; background:#fff; font-size:9px; font-weight:900; }.fugth-avatar-blue { background:#b9e5fb; }
+@media (max-width: 640px) { .fugth-home-hero{padding-top:26px}.fugth-center-tabs{justify-content:flex-start}.fugth-center-tabs a{padding:9px 12px;font-size:10px}.fugth-preview-shell{min-height:auto} }
 
 /* Finished client websites inherit the same restrained blue accent without
    flattening their layouts.  Their content and image compositions remain unique. */

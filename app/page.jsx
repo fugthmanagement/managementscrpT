@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import {getIndustryPhotos} from "../lib/site-images";
 
 const productAreas = [
   [
@@ -53,10 +54,11 @@ function Arrow() {
 
 export default function Home() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const dashboardPhoto=getIndustryPhotos("contractor")[1]||getIndustryPhotos("roofing")[0];
 
   return (
     <main className="fugth-app min-h-screen bg-white text-black">
-      <header className="sticky top-0 z-40 border-b border-black bg-white">
+      <header className="fugth-topbar sticky top-0 z-40 border-b border-black bg-white">
         <div className="mx-auto flex h-16 w-full max-w-[1440px] items-center justify-between px-4 sm:h-20 sm:px-8 lg:px-12">
           <Link
             href="/"
@@ -70,12 +72,7 @@ export default function Home() {
               FUGTH Management
             </span>
           </Link>
-          <nav className="hidden items-center gap-8 text-xs font-bold uppercase tracking-[.12em] md:flex">
-            <a href="#platform">Platform</a>
-            <a href="#workflow">Workflow</a>
-            <a href="#studio">Website Studio</a>
-            <a href="#plans">Plans</a>
-          </nav>
+          <p className="hidden text-[10px] font-black uppercase tracking-[.24em] text-zinc-500 lg:block">Business operations system</p>
           <div className="hidden items-center gap-3 sm:flex">
             <Link
               href="/login"
@@ -85,8 +82,7 @@ export default function Home() {
             </Link>
             <Link
               href="/login?signup=1"
-              data-fugth-accent="blue"
-              className="border border-black px-4 py-3 text-xs font-bold uppercase tracking-[.12em]"
+              className="fugth-topbar-cta border border-black px-4 py-3 text-xs font-bold uppercase tracking-[.12em]"
             >
               Create account
             </Link>
@@ -125,7 +121,14 @@ export default function Home() {
         ) : null}
       </header>
 
-      <section className="border-b border-black">
+      <section className="fugth-home-hero border-b border-black">
+        <nav className="fugth-center-tabs" aria-label="FUGTH sections">
+          <a className="is-active" href="#platform">Overview</a>
+          <a href="#workflow">Calls & leads</a>
+          <a href="#studio">Website maker</a>
+          <a href="#plans">Plans</a>
+          <a href="#workflow">How it works</a>
+        </nav>
         <div className="mx-auto grid min-h-[calc(100vh-80px)] w-full max-w-[1440px] lg:grid-cols-[1.1fr_.9fr]">
           <div className="flex flex-col justify-between border-black px-4 py-12 sm:px-8 sm:py-16 lg:border-r lg:px-12 lg:py-20">
             <p className="text-xs font-bold uppercase tracking-[.2em]">
@@ -135,7 +138,7 @@ export default function Home() {
               <h1 className="text-[clamp(3.8rem,9vw,8.6rem)] font-black leading-[.82] tracking-[-.085em]">
                 One place.
                 <br />
-                <span className="fugth-blue-underline">Every next step.</span>
+                Every next step.
               </h1>
               <p className="mt-10 max-w-2xl text-base leading-8 sm:text-lg">
                 FUGTH brings calls, customers, appointments, outreach, and your
@@ -145,7 +148,6 @@ export default function Home() {
             <div className="flex flex-col gap-3 sm:flex-row">
               <Link
                 href="/login?signup=1"
-                data-fugth-accent="blue"
                 className="flex min-h-14 items-center justify-between border border-black px-5 text-sm font-bold sm:min-w-64"
               >
                 Start your workspace <Arrow />
@@ -158,28 +160,15 @@ export default function Home() {
               </a>
             </div>
           </div>
-          <div className="border-t border-black lg:border-t-0">
-            <div className="flex h-full min-h-[600px] flex-col">
-              <div className="flex items-center justify-between border-b border-black px-5 py-4 text-xs font-bold uppercase tracking-[.14em] sm:px-8">
-                <span>FUGTH / Workspace</span>
-                <span>Live overview</span>
+          <div className="fugth-preview-shell border-t border-black lg:border-t-0">
+            <div className="flex items-center justify-between border-b border-black px-5 py-4 text-xs font-bold uppercase tracking-[.14em] sm:px-8"><span>FUGTH / Live desk</span><span className="fugth-status-dot">Today</span></div>
+            <div className="p-4 sm:p-6">
+              <div className="grid gap-3 sm:grid-cols-3"><article className="fugth-metric"><span>Missed calls</span><strong>03</strong><small>Need a callback</small></article><article className="fugth-metric fugth-metric-blue"><span>New leads</span><strong>12</strong><small>+4 this week</small></article><article className="fugth-metric"><span>Booked</span><strong>06</strong><small>Next 7 days</small></article></div>
+              <div className="mt-4 grid gap-4 lg:grid-cols-[.92fr_1.08fr]">
+                <section className="fugth-call-card"><div className="flex items-center justify-between"><p className="text-[10px] font-black uppercase tracking-[.16em]">Needs attention</p><span className="fugth-status-dot">Live</span></div><h2>Missed call from<br/><span>(305) 555-0194</span></h2><p>“Need an estimate for a roof repair this week.”</p><div className="mt-5 flex gap-2"><button type="button">Call back</button><button type="button" className="fugth-quiet-button">View lead</button></div></section>
+                <section className="fugth-photo-card"><img src={dashboardPhoto?.src} alt={dashboardPhoto?.alt||"A local contractor at work"}/><div><p>Website activity</p><strong>7 visitors asked about estimates</strong><span>Today · Your website works with your calls</span></div></section>
               </div>
-              <div className="grid flex-1 grid-rows-4">
-                {productAreas.map(([number, title, copy]) => (
-                  <article
-                    key={number}
-                    className="grid grid-cols-[52px_1fr] border-b border-black p-5 last:border-b-0 sm:grid-cols-[72px_1fr] sm:p-8"
-                  >
-                    <p className="text-xs font-bold">{number}</p>
-                    <div>
-                      <h2 className="text-2xl font-black tracking-[-.04em] sm:text-3xl">
-                        {title}
-                      </h2>
-                      <p className="mt-3 max-w-md text-sm leading-6">{copy}</p>
-                    </div>
-                  </article>
-                ))}
-              </div>
+              <section className="fugth-lead-list mt-4"><div className="flex items-center justify-between"><p>Recent lead activity</p><button type="button">Open all</button></div><div><span className="fugth-avatar">JM</span><p><strong>Jordan Mitchell</strong><small>Requested a repair estimate</small></p><em>New</em></div><div><span className="fugth-avatar fugth-avatar-blue">SC</span><p><strong>Sarah Collins</strong><small>Asked to reschedule an appointment</small></p><em>2m</em></div></section>
             </div>
           </div>
         </div>
@@ -368,7 +357,6 @@ export default function Home() {
           </h2>
           <Link
             href="/login?signup=1"
-            data-fugth-accent="blue"
             className="flex min-h-16 shrink-0 items-center gap-16 border border-black px-6 text-sm font-bold"
           >
             Create your account <Arrow />
