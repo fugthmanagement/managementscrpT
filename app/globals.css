@@ -1902,3 +1902,74 @@ body {
 @media(prefers-reduced-motion:reduce){
   .fugth-public-header {transition:none!important;}
 }
+
+
+/* FUGTH Signal Edition / editorial brand system (designed, not stock-dashboard). */
+.fugth-editorial-serif {font-family:Georgia,"Times New Roman",serif;font-weight:500;font-style:italic;letter-spacing:-.075em;}
+.fugth-public-hero h1,.fugth-login aside h1 {text-wrap:balance;}
+.fugth-public-hero h1 .fugth-editorial-serif {text-shadow:0 1px 0 rgba(255,255,255,.02);}
+.fugth-public .fugth-signal-demo-actions [aria-pressed="true"] {box-shadow:0 4px 16px rgba(132,207,244,.15);}
+.fugth-public-hero {background-image:radial-gradient(circle at 91% 20%,rgba(144,203,236,.12),transparent 38%),repeating-linear-gradient(90deg,transparent 0px,transparent 123px,rgba(255,255,255,.024) 124px,transparent 125px),linear-gradient(124deg,#0b1621,#182d3b);}
+.fugth-public-kicker,.fugth-signal-art-mark,.fugth-signal-coordinate {font-family:"Courier New",monospace;}
+.fugth-signal-art {
+  position:relative;isolation:isolate;overflow:hidden;
+  border:1px solid #6fabc3;
+  border-radius:7px 34px 7px 7px;
+  background:#edf7f7;
+  box-shadow:22px 24px 0 rgba(122,183,214,.15),0 26px 76px rgba(0,0,0,.32);
+  color:#183a4e;
+  transform:rotate(1deg);
+}
+.fugth-signal-art-top {
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  background:#153040;color:#b9e5fb;padding:18px 20px;border-bottom:3px solid #83d5ec;
+  font-size:10px;letter-spacing:.03em;
+}
+.fugth-signal-art-mark {font-weight:900;letter-spacing:.12em;font-size:13px;}
+.fugth-signal-art-division {font-size:10px;color:#88afc1;}
+.fugth-signal-art-canvas {height:390px;position:relative;overflow:hidden;background:#f0f5f2;}
+.fugth-signal-art-node {
+  position:absolute;display:flex;flex-direction:column;gap:9px;
+  border:1px solid #87b8cc;background:#fff;
+  box-shadow:9px 9px 0 #d7eaf0;
+  padding:16px 18px;border-radius:3px;
+  width:38%;min-height:145px;
+}
+.fugth-signal-art-node small {font-family:"Courier New",monospace;font-size:9px;letter-spacing:.13em;font-weight:900;color:#55809b;}
+.fugth-signal-art-node strong {font-size:clamp(17px,2.2vw,23px);letter-spacing:-.06em;line-height:1.06;font-weight:900;}
+.fugth-signal-art-node p {font-size:11px;line-height:1.55;color:#617e8d;max-width:210px;}
+.fugth-signal-art-node-call {top:36%;left:5%;transform:rotate(-3deg);}
+.fugth-signal-art-node-reception {top:6%;left:38%;width:36%;transform:rotate(2deg);background:#d8f0fa;border-color:#77bedf;}
+.fugth-signal-art-node-lead {top:51%;right:4%;width:39%;transform:rotate(-2deg);}
+.fugth-art-wave {display:flex;align-items:center;gap:4px;height:32px;margin-top:auto;}
+.fugth-art-wave i {display:block;width:3px;border-radius:2px;background:#5da9ca;}
+.fugth-art-capsule {align-self:flex-start;border-radius:1px;border:1px solid #90cce5;background:#effaff;color:#366e8c;padding:5px 7px;font-size:9px;font-weight:bold;}
+.fugth-signal-coordinate {position:absolute;left:5%;bottom:11%;color:#688d9b;font-size:9px;letter-spacing:.04em;line-height:1.65;}
+.fugth-signal-art-foot {display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid #bfdbe3;padding:15px 20px;background:#edf9fe;font-size:10px;color:#47758a;font-weight:bold;}
+.fugth-signal-art-compact {transform:rotate(0);border-radius:6px 22px 6px 6px;box-shadow:9px 10px 0 rgba(122,183,214,.13);}
+.fugth-signal-art-compact .fugth-signal-art-canvas {height:290px;}
+.fugth-signal-art-compact .fugth-signal-art-node {min-height:113px;padding:11px 12px;gap:6px;}
+.fugth-signal-art-compact .fugth-signal-art-node strong {font-size:15px;}
+.fugth-signal-art-compact .fugth-signal-art-node p {font-size:9px;}
+.fugth-signal-art-compact .fugth-art-wave{height:22px;}
+.fugth-signal-art-compact .fugth-art-wave i{transform:scaleY(.7);}
+.fugth-signal-art-compact .fugth-signal-art-top {padding:12px;}
+.fugth-signal-art-compact .fugth-signal-art-foot {padding:10px;}
+.fugth-login {background-image:repeating-linear-gradient(0deg,transparent,transparent 55px,rgba(37,94,126,.04) 56px),linear-gradient(145deg,#f5faff,#fcf9f3);}
+.fugth-login>div>aside {border-radius:4px 36px 4px 4px;box-shadow:16px 18px 0 rgba(147,212,243,.12);}
+.fugth-login>div>section {border-radius:5px 30px 5px 5px;}
+.fugth-login aside h1 {font-weight:900;line-height:1.01;}
+.fugth-login aside h1 em {font-family:Georgia,"Times New Roman",serif;font-weight:400;letter-spacing:-.07em;color:#b9e5fb;}
+.fugth-login :is(input,button):focus-visible {outline:3px solid #85cae9;outline-offset:3px;}
+@media(max-width:790px){
+ .fugth-signal-art {transform:none;box-shadow:9px 10px 0 rgba(122,183,214,.1);}
+ .fugth-signal-art-canvas {min-height:540px;height:auto;display:flex;flex-direction:column;gap:20px;padding:20px;background-image:repeating-linear-gradient(90deg,transparent 0 33px,#d5eaf2 34px);}
+ .fugth-signal-art-canvas>svg {opacity:.14;}
+ .fugth-signal-art-node,.fugth-signal-art-node-reception,.fugth-signal-art-node-lead,.fugth-signal-art-node-call {position:relative;left:auto;right:auto;top:auto;transform:none;width:100%;min-height:125px;}
+ .fugth-signal-art-node-reception{margin-left:6%;width:94%;}
+ .fugth-signal-art-node-lead{margin-left:12%;width:88%;}
+ .fugth-signal-coordinate{position:relative;left:auto;bottom:auto;margin-top:auto;}
+ .fugth-signal-art-division {display:none;}
+ .fugth-signal-art-foot {font-size:9px;}
+}
+@media(prefers-reduced-motion:reduce){.fugth-signal-art {transform:none;}}
