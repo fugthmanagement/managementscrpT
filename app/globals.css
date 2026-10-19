@@ -11,10 +11,16 @@ body {
   color: #000;
 }
 
-/* FUGTH application system: deliberately monochrome and structural. */
+/* FUGTH application system: a quiet monochrome base with one clear blue signal. */
 .fugth-app {
+  --fugth-blue: #b9e5fb;
+  --fugth-blue-soft: #edf9ff;
+  --fugth-blue-line: #77c9ed;
+  --fugth-ink: #101216;
   min-height: 100vh;
-  background: #fff !important;
+  background:
+    radial-gradient(circle at 85% 0%, #eaf8ff 0, transparent 24rem),
+    #fff !important;
   color: #000 !important;
   color-scheme: light;
   font-family: Arial, Helvetica, sans-serif;
@@ -50,11 +56,11 @@ body {
   outline-offset: 2px;
 }
 .fugth-app :where(button, a):not(.fugth-generated-site *) {
-  transition: none !important;
+  transition: transform 150ms ease, box-shadow 150ms ease, background-color 150ms ease !important;
 }
 .fugth-app :where(button, a):not(.fugth-generated-site *):hover {
-  text-decoration: underline;
-  text-underline-offset: 4px;
+  text-decoration: none;
+  transform: translate(-1px, -1px);
 }
 .fugth-app [class*="shadow"]:not(.fugth-generated-site *) {
   box-shadow: 5px 5px 0 #111 !important;
@@ -75,13 +81,59 @@ body {
 }
 .fugth-app [aria-current="page"] {
   border: 1px solid #000 !important;
+  background: var(--fugth-blue) !important;
   font-weight: 800 !important;
 }
 .fugth-app [aria-pressed="true"],
 .fugth-app [data-selected="true"] {
   border-color: #000 !important;
   border-width: 2px !important;
+  background: var(--fugth-blue) !important;
   font-weight: 800 !important;
+}
+.fugth-app .fugth-blue-surface {
+  background: var(--fugth-blue-soft) !important;
+  border-color: var(--fugth-blue-line) !important;
+}
+.fugth-app .fugth-blue-fill {
+  background: var(--fugth-blue) !important;
+  color: #000 !important;
+  border-color: #000 !important;
+  box-shadow: 5px 5px 0 #101216 !important;
+}
+.fugth-app .fugth-blue-fill:hover {
+  background: #d7f1fd !important;
+  box-shadow: 7px 7px 0 #101216 !important;
+}
+.fugth-app .fugth-blue-label {
+  color: #075f84 !important;
+}
+
+/* Finished client websites inherit the same restrained blue accent without
+   flattening their layouts.  Their content and image compositions remain unique. */
+.fugth-generated-site {
+  --fugth-baby-blue: #b9e5fb;
+  --fugth-baby-blue-soft: #effaff;
+  background: #fff;
+}
+.fugth-generated-site [class*="bg-[#"] {
+  background-color: #fff !important;
+}
+.fugth-generated-site [class*="text-[#"] {
+  color: #101216 !important;
+}
+.fugth-generated-site [class*="border-[#"] {
+  border-color: #101216 !important;
+}
+.fugth-generated-site :is(article, details, .group) {
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+.fugth-generated-site :is(article, details):hover {
+  box-shadow: 7px 7px 0 rgb(16 18 22 / 12%);
+}
+.fugth-generated-site ::selection {
+  background: var(--fugth-baby-blue);
+  color: #000;
 }
 .fugth-app :disabled {
   opacity: 0.45 !important;
@@ -1667,60 +1719,4 @@ body {
   .fugth-generated-site a {
     transition: none !important;
   }
-}
-
-/* FUGTH 2026: sky-blue used sparingly for emphasis, not a blanket recolor. */
-.fugth-app {
-  --fugth-baby-blue: #b9e4fb;
-  --fugth-baby-blue-soft: #ebf8ff;
-  --fugth-deep-blue: #155b7d;
-}
-.fugth-app :where(button, a, input, select, textarea):not(.fugth-generated-site *):focus-visible {
-  outline-color: #3e9ecb !important;
-}
-.fugth-app [aria-pressed="true"]:not(.fugth-generated-site *),
-.fugth-app [data-selected="true"]:not(.fugth-generated-site *) {
-  border-color: #5ba7d1 !important;
-  background-color: #e5f5ff !important;
-  color: #155b7d !important;
-}
-.fugth-app :where(input, textarea, select):not(.fugth-generated-site *):focus {
-  border-color: #80c9f4 !important;
-  box-shadow: 0 0 0 3px #b9e4fb6b !important;
-}
-.fugth-app :where(a, button)[data-fugth-accent="blue"]:not(.fugth-generated-site *) {
-  background: #b9e4fb !important;
-  border-color: #76badd !important;
-  color: #133d54 !important;
-  border-radius: 12px !important;
-}
-.fugth-app :where(button, a)[data-fugth-accent="blue"]:not(.fugth-generated-site *):hover {
-  background: #95d6f8 !important;
-}
-.fugth-app .fugth-blue-panel:not(.fugth-generated-site *) {
-  background: #f0faff !important;
-  border-color: #b9e4fb !important;
-  border-radius: 18px !important;
-}
-.fugth-generated-site { color-scheme: light; }
-.fugth-generated-site ::selection { background: #b9e4fb; color: #173e57; }
-
-.fugth-app .fugth-blue-underline {
-  position: relative;
-  white-space: nowrap;
-  z-index: 0;
-}
-.fugth-app .fugth-blue-underline::after {
-  content: "";
-  position: absolute;
-  z-index: -1;
-  height: .16em;
-  bottom: .04em;
-  left: .03em;
-  right: .02em;
-  background: #b9e4fb;
-  transform: skewX(-9deg);
-}
-@media (max-width: 540px) {
- .fugth-app .fugth-blue-underline {white-space: normal;}
 }
