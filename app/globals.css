@@ -25,52 +25,52 @@ body {
   color-scheme: light;
   font-family: Arial, Helvetica, sans-serif;
 }
-.fugth-app *:not(.fugth-generated-site *),
-.fugth-app *:not(.fugth-generated-site *)::before,
-.fugth-app *:not(.fugth-generated-site *)::after {
+.fugth-app *:not(.fugth-generated-site *):not(.fugth-builder *),
+.fugth-app *:not(.fugth-generated-site *):not(.fugth-builder *)::before,
+.fugth-app *:not(.fugth-generated-site *):not(.fugth-builder *)::after {
   border-color: #111 !important;
   text-shadow: none !important;
 }
-.fugth-app [class*="bg-"]:not(.fugth-generated-site *) {
+.fugth-app [class*="bg-"]:not(.fugth-generated-site *):not(.fugth-builder *) {
   background-color: #fff !important;
 }
-.fugth-app [class*="text-"]:not(.fugth-generated-site *) {
+.fugth-app [class*="text-"]:not(.fugth-generated-site *):not(.fugth-builder *) {
   color: #000 !important;
 }
-.fugth-app [class*="from-"]:not(.fugth-generated-site *),
-.fugth-app [class*="via-"]:not(.fugth-generated-site *),
-.fugth-app [class*="to-"]:not(.fugth-generated-site *),
-.fugth-app [class*="gradient"]:not(.fugth-generated-site *) {
+.fugth-app [class*="from-"]:not(.fugth-generated-site *):not(.fugth-builder *),
+.fugth-app [class*="via-"]:not(.fugth-generated-site *):not(.fugth-builder *),
+.fugth-app [class*="to-"]:not(.fugth-generated-site *):not(.fugth-builder *),
+.fugth-app [class*="gradient"]:not(.fugth-generated-site *):not(.fugth-builder *) {
   background-image: none !important;
 }
-.fugth-app [class*="rounded"]:not(.fugth-generated-site *) {
+.fugth-app [class*="rounded"]:not(.fugth-generated-site *):not(.fugth-builder *) {
   border-radius: 0 !important;
 }
-.fugth-app :where(button, input, select, textarea):not(.fugth-generated-site *) {
+.fugth-app :where(button, input, select, textarea):not(.fugth-generated-site *):not(.fugth-builder *) {
   border: 1px solid #aaa !important;
   background: #fff !important;
   color: #000 !important;
 }
-.fugth-app :where(button, a, input, select, textarea):not(.fugth-generated-site *):focus-visible {
+.fugth-app :where(button, a, input, select, textarea):not(.fugth-generated-site *):not(.fugth-builder *):focus-visible {
   outline: 2px solid #000 !important;
   outline-offset: 2px;
 }
-.fugth-app :where(button, a):not(.fugth-generated-site *) {
+.fugth-app :where(button, a):not(.fugth-generated-site *):not(.fugth-builder *) {
   transition: transform 150ms ease, box-shadow 150ms ease, background-color 150ms ease !important;
 }
-.fugth-app :where(button, a):not(.fugth-generated-site *):hover {
+.fugth-app :where(button, a):not(.fugth-generated-site *):not(.fugth-builder *):hover {
   text-decoration: none;
   transform: translate(-1px, -1px);
 }
-.fugth-app [class*="shadow"]:not(.fugth-generated-site *) {
+.fugth-app [class*="shadow"]:not(.fugth-generated-site *):not(.fugth-builder *) {
   box-shadow: 5px 5px 0 #111 !important;
 }
-.fugth-app :where(button, a)[class*="border"]:not(.fugth-generated-site *),
-.fugth-app :where(article, aside)[class*="border"]:not(.fugth-generated-site *),
-.fugth-app main > section[class*="border"]:not(.fugth-generated-site *) {
+.fugth-app :where(button, a)[class*="border"]:not(.fugth-generated-site *):not(.fugth-builder *),
+.fugth-app :where(article, aside)[class*="border"]:not(.fugth-generated-site *):not(.fugth-builder *),
+.fugth-app main > section[class*="border"]:not(.fugth-generated-site *):not(.fugth-builder *) {
   box-shadow: 4px 4px 0 #111;
 }
-.fugth-app :where(button, a)[class*="border"]:not(.fugth-generated-site *):active {
+.fugth-app :where(button, a)[class*="border"]:not(.fugth-generated-site *):not(.fugth-builder *):active {
   box-shadow: 1px 1px 0 #111;
   transform: translate(3px, 3px);
 }
@@ -1730,3 +1730,31 @@ body {
     transition: none !important;
   }
 }
+
+/* Builder canvas: preserve its design system instead of monochrome overrides. */
+.fugth-builder { isolation: isolate; }
+.fugth-builder button,
+.fugth-builder input,
+.fugth-builder select,
+.fugth-builder textarea { accent-color: #69bfe9; }
+.fugth-builder button:focus-visible,
+.fugth-builder a:focus-visible,
+.fugth-builder input:focus-visible { outline: 3px solid #80ccee; outline-offset: 3px; }
+
+/* Section structure is actual layout behavior, not cosmetic color changes. */
+.fugth-generated-site main#top {display:flex;flex-direction:column;}
+.fugth-generated-site main#top > * { flex-shrink:0; }
+.fugth-generated-site main#top > #services {order:var(--site-order-services,10);}
+.fugth-generated-site main#top > #about {order:var(--site-order-about,11);}
+.fugth-generated-site main#top > #process {order:var(--site-order-process,12);}
+.fugth-generated-site main#top > #faq {order:var(--site-order-faq,13);}
+.fugth-generated-site main#top > #contact {order:var(--site-order-contact,14);}
+.fugth-generated-site[data-show-services="false"] #services,
+.fugth-generated-site[data-show-about="false"] #about,
+.fugth-generated-site[data-show-process="false"] #process,
+.fugth-generated-site[data-show-contact="false"] #contact,
+.fugth-generated-site[data-show-faq="false"] #faq {display:none !important;}
+/* The Pages navigator scopes the canvas view but never creates fake public URLs. */
+[data-builder-page="services"] main#top > :not(#services):not(#process),
+[data-builder-page="about"] main#top > :not(#about),
+[data-builder-page="contact"] main#top > :not(#contact):not(#faq) {display:none !important;}
