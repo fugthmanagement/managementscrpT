@@ -81,6 +81,5 @@ export default function SiteStudioBuilder({site,locked=false,uid,onChange,onTemp
     <div className="mt-7 flex flex-wrap items-center justify-between gap-3 border-t border-[#dfedf5] pt-6"><p className="max-w-md text-xs leading-6 text-[#6e8292]">{locked?"Free preview mode. You can explore changes here; saving and publishing require an eligible plan.":"Your edits stay in this workspace until you save. Publishing is a separate action."}</p><div className="flex flex-wrap gap-2"><button type="button" disabled={locked||Boolean(busy)} onClick={()=>onSave("save")} className="rounded-xl border border-[#b8d8eb] bg-white px-4 py-3 text-xs font-black text-[#244b61] disabled:cursor-not-allowed disabled:opacity-40">{busy==="save"?"Saving…":"Save design"}</button>{published?<button type="button" disabled={locked||Boolean(busy)} onClick={onUnpublish} className="rounded-xl border border-[#e7baba] bg-white px-4 py-3 text-xs font-black text-[#9b3636] disabled:opacity-40">Unpublish</button>:<button type="button" disabled={locked||Boolean(busy)} onClick={onPublish} className="rounded-xl bg-[#b9e5fb] px-4 py-3 text-xs font-black text-[#174561] shadow-[3px_3px_0_#173548] disabled:opacity-40">Publish website</button>}</div></div>
    </div>
   </div>
- </div>
  </section>;
 }
