@@ -2,6 +2,7 @@
 import {useEffect,useRef,useState} from "react";
 import {addDoc,arrayUnion,collection,doc,increment,limit,onSnapshot,orderBy,query,serverTimestamp,updateDoc} from "firebase/firestore";
 import {auth,db} from "../lib/firebase";
+import FounderPitchSwitcher from "./founder-pitch-switcher";
 const field="w-full rounded-xl border border-[#dacbb8] bg-white px-3 py-3 text-sm text-[#463a2d] outline-none focus:border-[#997b51]";
 const stages=["New prospect","Contacted","Interested","Email collected","Meeting booked","Follow up","Not interested","Do not call"];
 const blank={business:"",contact:"",phone:"",email:"",type:"",date:"",time:"",stage:"New prospect",notes:""};
@@ -18,12 +19,14 @@ export default function FounderPierreGuide({user}){
  const [lead,setLead]=useState(blank),[step,setStep]=useState("start"),[path,setPath]=useState([]),[answers,setAnswers]=useState([]);
  const [busy,setBusy]=useState(""),[notice,setNotice]=useState(""),[inviteGuest,setInviteGuest]=useState(false);
  const [statusFilter,setStatusFilter]=useState("open");
+ const [approach,setApproach]=useState("referral");
  useEffect(()=>{if(!db||!user?.uid)return;
   return onSnapshot(query(collection(db,"users",user.uid,"campaigns"),orderBy("createdAt","desc"),limit(1000)),snapshot=>
    setProspects(snapshot.docs.map(d=>({id:d.id,...d.data()})).filter(d=>d.type==="cold_call_prospect")),e=>setNotice(e.message||"Could not load your call list."));
  },[user?.uid]);
  function send(item){
   const p=item?formatForGuide(item):blank;
+  setApproach(item?.pitchApproach||"referral");
   setLead(p);setStep(item?.pierreGuide?.step||"start");setPath(item?.pierreGuide?.path||[]);setAnswers([]);
   iframe.current?.contentWindow?.postMessage({source:"fugth-sales-parent",type:"load",lead:p,step:item?.pierreGuide?.step||"start",path:item?.pierreGuide?.path||[]},window.location.origin);
  }
@@ -54,7 +57,7 @@ export default function FounderPierreGuide({user}){
    phone:lead.phone.trim().slice(0,32),email:lead.email.trim().slice(0,180),industry:lead.type.trim().slice(0,80),
    notes:lead.notes.trim().slice(0,5000),pierreStage:lead.stage,guideDate:lead.date,guideTime:lead.time,
    pierreGuide:{step,path:path.slice(-50),answers:answers.slice(-50),updatedAt:new Date().toISOString()},
-   status:statusOf(lead.stage),updatedAt:serverTimestamp()};
+   pitchApproach:approach,status:statusOf(lead.stage),updatedAt:serverTimestamp()};
  }
  async function persist(markCall=false,forceStage=null){
   if(!lead.business.trim()||!validUSPhone(lead.phone))throw Error("Enter a business name and a valid phone number first.");
@@ -138,6 +141,7 @@ export default function FounderPierreGuide({user}){
    <label className="mt-4 flex items-center gap-2 text-xs text-[#806d54]"><input type="checkbox" checked={inviteGuest} onChange={e=>setInviteGuest(e.target.checked)} className="h-4 w-4"/>Invite the customer to the Google Calendar meeting (requires their verified email and consent).</label>
    {notice&&<p role="status" className="mt-4 rounded-xl bg-[#f0e4d1] p-3 text-xs text-[#675138]">{notice}</p>}
   </div>
+  <FounderPitchSwitcher lead={lead} value={approach} onChange={setApproach}/>
   <iframe ref={iframe} title="Pierre Cold Call Conversion Map" src="/pierre-cold-call-guide.html" onLoad={()=>setLoaded(true)} className="h-[970px] w-full rounded-[23px] border border-[#e4d8c7] bg-[#faf7f0] md:h-[830px]" allow="clipboard-write"/>
   <p className="px-2 text-xs text-[#887966]">The map retains the original wording, including a referral version intended only when an actual referral exists. Choose “Use non-referral opening” otherwise. Email and SMS open drafts only; FUGTH does not send messages without your final confirmation.</p>
  </section>;
