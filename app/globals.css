@@ -1864,3 +1864,41 @@ body {
 @media(prefers-reduced-motion:reduce){
   .fugth-workspace-nav,.fugth-workspace * {transition:none!important;scroll-behavior:auto!important;}
 }
+
+
+/* Public header: expanded brand at top, centered pill only while scrolling,
+   and a small accessible tab-grab handle while idle. */
+.fugth-public-header {
+  will-change:transform;
+  transition:transform .38s cubic-bezier(.22,1,.36,1),min-height .24s ease;
+}
+.fugth-public-header[data-compact="true"] .fugth-public-header-inner {
+  min-height:62px !important;
+  justify-content:center;
+}
+.fugth-public-header[data-compact="true"] .fugth-public-brand,
+.fugth-public-header[data-compact="true"] .fugth-public-actions {display:none;}
+.fugth-public-header[data-compact="true"] .fugth-public-pill {
+  margin:0 auto;
+  border-color:rgba(185,229,251,.27);
+  background:rgba(255,255,255,.09);
+}
+.fugth-public-header[data-hidden="true"] {
+  transform:translateY(calc(-100% + 14px));
+}
+.fugth-public-header[data-hidden="true"] .fugth-nav-peek {display:block;}
+.fugth-public-header[data-hidden="true"]:hover,
+.fugth-public-header[data-hidden="true"]:focus-within {
+  transform:translateY(0);
+}
+.fugth-public-header[data-compact="true"] .fugth-public-mobile-nav {
+  border-top-color:transparent;
+  justify-content:center;
+  padding:8px 12px;
+}
+@media (max-width:1023px){
+  .fugth-public-header[data-compact="true"] .fugth-public-header-inner{display:none;}
+}
+@media(prefers-reduced-motion:reduce){
+  .fugth-public-header {transition:none!important;}
+}
