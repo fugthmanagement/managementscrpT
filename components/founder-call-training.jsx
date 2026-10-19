@@ -37,12 +37,12 @@ export default function FounderCallTraining(){
  const [canHear,setCanHear]=useState(false),[canTalk,setCanTalk]=useState(false);
  const [voices,setVoices]=useState([]),[selectedVoice,setSelectedVoice]=useState("");
  const [speechEnabled,setSpeechEnabled]=useState(true),[autoListen,setAutoListen]=useState(true),[speed,setSpeed]=useState(1);
- const [speaking,setSpeaking]=useState(false),[listening,setListening]=useState(false),[interim,setInterim]=useState("");
+ const [speaking,setSpeaking]=useState(false),[listening,setListening]=useState(false),[interim,setInterim]=useState(""),[thinking,setThinking]=useState(false);
  const [seconds,setSeconds]=useState(0);
  const liveRef=useRef(null),recognitionRef=useRef(null),generationRef=useRef(0),speakingRef=useRef(false);
  const speechRef=useRef(true),autoRef=useRef(true),voiceRef=useRef(""),rateRef=useRef(1);
  const transcriptRef=useRef(null),mapRef=useRef(null),expectedMapRef=useRef("start"),manualGuideRef=useRef(false);
- const turnHandlerRef=useRef(null);
+ const turnHandlerRef=useRef(null),replyTimerRef=useRef(null);
  const started=Boolean(session),active=started&&!session.done;
  const chosenPersona=labelOf(TRAINING_PERSONAS,session?.persona||settings.persona);
  const pitch=useMemo(()=>trainingPitch(session?.pitch||settings.pitch,{business:session?.business||settings.business}),[session?.pitch,settings.pitch,session?.business,settings.business]);
@@ -105,12 +105,15 @@ export default function FounderCallTraining(){
  },[session?.scriptNode,session?.createdAt,showMap,mapReady,autoFollow]);
  useEffect(()=>()=>{ 
   generationRef.current++;
+  if(replyTimerRef.current)window.clearTimeout(replyTimerRef.current);
   try{recognitionRef.current?.abort();}catch{}
   try{window.speechSynthesis?.cancel();}catch{}
  },[]);
 
  function ceaseSound(){
   generationRef.current++;
+  if(replyTimerRef.current)window.clearTimeout(replyTimerRef.current);
+  replyTimerRef.current=null;setThinking(false);
   speakingRef.current=false;setSpeaking(false);
   try{recognitionRef.current?.abort();}catch{}
   recognitionRef.current=null;
@@ -211,10 +214,19 @@ export default function FounderCallTraining(){
   setListening(false);
   const next=practiceTurn(current,text);
   liveRef.current=next;setSession(next);
-  setMessages(old=>[...old,{role:"trainee",text,at:Date.now()},
-   {role:"prospect",text:next.lastProspect,at:Date.now()}]);
-  if(next.done)savePractice(next);
-  speakProspect(next.lastProspect);
+  setMessages(old=>[...old,{role:"trainee",text,at:Date.now()}]);
+  setThinking(true);
+  if(replyTimerRef.current)window.clearTimeout(replyTimerRef.current);
+  // A short human-sized pause avoids instant, robotic back-and-forth.
+  const pause=next.difficulty==="warmup"?400:next.difficulty==="expert"?920:650;
+  replyTimerRef.current=window.setTimeout(()=>{
+   replyTimerRef.current=null;
+   if(liveRef.current!==next)return;
+   setThinking(false);
+   setMessages(old=>[...old,{role:"prospect",text:next.lastProspect,at:Date.now()}]);
+   if(next.done)savePractice(next);
+   speakProspect(next.lastProspect);
+  },pause);
  }
  turnHandlerRef.current=submitTurn;
  function startCall(){
@@ -297,7 +309,7 @@ export default function FounderCallTraining(){
       <div className="flex min-w-0 items-center gap-3"><span className={"grid h-11 w-11 place-items-center rounded-[15px] "+(active?"bg-[#d3effa] text-[#185778]":"bg-[#e7eef2] text-[#7896a6]")} aria-hidden="true">☎</span><div>
        <p className="text-[10px] font-black uppercase tracking-[.15em] text-[#5488a5]">Your simulated call</p>
        <h3 className="mt-1 truncate text-base font-black tracking-tight text-[#224a63]">{session?.business||"Waiting for a practice call"}</h3></div></div>
-      <div className="flex flex-wrap items-center gap-2 text-[11px] font-black"><span className="rounded-full bg-white px-3 py-2 text-[#537e98]">{clock(seconds)}</span>{session&&<span className="rounded-full border border-[#c7e1ee] bg-white px-3 py-2 text-[#396f8c]">{session.turns+" / "+session.maxTurns+" turns"}</span>}<span className={"rounded-full px-3 py-2 "+(session?.done?"bg-[#def1ea] text-[#367b64]":listening?"bg-[#c4edf9] text-[#12658b]":speaking?"bg-[#f2e6d8] text-[#a56d40]":"bg-[#edf3f7] text-[#6b8799]")}>{session?.done?"Complete":listening?"● You're speaking":speaking?"● Prospect speaking":active?"Your turn":"Not started"}</span></div>
+      <div className="flex flex-wrap items-center gap-2 text-[11px] font-black"><span className="rounded-full bg-white px-3 py-2 text-[#537e98]">{clock(seconds)}</span>{session&&<span className="rounded-full border border-[#c7e1ee] bg-white px-3 py-2 text-[#396f8c]">{session.turns+" / "+session.maxTurns+" turns"}</span>}<span className={"rounded-full px-3 py-2 "+(session?.done?"bg-[#def1ea] text-[#367b64]":listening?"bg-[#c4edf9] text-[#12658b]":speaking?"bg-[#f2e6d8] text-[#a56d40]":"bg-[#edf3f7] text-[#6b8799]")}>{thinking?"● Prospect thinking":session?.done?"Complete":listening?"● You're speaking":speaking?"● Prospect speaking":active?"Your turn":"Not started"}</span></div>
      </div>
      {session&&<div className="px-6 pt-4"><div className="flex items-center justify-between gap-3 text-[10px] font-black uppercase tracking-[.12em] text-[#5989a3]"><span>{phases[session.phase]||session.phase}</span><span>{chosenPersona+" · "+labelOf(TRAINING_LEVELS,session.difficulty)}</span></div><div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[#e4eef5]"><div className="h-full rounded-full bg-[#70bde2] transition-all" style={{width:Math.min(100,Math.round(session.turns/session.maxTurns*100))+"%"}}/></div></div>}
      <div ref={transcriptRef} aria-live="polite" aria-label="Call transcript" className="h-[330px] space-y-5 overflow-y-auto p-5 sm:h-[430px] sm:p-7">
@@ -307,17 +319,17 @@ export default function FounderCallTraining(){
      </div>
      <div className="border-t border-[#e1ecf3] bg-[#f9fcfe] p-5 sm:p-6">
       <div className="flex flex-wrap items-center gap-2">
-       <button type="button" onClick={listening?()=>{try{recognitionRef.current?.stop();}catch{}}:beginListening} disabled={!active||!canTalk||speaking} className={"rounded-full px-5 py-3 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-45 "+(listening?"bg-[#b35b4d]":"bg-[#1b789f]")}>{listening?"■ Stop microphone":"🎙 Speak my answer"}</button>
+       <button type="button" onClick={listening?()=>{try{recognitionRef.current?.stop();}catch{}}:beginListening} disabled={!active||!canTalk||speaking||thinking} className={"rounded-full px-5 py-3 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-45 "+(listening?"bg-[#b35b4d]":"bg-[#1b789f]")}>{listening?"■ Stop microphone":"🎙 Speak my answer"}</button>
        <button type="button" onClick={()=>session&&speakProspect(session.lastProspect)} disabled={!session||!canHear||!speechEnabled} className="rounded-full border border-[#c6dfea] bg-white px-4 py-3 text-xs font-bold text-[#4f7e97] disabled:opacity-40">↻ Replay prospect</button>
        <button type="button" onClick={ceaseSound} disabled={!speaking&&!listening} className="rounded-full border border-[#dbe6ec] bg-white px-4 py-3 text-xs font-bold text-[#7390a1] disabled:opacity-35">Pause audio</button>
       </div>
       <form className="mt-4 flex flex-col gap-2 sm:flex-row" onSubmit={e=>{e.preventDefault();submitTurn(draft)}}>
        <label htmlFor="training-text-entry" className="sr-only">Type a sales-call answer</label>
-       <textarea id="training-text-entry" rows={2} value={draft} disabled={!active} onChange={e=>setDraft(e.target.value)}
+       <textarea id="training-text-entry" rows={2} value={draft} disabled={!active||thinking} onChange={e=>setDraft(e.target.value)}
         placeholder={active?"Say your line aloud, or type here if your mic isn't available…":"Start a practice call to respond…"}
         onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();submitTurn(draft)}}}
         className={"min-h-14 flex-1 resize-y "+field+" mt-0 disabled:bg-[#f1f5f7] disabled:opacity-55"}/>
-       <button disabled={!active||!draft.trim()} className="self-end rounded-xl bg-[#163e56] px-6 py-4 text-xs font-black text-white transition hover:bg-[#246685] disabled:opacity-40">Reply →</button>
+       <button disabled={!active||!draft.trim()||thinking||speaking} className="self-end rounded-xl bg-[#163e56] px-6 py-4 text-xs font-black text-white transition hover:bg-[#246685] disabled:opacity-40">Reply →</button>
       </form>
       {notice&&<p role="status" className="mt-3 text-xs leading-5 text-[#587f97]">{notice}</p>}
      </div>
