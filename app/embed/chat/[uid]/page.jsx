@@ -13,9 +13,9 @@ export default function EmbeddedBusinessChat({params}){
   getDoc(doc(db,"publicSites",uid)).then(snap=>{
    if(!alive)return;
    const site=snap.data();
-   if(!snap.exists()||!site||!["published","preview"].includes(site.visibility))
+   if(!snap.exists()||!site||site.visibility!=="published")
     setState({loading:false,site:null,error:"This business's chat is not available yet."});
-   else setState({loading:false,site,error:""});
+   else setState({loading:false,site:{...site,ownerId:uid},error:""});
   }).catch(()=>{if(alive)setState({loading:false,site:null,error:"Could not load business chat."});});
   return()=>{alive=false;};
  },[uid]);
