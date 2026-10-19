@@ -48,8 +48,8 @@ const MENU = [
   { id: "settings", label: "Settings", icon: "settings" },
 ];
 const input =
-  "w-full rounded-xl border border-[#deded9] bg-white px-4 py-3.5 text-sm text-[#252721] outline-none transition focus:border-[#4b5345] focus:ring-2 focus:ring-[#e3e6dd] placeholder:text-[#93958e]";
-const panel = "rounded-[22px] border border-[#e8e8e3] bg-white";
+  "w-full rounded-xl border border-[#d3e5ef] bg-white px-4 py-3.5 text-sm text-[#1a3b51] outline-none transition focus:border-[#63b7e2] focus:ring-2 focus:ring-[#e8f7ff] placeholder:text-[#8aa3b0]";
+const panel = "rounded-[24px] border border-[#d9e8f2] bg-white shadow-[0_9px_30px_rgba(22,75,107,.035)]";
 function Symbol({ name, size = 19 }) {
   const attrs = {
     width: size,
@@ -155,9 +155,9 @@ function SectionHeading({ eyebrow, title, description, action }) {
 }
 function Empty({ title, description, action }) {
   return (
-    <div className="rounded-[18px] border border-dashed border-[#dbded5] bg-[#fafbf8] px-6 py-10 text-center">
-      <p className="text-base font-semibold text-[#3c4138]">{title}</p>
-      <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[#888b82]">
+    <div className="rounded-[18px] border border-dashed border-[#bddcea] bg-[#f5fbff] px-6 py-10 text-center">
+      <p className="text-base font-semibold text-[#1c3d51]">{title}</p>
+      <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[#7793a3]">
         {description}
       </p>
       {action && <div className="mt-5">{action}</div>}
@@ -166,12 +166,12 @@ function Empty({ title, description, action }) {
 }
 function ListRecord({ title, detail, meta }) {
   return (
-    <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 border-b border-[#ecece8] py-4 last:border-0">
+    <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 border-b border-[#e7f0f6] py-4 last:border-0">
       <div className="min-w-0">
-        <p className="truncate text-sm font-semibold text-[#353832]">{title}</p>
-        <p className="mt-1 break-words text-xs text-[#8a8d84]">{detail}</p>
+        <p className="truncate text-sm font-semibold text-[#25465a]">{title}</p>
+        <p className="mt-1 break-words text-xs text-[#758e9e]">{detail}</p>
       </div>
-      <span className="rounded-full bg-[#f1f3ed] px-3 py-1.5 text-[11px] font-medium text-[#59604f]">
+      <span className="rounded-full bg-[#e8f6ff] px-3 py-1.5 text-[11px] font-medium text-[#527c95]">
         {meta || "New"}
       </span>
     </div>
@@ -557,7 +557,7 @@ export default function FugthWorkspace() {
             {(notice || error) && (
               <div
                 role="status"
-                className={`mb-6 rounded-2xl border px-5 py-4 text-sm ${error ? "border-[#ead5cc] bg-[#fff7f1] text-[#824e34]" : "border-[#d9e4d5] bg-[#f0f6ed] text-[#38573c]"}`}
+                className={`mb-6 rounded-2xl border px-5 py-4 text-sm ${error ? "border-[#ead5cc] bg-[#fff7f1] text-[#824e34]" : "border-[#c8e4f2] bg-[#edf8ff] text-[#28688c]"}`}
               >
                 {error || notice}
               </div>
@@ -595,7 +595,7 @@ export default function FugthWorkspace() {
                         setPage("settings");
                         setSettingsSection("phone");
                       }}
-                      className="rounded-xl border border-[#d8ddd3] bg-white px-4 py-3 text-xs font-semibold"
+                      className="rounded-xl border border-[#d7e8f1] bg-white px-4 py-3 text-xs font-semibold"
                     >
                       Phone setup ↗
                     </button>
@@ -641,18 +641,18 @@ export default function FugthWorkspace() {
                   title="Keep every connection."
                   description="One place for customer details and appointments—without a complicated CRM."
                 />
-                <div className="mb-6 inline-flex gap-1 rounded-xl border border-[#e0e5db] bg-white p-1">
+                <div className="mb-6 inline-flex gap-1 rounded-xl border border-[#d5e8f1] bg-white p-1">
                   <button
                     type="button"
                     onClick={() => setCustomerView("leads")}
-                    className={`rounded-lg px-4 py-2.5 text-xs font-semibold ${customerView === "leads" ? "bg-[#29372d] text-white" : "text-[#7d8779]"}`}
+                    className={`rounded-lg px-4 py-2.5 text-xs font-semibold ${customerView === "leads" ? "bg-[#173e55] text-white" : "text-[#67879b]"}`}
                   >
                     Customers
                   </button>
                   <button
                     type="button"
                     onClick={() => setCustomerView("appointments")}
-                    className={`rounded-lg px-4 py-2.5 text-xs font-semibold ${customerView === "appointments" ? "bg-[#29372d] text-white" : "text-[#7d8779]"}`}
+                    className={`rounded-lg px-4 py-2.5 text-xs font-semibold ${customerView === "appointments" ? "bg-[#173e55] text-white" : "text-[#67879b]"}`}
                   >
                     Appointments
                   </button>
@@ -676,7 +676,7 @@ export default function FugthWorkspace() {
                         <button
                           type="button"
                           onClick={() => setShowLeadForm(!showLeadForm)}
-                          className="inline-flex items-center gap-2 rounded-xl bg-[#27382b] px-4 py-3 text-xs font-semibold text-white"
+                          className="inline-flex items-center gap-2 rounded-xl bg-[#173d53] px-4 py-3 text-xs font-semibold text-white"
                         >
                           <Symbol name="plus" size={15} /> Add customer
                         </button>
@@ -684,7 +684,7 @@ export default function FugthWorkspace() {
                       {showLeadForm && (
                         <form
                           onSubmit={saveLead}
-                          className="mb-6 grid gap-3 rounded-xl bg-[#f7f9f5] p-4 sm:grid-cols-2"
+                          className="mb-6 grid gap-3 rounded-xl bg-[#f2f9ff] p-4 sm:grid-cols-2"
                         >
                           {[
                             ["Customer name", "contactName"],
@@ -694,7 +694,7 @@ export default function FugthWorkspace() {
                           ].map(([title, key]) => (
                             <label
                               key={key}
-                              className="block text-xs font-semibold text-[#697467]"
+                              className="block text-xs font-semibold text-[#6a8697]"
                             >
                               {title}
                               <input
@@ -706,7 +706,7 @@ export default function FugthWorkspace() {
                               />
                             </label>
                           ))}
-                          <label className="block text-xs font-semibold text-[#697467] sm:col-span-2">
+                          <label className="block text-xs font-semibold text-[#6a8697] sm:col-span-2">
                             Notes
                             <textarea
                               value={lead.notes}
@@ -718,7 +718,7 @@ export default function FugthWorkspace() {
                           </label>
                           <button
                             disabled={busy === "lead"}
-                            className="rounded-xl bg-[#293a2d] px-5 py-3 text-sm font-semibold text-white"
+                            className="rounded-xl bg-[#1e455b] px-5 py-3 text-sm font-semibold text-white"
                           >
                             Save customer
                           </button>
@@ -767,7 +767,7 @@ export default function FugthWorkspace() {
                           onClick={() =>
                             setShowAppointmentForm(!showAppointmentForm)
                           }
-                          className="inline-flex items-center gap-2 rounded-xl bg-[#27382b] px-4 py-3 text-xs font-semibold text-white"
+                          className="inline-flex items-center gap-2 rounded-xl bg-[#173d53] px-4 py-3 text-xs font-semibold text-white"
                         >
                           <Symbol name="plus" size={15} /> Add appointment
                         </button>
@@ -775,7 +775,7 @@ export default function FugthWorkspace() {
                       {showAppointmentForm && (
                         <form
                           onSubmit={saveAppointment}
-                          className="mb-6 grid gap-3 rounded-xl bg-[#f7f9f5] p-4 sm:grid-cols-2"
+                          className="mb-6 grid gap-3 rounded-xl bg-[#f2f9ff] p-4 sm:grid-cols-2"
                         >
                           {[
                             ["Customer name", "customerName", "text"],
@@ -786,7 +786,7 @@ export default function FugthWorkspace() {
                           ].map(([title, key, type]) => (
                             <label
                               key={key}
-                              className="block text-xs font-semibold text-[#697467]"
+                              className="block text-xs font-semibold text-[#6a8697]"
                             >
                               {title}
                               <input
@@ -809,7 +809,7 @@ export default function FugthWorkspace() {
                           ))}
                           <button
                             disabled={busy === "appointment"}
-                            className="rounded-xl bg-[#293a2d] px-5 py-3 text-sm font-semibold text-white"
+                            className="rounded-xl bg-[#1e455b] px-5 py-3 text-sm font-semibold text-white"
                           >
                             Save appointment
                           </button>
@@ -895,7 +895,7 @@ export default function FugthWorkspace() {
                     <button
                       key={item.id}
                       onClick={() => setSettingsSection(item.id)}
-                      className={`rounded-xl border px-4 py-2.5 text-xs font-semibold ${settingsSection === item.id ? "border-[#27382b] bg-[#27382b] text-white" : "border-[#dfe4da] bg-white text-[#697467]"}`}
+                      className={`rounded-xl border px-4 py-2.5 text-xs font-semibold ${settingsSection === item.id ? "border-[#173d53] bg-[#173d53] text-white" : "border-[#d8e7ef] bg-white text-[#6a8697]"}`}
                     >
                       {item.title}
                     </button>
@@ -908,11 +908,11 @@ export default function FugthWorkspace() {
                         <h3 className="text-xl font-semibold">
                           About your business
                         </h3>
-                        <p className="mt-2 text-sm text-[#8a8d83]">
+                        <p className="mt-2 text-sm text-[#7893a4]">
                           Keep your contact details accurate.
                         </p>
                       </div>
-                      <span className="rounded-full bg-[#f2f4ee] px-4 py-2 text-xs font-semibold text-[#687865]">
+                      <span className="rounded-full bg-[#edf8ff] px-4 py-2 text-xs font-semibold text-[#4f7790]">
                         Account {workspace.accountNumber || "pending"}
                       </span>
                     </div>
@@ -934,7 +934,7 @@ export default function FugthWorkspace() {
                       ].map(([title, key]) => (
                         <label
                           key={key}
-                          className="text-xs font-semibold text-[#677063]"
+                          className="text-xs font-semibold text-[#50738a]"
                         >
                           {title}
                           <input
@@ -946,7 +946,7 @@ export default function FugthWorkspace() {
                           />
                         </label>
                       ))}
-                      <label className="flex items-start gap-3 text-xs leading-6 text-[#647561] sm:col-span-2">
+                      <label className="flex items-start gap-3 text-xs leading-6 text-[#6b879a] sm:col-span-2">
                         <input
                           type="checkbox"
                           className="mt-1"
@@ -968,22 +968,22 @@ export default function FugthWorkspace() {
                       <div className="sm:col-span-2">
                         <button
                           disabled={busy === "profile"}
-                          className="rounded-xl bg-[#29372b] px-6 py-3.5 text-sm font-semibold text-white"
+                          className="rounded-xl bg-[#173d53] px-6 py-3.5 text-sm font-semibold text-white"
                         >
                           Save changes
                         </button>
                       </div>
                     </form>
-                    <div className="mt-10 flex flex-wrap items-center justify-between gap-4 border-t border-[#edece8] pt-6">
+                    <div className="mt-10 flex flex-wrap items-center justify-between gap-4 border-t border-[#e5eef4] pt-6">
                       <div>
                         <p className="text-sm font-semibold">
                           Your FUGTH subscription
                         </p>
-                        <p className="mt-1 text-xs text-[#94988d]">{plan}</p>
+                        <p className="mt-1 text-xs text-[#8da3b1]">{plan}</p>
                       </div>
                       <Link
                         href="/plans"
-                        className="rounded-xl border border-[#dce1d7] px-4 py-3 text-xs font-semibold"
+                        className="rounded-xl border border-[#d7e7f0] px-4 py-3 text-xs font-semibold"
                       >
                         Manage plan ↗
                       </Link>
@@ -1038,7 +1038,7 @@ export default function FugthWorkspace() {
                   description="Your accounts, founding customers, live payments and sales operations in one private workspace."
                 />
                 <div className="space-y-6">
-                  <div className="rounded-[24px] border border-[#e2dbce] bg-[#faf5ea] p-4 text-sm text-[#6d5b45]">
+                  <div className="rounded-[24px] border border-[#d4e7f0] bg-[#edf7fe] p-4 text-sm text-[#6d5b45]">
                     <strong>Customer accounts & website assignment</strong>
                     <p className="mt-1 text-xs leading-6">
                       Every registered Firebase account appears below, including
@@ -1053,7 +1053,7 @@ export default function FugthWorkspace() {
                   <FounderVoiceHealth />
                   <FounderDemoControls />
                   <FounderBillingHealth />
-                  <div className="rounded-xl border border-[#e9dccb] bg-[#faf5e9] p-4 text-sm text-[#6d5b45]">
+                  <div className="rounded-xl border border-[#d2e4ee] bg-[#f1faff] p-4 text-sm text-[#6d5b45]">
                     Pierre’s Call Guide, ZIP prospecting, lead imports,
                     follow-ups, and the calling workspace now have their own{" "}
                     <button
@@ -1069,7 +1069,7 @@ export default function FugthWorkspace() {
                     <h3 className="text-xl font-semibold">
                       Create a customer account
                     </h3>
-                    <p className="mt-2 text-sm leading-6 text-[#848b80]">
+                    <p className="mt-2 text-sm leading-6 text-[#7493a6]">
                       Create an account for a business you spoke with. Share the
                       private activation link directly with its owner.
                     </p>
@@ -1077,7 +1077,7 @@ export default function FugthWorkspace() {
                       onSubmit={createClient}
                       className="mt-6 grid gap-4 md:grid-cols-3"
                     >
-                      <label className="text-xs font-semibold text-[#687467]">
+                      <label className="text-xs font-semibold text-[#637f91]">
                         Business name
                         <input
                           required
@@ -1092,7 +1092,7 @@ export default function FugthWorkspace() {
                           className={`mt-2 ${input}`}
                         />
                       </label>
-                      <label className="text-xs font-semibold text-[#687467]">
+                      <label className="text-xs font-semibold text-[#637f91]">
                         Customer email
                         <input
                           required
@@ -1107,7 +1107,7 @@ export default function FugthWorkspace() {
                           className={`mt-2 ${input}`}
                         />
                       </label>
-                      <label className="text-xs font-semibold text-[#687467]">
+                      <label className="text-xs font-semibold text-[#637f91]">
                         Industry
                         <select
                           value={clientForm.businessType}
@@ -1142,7 +1142,7 @@ export default function FugthWorkspace() {
                           ))}
                         </select>
                       </label>
-                      <label className="text-xs font-semibold text-[#687467]">
+                      <label className="text-xs font-semibold text-[#637f91]">
                         Business phone
                         <input
                           maxLength={32}
@@ -1156,7 +1156,7 @@ export default function FugthWorkspace() {
                           className={`mt-2 ${input}`}
                         />
                       </label>
-                      <label className="text-xs font-semibold text-[#687467]">
+                      <label className="text-xs font-semibold text-[#637f91]">
                         Service area
                         <input
                           maxLength={100}
@@ -1171,7 +1171,7 @@ export default function FugthWorkspace() {
                           className={`mt-2 ${input}`}
                         />
                       </label>
-                      <label className="text-xs font-semibold text-[#687467]">
+                      <label className="text-xs font-semibold text-[#637f91]">
                         Business hours
                         <input
                           maxLength={100}
@@ -1189,7 +1189,7 @@ export default function FugthWorkspace() {
                       <div className="md:col-span-3">
                         <button
                           disabled={busy === "client"}
-                          className="rounded-xl bg-[#29372b] px-5 py-3 text-sm font-semibold text-white"
+                          className="rounded-xl bg-[#173d53] px-5 py-3 text-sm font-semibold text-white"
                         >
                           {busy === "client"
                             ? "Creating…"
@@ -1198,7 +1198,7 @@ export default function FugthWorkspace() {
                       </div>
                     </form>
                     {clientResult && (
-                      <div className="mt-5 rounded-xl border border-[#dae4d3] bg-[#f3f8f0] p-5 text-sm">
+                      <div className="mt-5 rounded-xl border border-[#dcebf4] bg-[#f3faff] p-5 text-sm">
                         <p className="font-semibold">
                           New account{" "}
                           {clientResult.accountNumber &&
@@ -1229,7 +1229,7 @@ export default function FugthWorkspace() {
                           )}
                         </div>
                         {clientResult.activationNeeded && (
-                          <p className="mt-3 text-xs text-[#687666]">
+                          <p className="mt-3 text-xs text-[#64849a]">
                             Activation has not been emailed automatically. Share
                             the link privately with this business owner.
                           </p>
@@ -1247,7 +1247,7 @@ export default function FugthWorkspace() {
                 description="Administration is available only to authorized FUGTH team accounts."
               />
             )}
-        <footer className="mt-9 flex flex-wrap items-center justify-between gap-3 border-t border-[#d9e8f1] pt-6 text-[11px] text-[#708b9a]">
+        <footer className="mt-9 flex flex-wrap items-center justify-between gap-3 border-t border-[#d4e7f0] pt-6 text-[11px] text-[#708b9a]">
           <span>© 2026 FUGTH Chat LLC · One business. One connected workspace.</span>
           <div className="flex flex-wrap gap-4"><Link href="/privacy" className="hover:underline">Privacy</Link><Link href="/terms" className="hover:underline">Terms</Link><Link href="/cookies" className="hover:underline">Cookies</Link><Link href="/plans" className="font-bold hover:underline">Subscriptions ↗</Link></div>
         </footer>
