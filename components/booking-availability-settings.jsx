@@ -1,23 +1,39 @@
 "use client";
 import {useEffect,useState} from "react";
-import {doc,getDoc,setDoc,serverTimestamp} from "firebase/firestore";
-import {db} from "../lib/firebase";
+import {auth} from "../lib/firebase";
 import {WEEK_DAYS,cleanAvailability,defaultAvailability} from "../lib/booking-availability";
 const input="rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-sm text-zinc-900";
 export default function BookingAvailabilitySettings({user}){
  const [value,setValue]=useState(defaultAvailability()),[busy,setBusy]=useState(false),
   [error,setError]=useState(""),[saved,setSaved]=useState(""),[date,setDate]=useState("");
- useEffect(()=>{if(!user?.uid||!db)return;let mounted=true;
-  getDoc(doc(db,"users",user.uid)).then(x=>{if(mounted)setValue(cleanAvailability(x.data()?.bookingAvailability||{}));})
-  .catch(()=>{if(mounted)setError("Could not load saved hours.");});return()=>{mounted=false};
+ useEffect(()=>{
+  if(!user?.uid||!auth)return;
+  let mounted=true;
+  (async()=>{
+   try{
+    const token=await auth.currentUser?.getIdToken();
+    const r=await fetch("/api/booking/availability",{headers:{Authorization:"Bearer "+token},cache:"no-store"});
+    const result=await r.json();
+    if(!r.ok)throw Error(result.error||"Booking hours unavailable");
+    if(mounted)setValue(cleanAvailability(result.availability||{}));
+   }catch(e){if(mounted)setError(e.message||"Could not load booking hours.");}
+  })();
+  return()=>{mounted=false};
  },[user?.uid]);
  async function save(){
   setBusy(true);setError("");setSaved("");
-  try{const settings=cleanAvailability({...value,updatedAt:new Date().toISOString()});
-   if(!db||!user?.uid)throw Error("Sign in to save your business availability.");
-   await setDoc(doc(db,"users",user.uid),{bookingAvailability:settings,updatedAt:serverTimestamp()},{merge:true});
-   setValue(settings);setSaved("Business hours and blocked dates saved. FUGTH booking checks will respect these rules.");}
-  catch(e){setError(e.message||"Could not save calendar settings.");}
+  try{
+   if(!auth?.currentUser)throw Error("Sign in to save booking availability.");
+   const settings=cleanAvailability({...value,updatedAt:new Date().toISOString()});
+   const token=await auth.currentUser.getIdToken();
+   const response=await fetch("/api/booking/availability",{
+    method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+token},
+    body:JSON.stringify({availability:settings})
+   });
+   const result=await response.json();
+   if(!response.ok)throw Error(result.error||"Could not save booking hours.");
+   setValue(cleanAvailability(result.availability));setSaved("Business hours and blocked dates saved. Google bookings will respect these rules.");
+  }catch(e){setError(e.message||"Could not save calendar settings.");}
   finally{setBusy(false);}
  }
  function dayChange(day,patch){setValue(s=>({...s,week:{...s.week,[day]:{...s.week[day],...patch}}}));setSaved("");}
