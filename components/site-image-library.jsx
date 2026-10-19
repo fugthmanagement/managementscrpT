@@ -1,6 +1,7 @@
 "use client";
 import {useEffect,useState} from "react";
 import {auth} from "../lib/firebase";
+import Link from "next/link";
 function Thumbnail({uid,id}){
  const [url,setUrl]=useState("");
  useEffect(()=>{let active=true,objectUrl="";(async()=>{try{
@@ -32,17 +33,18 @@ export default function SiteImageLibrary({uid,onPick}){
    const r=await fetch("/api/sites/images",{method:"POST",headers:await headers(),body:form});
    const d=await r.json().catch(()=>({}));
    if(!r.ok)throw Error(d.error||"Upload failed.");
-   setPhotos(prev=>[d.image,...prev]);setMessage("Saved privately to your FUGTH photo library.");
+   setPhotos(prev=>[d.image,...prev]);setMessage("Photo uploaded privately. Your business photo library is updated.");
   }catch(err){setMessage(err.message||"Upload failed.");}
   finally{setBusy("");e.target.value="";}
  }
  return <section className="rounded-2xl border border-zinc-200 bg-white p-5 sm:p-6">
   <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">PRIVATE PHOTO LIBRARY</p>
   <h3 className="mt-3 text-lg font-bold text-black">Use your own business photos.</h3>
-  <p className="mt-2 text-xs leading-6 text-zinc-600">Upload to the FUGTH Management private archive. Files are kept separate for each customer account.</p>
+  <p className="mt-2 text-xs leading-6 text-zinc-600">If you connect Google Drive, new uploads are saved privately in your own Drive. Otherwise, the private FUGTH archive is used when configured. Every business has a separate private file index.</p>
   <label className="mt-4 inline-flex cursor-pointer rounded-xl bg-black px-5 py-3.5 text-xs font-bold text-white">
    {busy?"Uploading…":"Upload photos ↗"}<input type="file" accept="image/jpeg,image/png,image/webp" disabled={Boolean(busy)} className="sr-only" onChange={upload}/>
   </label>
+  <p className="mt-3 text-[11px] text-[#6589a1]">Want uploads in your Google account? <Link className="font-bold underline" href="/dashboard?integration=google">Connect Google Drive in Settings → Connections</Link>.</p>
   {message&&<p className="mt-3 rounded-lg bg-zinc-100 p-3 text-xs text-zinc-700">{message}</p>}
   {photos.length>0&&<div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{photos.map(photo=><article key={photo.id} className="rounded-xl border border-zinc-200 bg-zinc-50 p-3">
    <Thumbnail uid={uid} id={photo.id}/><p className="mt-2 truncate text-xs font-bold">{photo.name||"My photo"}</p>
