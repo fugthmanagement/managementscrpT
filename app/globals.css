@@ -1758,3 +1758,20 @@ body {
 [data-builder-page="services"] main#top > :not(#services):not(#process),
 [data-builder-page="about"] main#top > :not(#about),
 [data-builder-page="contact"] main#top > :not(#contact):not(#faq) {display:none !important;}
+
+/* Adjustable visual density for site sections. Published data and local previews share it. */
+.fugth-generated-site[data-site-density="compact"] main#top > section {
+  padding-top: clamp(1.5rem,4vw,3.5rem) !important;
+  padding-bottom: clamp(1.5rem,4vw,3.5rem) !important;
+}
+.fugth-generated-site[data-site-density="spacious"] main#top > section {
+  padding-top: clamp(4.5rem,9vw,8rem) !important;
+  padding-bottom: clamp(4.5rem,9vw,8rem) !important;
+}
+.fugth-generated-site[data-site-density="compact"] main#top > section h1 {
+  line-height: .96;
+  letter-spacing: -.052em;
+}
+.fugth-generated-site[data-site-density="spacious"] main#top > section h1 {
+  line-height: .99;
+}
