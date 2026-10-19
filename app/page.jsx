@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import {useState} from "react";
+import {useSmartNavigation} from "../lib/use-smart-navigation";
 import {getIndustryPhotos} from "../lib/site-images";
 import {CookieSettingsButton} from "../components/cookie-consent";
 
@@ -24,19 +25,21 @@ function Dot({soft=false}){return <span aria-hidden="true" className={"inline-bl
 function FeatureIcon({kind}){return <span aria-hidden="true" className="grid h-11 w-11 place-items-center rounded-2xl border border-[#acd8ef] bg-[#e5f6ff] text-xl font-black text-[#226687]">{kind}</span>}
 export default function Home(){
  const [menuOpen,setMenuOpen]=useState(false),[panel,setPanel]=useState("calls");
+ const publicNav=useSmartNavigation({compactAt:130,idleMs:2000});
  const selected=activity[panel];
  const links=[["Overview","#home"],["Platform","#platform"],["How it works","#workflow"],["Website Maker","#studio"],["Pricing","#plans"]];
  return <main className="fugth-public overflow-x-clip bg-[#fcfdff] text-[#14212e]">
-  <header className="fugth-public-header sticky top-0 z-[90] border-b border-white/10 bg-[#101923]/95 text-white backdrop-blur-xl">
-   <div className="mx-auto flex min-h-[72px] max-w-[1440px] items-center justify-between gap-3 px-4 sm:px-7 lg:min-h-[84px] lg:px-10">
-    <Link href="/" aria-label="FUGTH Management home" className="flex shrink-0 items-center gap-3">
+  <header data-smart-navigation data-compact={publicNav.compact} data-hidden={publicNav.compact&&!publicNav.visible} onPointerEnter={publicNav.onEnter} onPointerLeave={publicNav.onLeave} onFocusCapture={publicNav.reveal} className="fugth-public-header sticky top-0 z-[90] border-b border-white/10 bg-[#101923]/95 text-white backdrop-blur-xl">
+   <div className="fugth-public-header-inner mx-auto flex min-h-[72px] max-w-[1440px] items-center justify-between gap-3 px-4 sm:px-7 lg:min-h-[84px] lg:px-10">
+    <Link href="/" aria-label="FUGTH Management home" className="fugth-public-brand flex shrink-0 items-center gap-3">
      <span className="relative grid h-10 w-10 place-items-center rounded-[13px] bg-[#b9e5fb] text-xl font-black text-[#112d3c]">F<span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border-2 border-[#101923] bg-[#f0be86]"/></span>
      <span className="flex flex-col leading-tight"><strong className="text-[13px] font-black tracking-[-.02em] sm:text-sm">FUGTH<span className="ml-1 font-medium text-[#a7c4d4]">Management</span></strong><small className="mt-1 hidden text-[9px] font-bold uppercase tracking-[.17em] text-[#8cacc0] sm:block">Business, handled.</small></span>
     </Link>
     <nav className="fugth-public-pill hidden items-center gap-1 rounded-full border border-white/15 bg-white/10 p-1.5 lg:flex" aria-label="Primary navigation">{links.map(([name,href])=><a key={href} href={href} className="rounded-full px-4 py-2.5 text-[11px] font-bold text-[#d5e7f0] transition hover:bg-white/15 hover:text-white focus-visible:outline focus-visible:outline-[#b9e5fb]">{name}</a>)}</nav>
-    <div className="flex shrink-0 items-center gap-2"><Link href="/login" className="rounded-full px-3 py-2.5 text-xs font-bold text-white hover:bg-white/10 sm:px-4">Log in</Link><Link href="/login?signup=1" className="hidden rounded-full bg-[#b9e5fb] px-3 py-2.5 text-xs font-black text-[#123b50] shadow-[0_3px_16px_rgba(185,229,251,.12)] transition hover:bg-[#d7f1fe] sm:inline-flex sm:px-5">Get started <Arrow diagonal/></Link><button onClick={()=>setMenuOpen(x=>!x)} aria-expanded={menuOpen} aria-label={menuOpen?"Close menu":"Open menu"} type="button" className="grid h-10 w-10 place-items-center rounded-full border border-white/20 text-lg lg:hidden">{menuOpen?"×":"☰"}</button></div>
+    <div className="fugth-public-actions flex shrink-0 items-center gap-2"><Link href="/login" className="rounded-full px-3 py-2.5 text-xs font-bold text-white hover:bg-white/10 sm:px-4">Log in</Link><Link href="/login?signup=1" className="hidden rounded-full bg-[#b9e5fb] px-3 py-2.5 text-xs font-black text-[#123b50] shadow-[0_3px_16px_rgba(185,229,251,.12)] transition hover:bg-[#d7f1fe] sm:inline-flex sm:px-5">Get started <Arrow diagonal/></Link><button onClick={()=>setMenuOpen(x=>!x)} aria-expanded={menuOpen} aria-label={menuOpen?"Close menu":"Open menu"} type="button" className="grid h-10 w-10 place-items-center rounded-full border border-white/20 text-lg lg:hidden">{menuOpen?"×":"☰"}</button></div>
    </div>
    <nav className={"fugth-public-mobile-nav border-t border-white/10 px-3 py-2 lg:hidden "+(menuOpen?"flex flex-wrap justify-center gap-2":"flex gap-1 overflow-x-auto")} aria-label="Mobile navigation">{links.map(([name,href])=><a key={href} href={href} onClick={()=>setMenuOpen(false)} className="shrink-0 rounded-full px-3 py-2 text-[11px] font-bold text-[#cee7f4] hover:bg-white/15">{name}</a>)}<Link href="/login?signup=1" className="shrink-0 rounded-full bg-[#b9e5fb] px-4 py-2 text-[11px] font-black text-[#123b50] sm:hidden">Create account ↗</Link></nav>
+   <button type="button" onClick={publicNav.reveal} className="fugth-nav-peek absolute bottom-[-14px] left-1/2 z-10 hidden -translate-x-1/2 rounded-b-xl border border-t-0 border-[#82bddb] bg-[#daeffa] px-5 py-0.5 text-[10px] font-black text-[#225b79]" aria-label="Show navigation tabs">⌄ Menu</button>
   </header>
   <section id="home" className="fugth-public-hero relative isolate scroll-mt-32 overflow-hidden bg-[#111e2b] text-white">
    <div aria-hidden="true" className="fugth-public-orb"/>
