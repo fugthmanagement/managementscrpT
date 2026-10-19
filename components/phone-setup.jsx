@@ -1,13 +1,12 @@
 "use client";
 import { useEffect, useState } from "react";
-import { doc, setDoc, serverTimestamp } from "firebase/firestore";
-import { db } from "../lib/firebase";
+import {auth} from "../lib/firebase";
 
 function normalizePhone(raw) { const s=String(raw||"").replace(/[^\d]/g,""); return s.length===10?"+1"+s:s.length===11&&s[0]==="1"?"+"+s:""; }
 const routes=[{id:"instant",name:"AI answers right away",hint:"Send all incoming calls to your FUGTH line. Best for businesses without front-desk staff."},{id:"no-answer",name:"Your team answers first",hint:"Let your existing phone ring. If nobody answers, forward the call to the AI. The carrier controls the actual wait."}];
 const carriers=["T-Mobile","AT&T","Verizon","Google Voice","RingCentral","Other mobile carrier","Other business phone system"];
 
-export default function PhoneSetup({user,workspace}) {
+export default function PhoneSetup({user,workspace,locked=false}) {
   const initial=workspace?.phoneSetup||{};
   const [businessPhone,setBusinessPhone]=useState(initial.businessPhone||workspace?.phone||"");
   const [carrier,setCarrier]=useState(initial.carrier||"");
@@ -21,20 +20,21 @@ export default function PhoneSetup({user,workspace}) {
   const normalized=normalizePhone(businessPhone);
   async function save(event) {
     event.preventDefault();setNotice("");
-    if(!user?.uid||!db){setNotice("Please sign in again.");return;}
+    if(locked){setNotice("Phone setup requires an active Essential plan or higher.");return;}
+    if(!user?.uid||!auth){setNotice("Please sign in again.");return;}
     if(!normalized){setNotice("Enter a valid US business phone number before continuing.");return;}
     if(!carrier){setNotice("Select your phone provider.");return;}
     setBusy(true);
     try{
-      await setDoc(doc(db,"users",user.uid),{
-        phone:normalized,
-        phoneSetup:{
-          businessPhone:normalized,carrier,mode,requestedDelay:mode==="no-answer"?delay:0,
-          status:assigned?"verification_required":"assignment_requested",
-          requestedAt:serverTimestamp(),updatedAt:serverTimestamp(),
-        },
-        updatedAt:serverTimestamp()
-      },{merge:true});
+      const token=await auth.currentUser?.getIdToken();
+      if(!token)throw Error("Please sign in again.");
+      const response=await fetch("/api/phone/preferences",{
+        method:"POST",headers:{Authorization:"Bearer "+token,"Content-Type":"application/json"},
+        body:JSON.stringify({businessPhone:normalized,carrier,mode,requestedDelay:mode==="no-answer"?delay:0}),
+        cache:"no-store"
+      });
+      const saved=await response.json().catch(()=>({}));
+      if(!response.ok)throw Error(saved.error||"Could not save phone routing preferences.");
       setRequested(true);
       setNotice(assigned?"Your preferences are saved. Configure forwarding with your phone provider, then verify with a test call.":"Your setup request is saved. A dedicated FUGTH number still needs to be assigned before forwarding can be activated.");
     }catch(e){setNotice(e.message||"Could not save phone setup.");}finally{setBusy(false);}
@@ -51,7 +51,7 @@ export default function PhoneSetup({user,workspace}) {
       <div className="space-y-6"><section className="rounded-3xl border border-zinc-200 bg-zinc-950 p-6 text-white sm:p-7"><p className="text-xs font-black uppercase tracking-widest text-zinc-400">YOUR FUGTH NUMBER</p><p className="mt-5 break-words text-2xl font-black tracking-tight">{target}</p><p className="mt-3 text-sm leading-6 text-zinc-400">{assigned?"This phone number is stored on your workspace but has not been independently verified against the FUGTH phone network from this page. Confirm its assignment and call routing before sending customer calls.":"Your request can be prepared now; a real FUGTH number must be allocated by the service before your carrier can forward to it."}</p><div className="mt-5 border-t border-white/15 pt-5"><p className="text-xs font-black uppercase tracking-wider text-zinc-500">Requested route</p><p className="mt-2 text-sm font-bold">{mode==="instant"?"AI answers immediately":`Your team first · ${delay}-second target`}</p></div></section>
         <section className="rounded-3xl border border-zinc-200 bg-white p-6 sm:p-7"><h3 className="text-xl font-black text-zinc-900">3. Activate with your carrier</h3>{assigned?<div className="mt-4 space-y-3 text-sm leading-6 text-zinc-700"><p>In your {carrier||"carrier"} account, locate <b>Call Forwarding</b>. Choose {mode==="instant"?<b>Always forward</b>:<b>Forward when unanswered</b>} to <b>{assigned}</b>.</p>{carrier==="T-Mobile"&&mode==="no-answer"&&<><p>T-Mobile supports a ring-delay setting on eligible plans. Confirm the forwarding destination and requested delay in its official instructions before dialing.</p><a className="font-bold underline" href="https://www.t-mobile.com/support/plans-features/self-service-short-codes/" target="_blank" rel="noreferrer">T-Mobile forwarding instructions ↗</a></>}<p>Call your regular business number from a second phone and verify that the correct party answers after the expected ringing time.</p></div>:<p className="mt-4 text-sm leading-7 text-zinc-600">Save your preferences below. After a FUGTH line is assigned, this section will display the forwarding destination and setup instructions. A number is not assigned just because an account was created.</p>}</section>
         {notice&&<div role="status" className="rounded-xl border border-zinc-300 bg-zinc-100 p-4 text-sm text-zinc-800">{notice}</div>}
-        <button type="submit" disabled={busy} className="w-full rounded-xl bg-zinc-900 px-5 py-4 text-sm font-black text-white hover:bg-zinc-800 disabled:opacity-50">{busy?"Saving setup...":requested?"Update phone preferences":"Save & request FUGTH number →"}</button>
+        <button type="submit" disabled={busy||locked} className="w-full rounded-xl bg-zinc-900 px-5 py-4 text-sm font-black text-white hover:bg-zinc-800 disabled:opacity-50">{busy?"Saving setup...":requested?"Update phone preferences":"Save & request FUGTH number →"}</button>
         <p className="text-xs leading-6 text-zinc-500">Phone-number provisioning and carrier forwarding aren't automatic on this screen. Some dedicated numbers incur telephony charges and require active billing or account approval.</p>
       </div>
     </form>
