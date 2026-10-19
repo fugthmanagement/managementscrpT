@@ -2,7 +2,7 @@ name: FUGTH Web Build
 on:
   push:
     branches:
-      - feature/fugth-site-studio-2026-10-12
+      - main
   pull_request:
     branches:
       - main
@@ -22,6 +22,8 @@ jobs:
         run: npm install --no-audit --no-fund
       - name: Test FUGTH account number allocation
         run: node --experimental-default-type=module --test tests/account-number.test.mjs
+      - name: Test spoken Call Training simulator
+        run: node --experimental-default-type=module --test tests/call-training.test.mjs
       - name: Build FUGTH website
         env:
           NEXT_TELEMETRY_DISABLED: "1"
