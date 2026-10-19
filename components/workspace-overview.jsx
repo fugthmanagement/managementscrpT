@@ -1,6 +1,6 @@
 "use client";
-import {useMemo,useState} from "react";
-import {getIndustryPhotos} from "../lib/site-images";
+import {useState} from "react";
+import BrandSignalArt from "./brand-signal-art";
 const timeLabel=value=>{
  try{const d=value?.toDate?.()||new Date(value?.seconds?value.seconds*1000:value);return Number.isNaN(d.getTime())?"Recent":d.toLocaleDateString(undefined,{month:"short",day:"numeric"})}
  catch{return "Recent"}
@@ -9,10 +9,6 @@ const short=value=>String(value||"").slice(0,135);
 const StatIcon=({type})=><span aria-hidden="true" className="grid h-10 w-10 place-items-center rounded-[13px] bg-[#e6f6ff] text-xl font-black text-[#28739c]">{({calls:"☎",customers:"↗",appointments:"▣"})[type]}</span>;
 export default function WorkspaceOverview({business,displayPlan,workspace,calls=[],leads=[],appointments=[],notifications=[],navigate}){
  const [activity,setActivity]=useState("calls");
- const photo=useMemo(()=>{
-  const type=String(workspace?.businessType||"contractor").toLowerCase().replace(/[^a-z]/g,"");
-  return getIndustryPhotos(type)[0]||getIndustryPhotos("contractor")[0]||getIndustryPhotos("general")[0];
- },[workspace?.businessType]);
  const cards=[
   {type:"calls",title:"Recent calls",number:calls.length,sub:"In your call inbox",action:"calls",featured:false},
   {type:"customers",title:"Customer leads",number:leads.length,sub:"Contacts you've saved",action:"customers",featured:true},
@@ -20,22 +16,18 @@ export default function WorkspaceOverview({business,displayPlan,workspace,calls=
  ];
  const records=activity==="calls"?calls:activity==="leads"?leads:appointments;
  return <div className="space-y-6 sm:space-y-8">
-  <section className="fugth-workspace-hero relative isolate overflow-hidden rounded-[30px] border border-[#24455c] bg-[#122434] px-5 py-8 text-white shadow-[0_30px_70px_rgba(21,57,87,.14)] sm:px-9 sm:py-11 xl:px-12">
+  <section className="fugth-workspace-hero relative isolate overflow-visible rounded-[6px_36px_6px_6px] border border-[#24455c] bg-[#122434] px-5 py-8 text-white shadow-[0_30px_70px_rgba(21,57,87,.14)] sm:px-9 sm:py-11 xl:px-12">
    <div aria-hidden="true" className="absolute -right-28 -top-32 h-[430px] w-[430px] rounded-full border-[76px] border-[#95d7f7]/[.07]"/>
    <div aria-hidden="true" className="absolute -bottom-48 left-1/3 h-[370px] w-[370px] rounded-full bg-[#4a9dce]/[.10] blur-[80px]"/>
    <div className="relative z-10 grid gap-10 lg:grid-cols-[1.05fr_.95fr] lg:items-center">
     <div>
      <div className="inline-flex items-center gap-2 rounded-full border border-[#7ac2e9]/30 bg-[#2e556d]/40 px-4 py-2 text-[10px] font-black uppercase tracking-[.16em] text-[#b6e5fb]"><span className="h-2 w-2 rounded-full bg-[#9ed9f5]"/> Your workspace / Overview</div>
-     <h1 className="mt-7 max-w-2xl text-[clamp(2.8rem,5.5vw,5.6rem)] font-black leading-[.99] tracking-[-.072em]">Good to see you.<br/><span className="text-[#b9e5fb]">Let's keep it moving.</span></h1>
+     <h1 className="mt-7 max-w-2xl text-[clamp(2.8rem,5.5vw,5.6rem)] font-black leading-[.99] tracking-[-.072em]">The desk is yours.<br/><span className="fugth-editorial-serif text-[#b9e5fb]">Keep things moving.</span></h1>
      <p className="mt-5 max-w-lg text-sm leading-7 text-[#bad0df] sm:text-base">Everything for <strong className="text-white">{business}</strong>—calls, customer inquiries, bookings and your website—right where you need it.</p>
      <div className="mt-7 flex flex-wrap items-center gap-3"><button type="button" onClick={()=>navigate("calls")} className="inline-flex min-h-12 items-center gap-6 rounded-full bg-[#b9e5fb] px-6 text-xs font-black text-[#173f56] transition hover:bg-[#d9f3ff]">Open call desk <span aria-hidden="true">↗</span></button><button type="button" onClick={()=>navigate("website")} className="inline-flex min-h-12 items-center gap-3 rounded-full border border-white/30 bg-white/10 px-6 text-xs font-black text-white hover:bg-white/20">Edit my website <span aria-hidden="true">→</span></button></div>
      <p className="mt-7 text-[11px] text-[#96b8cb]"><span className="mr-2 inline-block h-1.5 w-1.5 rounded-full bg-[#a5ddf7]"/> Account access: {displayPlan}</p>
     </div>
-    <div className="relative min-h-[265px] overflow-hidden rounded-[22px] border border-white/15 bg-[#2c576c] sm:min-h-[335px]">
-     {photo?.src&&<img className="absolute inset-0 h-full w-full object-cover" src={photo.src} alt={photo.alt||"A business professional working"} loading="lazy"/>}
-     <div className="absolute inset-0 bg-gradient-to-t from-[#081f30]/95 via-[#081f30]/30 to-transparent"/>
-     <div className="absolute inset-x-4 bottom-4 rounded-[16px] border border-white/20 bg-[#132e43]/85 p-4 backdrop-blur sm:inset-x-5 sm:bottom-5 sm:p-5"><p className="text-[10px] font-black uppercase tracking-[.14em] text-[#b9e5fb]">FUGTH / Working together</p><p className="mt-2 max-w-[320px] text-lg font-black leading-tight tracking-tight text-white">Your business doesn't stop when you're busy.</p><p className="mt-2 text-[10px] text-[#bfccd6]">Illustrative industry photograph, not a photo of your business.</p></div>
-    </div>
+    <div className="relative w-full"><BrandSignalArt compact/></div>
    </div>
   </section>
   <div className="grid gap-3 md:grid-cols-3 sm:gap-4">
