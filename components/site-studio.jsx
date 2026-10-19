@@ -8,6 +8,7 @@ import {buildStarterSite,getIndustry,getIndustryThemes,SITE_THEMES,siteFields} f
 import SiteStudioBuilder from "./site-studio-builder";
 import {themeNarrative} from "../lib/site-layout-copy";
 import {getIndustryPhotos} from "../lib/site-images";
+import {siteFactsFromProfile} from "../lib/business-profile";
 import ClientPresentationStudio from "./client-presentation-studio";
 
 export const LOCAL_SITE_DRAFT="fugth-site-draft-v1";
@@ -27,7 +28,12 @@ export default function SiteStudio({user,workspace={},targetUid=null,locked=fals
  async function load(){
   if(!uid)return;
   setLoading(true);setError("");setMessage("");
-  const starter=()=>buildStarterSite(uid,workspace.businessName||"Your business",workspace.businessType,workspace);
+  const starter=()=>{
+   const facts=siteFactsFromProfile(workspace);
+   const base=buildStarterSite(uid,workspace.businessName||"Your business",facts.industry,workspace);
+   return {...base,...(facts.lead?{description:facts.lead}:{}),
+    ...(facts.about?{aboutDetail:facts.about}:{}),services:facts.services};
+  };
   try{
    // Free customers can always see their own private preview without
    // needing privileged publishing credentials or a public site.
@@ -37,9 +43,14 @@ export default function SiteStudio({user,workspace={},targetUid=null,locked=fals
      getDoc(doc(db,"users",uid)).catch(()=>null)
     ]);
     const details=profile?.data()||{};
-    let next=published?.exists()?published.data():
-     buildStarterSite(uid,details.businessName||workspace.businessName||"Your business",
-      details.businessType||workspace.businessType||"general",details);
+    const facts=siteFactsFromProfile({...workspace,...details});
+    const base=buildStarterSite(uid,details.businessName||workspace.businessName||"Your business",facts.industry,details);
+    const fromProfile={...base,...(facts.lead?{description:facts.lead}:{}),
+      ...(facts.about?{aboutDetail:facts.about}:{}),services:facts.services};
+    // A free account sees its latest business details, not a stale paid site.
+    let next=fromProfile;
+    if(published?.exists() && details.billingActive && details.websitePurchased)
+     next=published.data();
     const chosen=details.sitePreviewImages||{};
     if(chosen.heroImageId||chosen.galleryImageIds)next={...next,
       ...(chosen.heroImageId?{heroImageId:chosen.heroImageId}:{}),
