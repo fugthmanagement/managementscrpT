@@ -25,6 +25,8 @@ import {cleanBusinessDescription} from "../lib/business-profile";
 import WorkspaceNavigation from "./workspace-navigation";
 import WorkspaceOverview from "./workspace-overview";
 import GoogleConnectPrompt from "./google-connect-prompt";
+import BusinessOpeningHours from "./business-opening-hours";
+import {cleanOpeningHours} from "../lib/business-hours";
 import PhoneSetup from "./phone-setup";
 import IntegrationsHub from "./integrations-hub";
 import BookingAvailabilitySettings from "./booking-availability-settings";
@@ -228,6 +230,7 @@ export default function FugthWorkspace() {
     businessType: "general",
     businessTypeOther: "",
     businessDescription: "",
+    openingHours: cleanOpeningHours(),
     serviceArea: "",
     phone: "",
     notificationEmail: "",
@@ -295,6 +298,7 @@ export default function FugthWorkspace() {
           businessType: data.businessType || "general",
           businessTypeOther: data.businessTypeOther || "",
           businessDescription: data.businessDescription || "",
+          openingHours: cleanOpeningHours(data.openingHours),
           serviceArea: data.serviceArea || "",
           phone: data.phone || "",
           notificationEmail: data.notificationEmail || "",
@@ -492,6 +496,7 @@ export default function FugthWorkspace() {
    businessType:profile.businessType,
    businessTypeOther:profile.businessType==="other"?profile.businessTypeOther.trim().slice(0,90):"",
    businessDescription:description,
+   openingHours:cleanOpeningHours(profile.openingHours),
    serviceArea:profile.serviceArea.trim().slice(0,120),
    phone:profile.phone.trim().slice(0,32),
    notificationEmail:profile.notificationEmail.trim().slice(0,120),
@@ -1014,8 +1019,9 @@ export default function FugthWorkspace() {
                         {title}<input value={profile[key]} onChange={e=>setProfile({...profile,[key]:e.target.value})}
                           className={`mt-2 ${input}`}/>
                       </label>)}
+                      <BusinessOpeningHours value={profile.openingHours} onChange={openingHours=>setProfile({...profile,openingHours})}/>
                       <div className="rounded-xl border border-[#cee7f4] bg-[#eff9ff] p-4 text-xs leading-6 text-[#557e96] sm:col-span-2">
-                        <strong className="text-[#1d5576]">Need to set business hours?</strong> Choose <button type="button"
+                        <strong className="text-[#1d5576]">Need to control actual appointment availability?</strong> Choose <button type="button"
                           onClick={()=>{setSettingsSection("connections");window.scrollTo({top:0,behavior:"smooth"});}}
                           className="font-bold text-[#1f719b] underline">Connections → Booking hours</button> for a day-by-day schedule. Existing saved hours won't be erased.
                       </div>
