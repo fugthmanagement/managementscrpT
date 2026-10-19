@@ -2,6 +2,7 @@ import {NextResponse} from "next/server";
 import {randomUUID} from "node:crypto";
 import {authenticatedUser,firebaseAdmin,isAdminEmail} from "../../../../lib/server/auth";
 import {accessGoogleCalendar} from "../../../../lib/server/google-calendar";
+import {businessEntitlement} from "../../../../lib/server/feature-entitlement";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
 export const maxDuration=60;
@@ -37,6 +38,8 @@ export async function GET(req){
 export async function POST(req){
  const user=await authenticatedUser(req);
  if(!user?.uid)return reply({error:"Sign in to upload your business photos."},401);
+ const entitlement=await businessEntitlement(user,"website");
+ if(!entitlement.allowed)return reply({error:"Save and upload your own business photos with an active website package. Free plans can preview the templates."},403);
  if(Number(req.headers.get("content-length")||0)>MAX_BYTES+65536)return reply({error:"Use a photo under 5 MB."},413);
  try{
   const form=await req.formData(),file=form.get("file");
