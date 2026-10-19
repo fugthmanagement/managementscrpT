@@ -49,8 +49,17 @@ export async function POST(req){
   const batch=db.batch();let changed=0,imported=0;
   for(let i=0;i<entries.length;i++){
    const {event,ref,ours,starts,ends}=entries[i],prev=old[i];
-   if(!starts||!ends)continue;
    const data=prev.exists?prev.data():null;
+   if(event.status==="cancelled"){
+     if(data?.status!=="cancelled"){batch.set(ref,{
+       status:"cancelled",googleUpdatedAt:event.updated||"",
+       updatedAt:new Date().toISOString(),calendarSyncStatus:"synced"
+     },{merge:true});changed++;}
+     continue;
+   }
+   // All-day calendar markers still block free/busy but are not service visits.
+   if(!event.start?.dateTime||!event.end?.dateTime)continue;
+
    if(data?.googleUpdatedAt===event.updated&&data?.status===(event.status==="cancelled"?"cancelled":"scheduled"))continue;
    // Preserve customer-entered notes/contact information in existing FUGTH records.
    const record={
