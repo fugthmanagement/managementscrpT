@@ -116,15 +116,6 @@ body {
   --fugth-baby-blue-soft: #effaff;
   background: #fff;
 }
-.fugth-generated-site [class*="bg-[#"] {
-  background-color: #fff !important;
-}
-.fugth-generated-site [class*="text-[#"] {
-  color: #101216 !important;
-}
-.fugth-generated-site [class*="border-[#"] {
-  border-color: #101216 !important;
-}
 .fugth-generated-site :is(article, details, .group) {
   transition: transform 180ms ease, box-shadow 180ms ease;
 }

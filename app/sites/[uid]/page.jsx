@@ -4,7 +4,7 @@ import Link from "next/link";
 import {onAuthStateChanged} from "firebase/auth";
 import {doc,getDoc} from "firebase/firestore";
 import {auth,db} from "../../../lib/firebase";
-import {buildStarterSite,getIndustryThemes} from "../../../lib/site-presets";
+import {buildStarterSite} from "../../../lib/site-presets";
 import SiteStudio from "../../../components/site-studio";
 import SiteRenderer from "../../../components/site-renderer";
 
@@ -15,7 +15,7 @@ export default function SitePage({params}){
  useEffect(()=>{
   if(!uid||!/^[-_a-zA-Z0-9]{8,128}$/.test(uid)||!db){setPage({loading:false,site:null,preview:false,owner:false,error:"Invalid website link."});return;}
   let cancelled=false;
-  const preview=new URLSearchParams(window.location.search).get("preview")==="1";
+  const params=new URLSearchParams(window.location.search),preview=params.get("preview")==="1",previewTemplate=params.get("template");
   // Do not show a 404 until authentication has settled: the owner is allowed
   // to view a private, unpublished design in a separate tab on this same URL.
   const unsubscribe=onAuthStateChanged(auth,async user=>{
@@ -49,12 +49,7 @@ export default function SitePage({params}){
       ...(photos.heroImageId?{heroImageId:photos.heroImageId}:{}),
       ...(photos.galleryImageIds?{galleryImageIds:photos.galleryImageIds}:{}),ownerId:uid};
     }
-    // Let owners inspect a chosen template full-screen before saving or publishing.
-    if(site&&canEdit&&preview){
-     const requested=new URLSearchParams(window.location.search).get("template");
-     const theme=getIndustryThemes(site.industry).find(item=>item.id===requested);
-     if(theme)site={...site,template:theme.id,theme:theme.id,...theme.palette};
-    }
+    if(site&&owner&&preview&&previewTemplate)site={...site,template:previewTemplate,theme:previewTemplate};
     if(!cancelled)setPage({loading:false,site,owner:canEdit,preview,error:site?"":"This website isn't available yet."});
    }catch{
     if(!cancelled)setPage({loading:false,site:null,owner:canEdit,preview,error:"Could not open this website. Return to your workspace and try again."});
