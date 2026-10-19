@@ -15,7 +15,7 @@ function sanitized(data,uid,old={},visibility="preview"){
 function businessPreset(uid,profile={}){
  const facts=siteFactsFromProfile(profile);
  const preset=buildStarterSite(uid,profile.businessName||profile.displayName||"Your business",facts.industry,{
-  phone:profile.phone||profile.businessPhone||"",contactEmail:profile.contactEmail||profile.email||"",serviceArea:profile.serviceArea||"",hours:profile.hours||profile.businessHours||""
+  phone:profile.phone||profile.businessPhone||"",contactEmail:profile.contactEmail||profile.email||"",serviceArea:profile.serviceArea||"",hours:profile.hours||profile.businessHours||"",openingHours:profile.openingHours
  });
  // No speculative copy. Use only information the owner supplied.
  return {...preset,...(facts.lead?{description:facts.lead}:{}),
