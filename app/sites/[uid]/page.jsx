@@ -4,7 +4,7 @@ import Link from "next/link";
 import {onAuthStateChanged} from "firebase/auth";
 import {doc,getDoc} from "firebase/firestore";
 import {auth,db} from "../../../lib/firebase";
-import {buildStarterSite} from "../../../lib/site-presets";
+import {buildStarterSite,siteFields,getIndustryThemes} from "../../../lib/site-presets";
 import SiteStudio from "../../../components/site-studio";
 import SiteRenderer from "../../../components/site-renderer";
 
@@ -49,7 +49,15 @@ export default function SitePage({params}){
       ...(photos.heroImageId?{heroImageId:photos.heroImageId}:{}),
       ...(photos.galleryImageIds?{galleryImageIds:photos.galleryImageIds}:{}),ownerId:uid};
     }
-    if(site&&owner&&preview&&previewTemplate)site={...site,template:previewTemplate,theme:previewTemplate};
+    if(site&&owner&&preview){
+      // Unsaved Website Maker drafts stay in this browser; this never publishes them.
+      try{
+        const local=JSON.parse(localStorage.getItem("fugth-site-draft-v1:"+uid)||"null");
+        if(local)site={...site,...siteFields({...site,...local}),ownerId:uid,visibility:site.visibility};
+      }catch{}
+      const option=getIndustryThemes(site.industry).find(t=>t.id===previewTemplate);
+      if(option)site={...site,template:option.id,theme:option.id};
+    }
     if(!cancelled)setPage({loading:false,site,owner:canEdit,preview,error:site?"":"This website isn't available yet."});
    }catch{
     if(!cancelled)setPage({loading:false,site:null,owner:canEdit,preview,error:"Could not open this website. Return to your workspace and try again."});
