@@ -11,6 +11,7 @@ import {
   customSetupLabel,
 } from "../../lib/billing-catalog";
 const plans = Object.values(BILLING_PLANS);
+const CART_KEY="fugth_checkout_selection_v2";
 export default function Plans() {
   const [currentUser, setCurrentUser] = useState(null),
     [authReady, setAuthReady] = useState(false);
@@ -19,13 +20,22 @@ export default function Plans() {
     [cycle, setCycle] = useState("monthly");
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
-    [offer, setOffer] = useState(null);
+    [offer, setOffer] = useState(null),
+    [readiness,setReadiness]=useState(null);
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
       setCurrentUser(u);
       setAuthReady(true);
     });
     const requested = new URLSearchParams(window.location.search).get("plan");
+    try{
+      const saved=JSON.parse(localStorage.getItem(CART_KEY)||"null");
+      if(saved){
+        if(BILLING_PLANS[saved.planKey])setSelected(saved.planKey);
+        if(saved.cycle==="yearly")setCycle("yearly");
+        if(Array.isArray(saved.addons))setAddons(saved.addons.filter(x=>x in BILLING_ADDONS));
+      }
+    }catch{}
     if (BILLING_PLANS[requested]) setSelected(requested);
     if (new URLSearchParams(window.location.search).get("cycle") === "yearly")
       setCycle("yearly");
@@ -58,6 +68,22 @@ export default function Plans() {
       ignore = true;
     };
   }, [currentUser]);
+  useEffect(()=>{
+    try{localStorage.setItem(CART_KEY,JSON.stringify({planKey:selected,cycle,addons}));}catch{}
+  },[selected,cycle,addons]);
+  useEffect(()=>{
+    if(!currentUser){setReadiness(null);return;}
+    let ignore=false;
+    (async()=>{
+      try{
+        const token=await currentUser.getIdToken();
+        const response=await fetch("/api/stripe/checkout/status",{headers:{Authorization:"Bearer "+token},cache:"no-store"});
+        const result=await response.json();
+        if(!ignore)setReadiness(response.ok?result:{ready:false,issues:[{message:result.error||"Billing diagnostics unavailable."}]});
+      }catch{if(!ignore)setReadiness({ready:false,issues:[{message:"Could not reach payment readiness service."}]})}
+    })();
+    return()=>{ignore=true;};
+  },[currentUser]);
   const plan = BILLING_PLANS[selected];
   const offerApplied = Boolean(
     offer &&
@@ -93,7 +119,11 @@ export default function Plans() {
     setBusy(true);
     setError("");
     try {
-      if (!currentUser) throw Error("Sign in before subscribing.");
+      if (!currentUser){
+        window.location.assign("/login?next=%2Fplans");
+        return;
+      }
+      if(readiness?.ready===false)throw Error("Payments cannot start yet: "+(readiness.issues?.[0]?.message||"Merchant setup needs attention."));
       const token = await currentUser.getIdToken();
       const response = await fetch("/api/stripe/checkout", {
         method: "POST",
@@ -357,15 +387,15 @@ export default function Plans() {
           <div className="w-full lg:w-[250px]">
             <button
               type="button"
-              disabled={!currentUser || busy}
+              disabled={!authReady || busy}
               onClick={checkout}
               className="w-full rounded-xl bg-[#2a4833] px-6 py-4 text-sm font-bold text-white disabled:opacity-45"
             >
-              {busy ? "Opening payment…" : "Continue to secure checkout ↗"}
+              {busy ? "Opening payment…" : !currentUser ? "Sign in to complete checkout ↗" : "Continue to secure checkout ↗"}
             </button>
             {!currentUser && authReady && (
               <Link
-                href="/login"
+                href="/login?next=%2Fplans"
                 className="mt-3 block text-center text-xs font-semibold underline"
               >
                 Log in to subscribe
@@ -373,6 +403,8 @@ export default function Plans() {
             )}
           </div>
         </section>
+        {readiness?.ready===false&&<div role="alert" className="mt-5 rounded-2xl border border-[#e6c9a0] bg-[#fff7e9] p-5 text-sm text-[#7b511d]"><p className="font-black">Secure checkout needs attention</p><p className="mt-2 text-xs leading-6">Your selected package is saved in this browser. No charge will start until these requirements are resolved:</p><ul className="mt-3 space-y-1">{readiness.issues?.map((issue,i)=><li key={issue.code||i} className="text-xs leading-6">• {issue.message}</li>)}</ul><p className="mt-3 text-xs">Contact <a href="mailto:fugthmanagement@gmail.com" className="font-bold underline">FUGTH support</a> or, if you're the founder, open Administration → Billing health for configuration diagnostics.</p></div>}
+        {readiness?.ready===true&&<p role="status" className="mt-5 rounded-xl border border-[#bbdec3] bg-[#f1fbf4] p-4 text-xs font-bold text-[#366444]">Merchant and account setup checks passed. Stripe will confirm any payment before FUGTH activates the plan.</p>}
         {offerApplied && (
           <p className="mt-4 rounded-xl border border-[#d4c6ad] bg-[#fff5e5] p-4 text-sm">
             <strong>Personalized offer for your account.</strong> Price{" "}
