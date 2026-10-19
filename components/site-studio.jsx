@@ -7,6 +7,7 @@ import SiteImageLibrary from "./site-image-library";
 import {buildStarterSite,getIndustry,getIndustryThemes,SITE_THEMES,siteFields} from "../lib/site-presets";
 import SiteStudioBuilder from "./site-studio-builder";
 import {themeNarrative} from "../lib/site-layout-copy";
+import {getIndustryPhotos} from "../lib/site-images";
 import ClientPresentationStudio from "./client-presentation-studio";
 
 export const LOCAL_SITE_DRAFT="fugth-site-draft-v1";
@@ -90,7 +91,13 @@ export default function SiteStudio({user,workspace={},targetUid=null,locked=fals
    const original=key==="description"?industry.lead:industry[key];
    if(!site[key]||site[key]===original||previousCopies.some(v=>v[key]===site[key]))copy[key]=nextCopy[key];
   }
-  change({template:theme.id,theme:theme.id,...theme.palette,...copy});
+  const photos=getIndustryPhotos(industry.id),presetPhoto=photos.some(p=>p.id===site.heroImageId);
+  const templateIndex=getIndustryThemes(industry.id).findIndex(t=>t.id===theme.id);
+  const photoPatch=presetPhoto&&photos.length>1?{
+   heroImageId:photos[((templateIndex+photos.length)%photos.length)].id,
+   galleryImageIds:photos.filter(p=>p.id!==photos[((templateIndex+photos.length)%photos.length)].id).slice(0,2).map(p=>p.id)
+  }:{};
+  change({template:theme.id,theme:theme.id,...theme.palette,...photoPatch,...copy});
  }
  async function choosePhoto(slot,imageId){
   if(!/^fugth-upload-[a-f0-9]{32}$/.test(String(imageId||"")))return;
