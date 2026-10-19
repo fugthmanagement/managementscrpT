@@ -20,6 +20,8 @@ import {
 } from "firebase/firestore";
 import { auth, db } from "../lib/firebase";
 import SiteStudio from "./site-studio";
+import WorkspaceNavigation from "./workspace-navigation";
+import WorkspaceOverview from "./workspace-overview";
 import PhoneSetup from "./phone-setup";
 import IntegrationsHub from "./integrations-hub";
 import BookingAvailabilitySettings from "./booking-availability-settings";
@@ -140,22 +142,15 @@ function Symbol({ name, size = 19 }) {
 }
 function SectionHeading({ eyebrow, title, description, action }) {
   return (
-    <div className="mb-8 flex flex-wrap items-end justify-between gap-5 border-b border-black pb-7">
-      <div>
-        <p className="text-[10px] font-bold uppercase tracking-[.22em] text-black">
-          {eyebrow}
-        </p>
-        <h2 className="mt-3 text-[34px] font-black leading-[.95] tracking-[-.06em] text-black sm:text-[48px]">
-          {title}
-        </h2>
-        {description && (
-          <p className="mt-4 max-w-2xl text-sm leading-7 text-black">
-            {description}
-          </p>
-        )}
+    <header className="fugth-workspace-section-heading relative mb-7 flex flex-wrap items-end justify-between gap-5 overflow-hidden rounded-[26px] border border-[#dbeaf2] bg-white px-6 py-7 shadow-[0_9px_28px_rgba(27,76,106,.035)] sm:px-8 sm:py-9">
+      <span aria-hidden="true" className="absolute left-0 top-0 h-full w-1 bg-[#a6ddf8]"/>
+      <div className="relative max-w-3xl">
+        <p className="text-[10px] font-black uppercase tracking-[.18em] text-[#4282a3]">{eyebrow}</p>
+        <h2 className="mt-3 text-[clamp(1.9rem,3.7vw,3.35rem)] font-black leading-[1.05] tracking-[-.065em] text-[#1a3a50]">{title}</h2>
+        {description&&<p className="mt-4 max-w-2xl text-sm leading-7 text-[#648092]">{description}</p>}
       </div>
       {action}
-    </div>
+    </header>
   );
 }
 function Empty({ title, description, action }) {
@@ -349,6 +344,8 @@ export default function FugthWorkspace() {
     setMenuOpen(false);
     setNotice("");
     setError("");
+    // Every top-level tab starts at the top, including on mobile.
+    if(typeof window!=="undefined"&&window.scrollY>160)window.scrollTo({top:0,behavior:"instant"});
   };
   async function logOut() {
     try {
@@ -506,7 +503,7 @@ export default function FugthWorkspace() {
   }
   if (!ready || !user)
     return (
-      <main className="fugth-app grid min-h-screen place-items-center bg-white text-sm text-black">
+      <main className="fugth-workspace grid min-h-screen place-items-center bg-[#f0f9ff] text-sm text-[#234e6a]">
         Opening your FUGTH workspace…
       </main>
     );
@@ -531,149 +528,11 @@ export default function FugthWorkspace() {
     : plan;
   const navigate = (id) => changePage(id);
   return (
-    <main className="fugth-app min-h-screen bg-white font-sans text-black">
-      {menuOpen && (
-        <button
-          type="button"
-          aria-label="Close navigation"
-          className="fixed inset-0 z-40 bg-[#f6f6f6]/70 backdrop-blur-sm lg:hidden"
-          onClick={() => setMenuOpen(false)}
-        />
-      )}
-      <div className="mx-auto flex min-h-screen max-w-[1900px]">
-        <aside
-          className={`fixed inset-y-0 left-0 z-50 flex w-[270px] shrink-0 flex-col border-r border-black bg-white px-4 pb-5 pt-6 text-black transition-transform lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 ${menuOpen ? "translate-x-0" : "-translate-x-full"}`}
-        >
-          <div className="flex items-center justify-between gap-3 px-2">
-            <Link href="/" className="flex items-center gap-3">
-              <span className="grid h-9 w-9 place-items-center border border-black text-sm font-black">
-                F
-              </span>
-              <span className="text-sm font-black uppercase tracking-[.16em]">
-                FUGTH
-              </span>
-            </Link>
-            <button
-              type="button"
-              onClick={() => setMenuOpen(false)}
-              className="p-2 lg:hidden"
-              aria-label="Close menu"
-            >
-              <Symbol name="close" />
-            </button>
-          </div>
-          <div className="mt-9 border border-black px-4 py-4">
-            <p className="text-[10px] font-bold uppercase tracking-[.18em]">
-              Your business
-            </p>
-            <p className="mt-2 truncate text-sm font-bold">{business}</p>
-            <p className="mt-1 text-[11px]">
-              {workspace.accountNumber
-                ? "Account #" + workspace.accountNumber
-                : "FUGTH workspace"}
-            </p>
-          </div>
-          <nav aria-label="Workspace" className="mt-8 flex-1 space-y-1">
-            {tabs.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => navigate(item.id)}
-                aria-current={page === item.id ? "page" : undefined}
-                className={`flex w-full items-center gap-3.5 rounded-xl px-4 py-3.5 text-left text-[13px] font-medium transition ${page === item.id ? "bg-[#efefef] text-[#111111] shadow-[0_10px_25px_rgba(27,185,179,.17)]" : "text-[#a8c0bd] hover:bg-[#333333] hover:text-white"}`}
-              >
-                <Symbol name={item.icon} />
-                {item.label}
-              </button>
-            ))}
-          </nav>
-          <div className="border-t border-[#444444] pt-4">
-            <Link
-              href="/plans"
-              className="flex items-center justify-between gap-2 rounded-xl px-4 py-3 text-xs text-[#cecece] hover:bg-[#203343]"
-            >
-              Subscription{" "}
-              <span className="font-semibold text-[#fafafa]">
-                {workspace.billingActive ? "Active" : "Manage →"}
-              </span>
-            </Link>
-            <button
-              type="button"
-              onClick={logOut}
-              className="mt-1 flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-[13px] font-medium text-[#dedede] hover:bg-[#203343]"
-            >
-              <Symbol name="logout" />
-              Log out
-            </button>
-          </div>
-        </aside>
-        <div className="flex min-w-0 flex-1 flex-col">
-          <header className="sticky top-0 z-30 flex min-h-[72px] items-center justify-between gap-2 border-b border-black bg-white px-4 text-black sm:px-8 lg:px-10">
-            <div className="flex min-w-0 items-center gap-3">
-              <button
-                type="button"
-                className="grid h-10 w-10 place-items-center rounded-xl border border-[#494949] bg-[#222222] text-white lg:hidden"
-                aria-label="Open menu"
-                onClick={() => setMenuOpen(true)}
-              >
-                <Symbol name="menu" />
-              </button>
-              <p className="truncate text-[15px] font-semibold tracking-[-.03em]">
-                {tabs.find((t) => t.id === page)?.label || "Home"}
-              </p>
-            </div>
-            <div className="flex shrink-0 items-center gap-2">
-              {founder && (
-                <label className="flex items-center gap-1 rounded-xl border border-[#888888] bg-[#2b2b2b] px-2 py-2 text-[10px] font-bold text-[#f5f5f5] sm:gap-2 sm:px-3 sm:text-[11px]">
-                  <span className="hidden sm:inline">Customer view</span>
-                  <select
-                    aria-label="Preview customer plan"
-                    value={previewPlan ?? "real"}
-                    onChange={(event) =>
-                      setPreviewPlan(
-                        event.target.value === "real"
-                          ? null
-                          : event.target.value,
-                      )
-                    }
-                    className="max-w-[88px] bg-transparent text-[10px] font-bold outline-none sm:max-w-none sm:text-[11px]"
-                  >
-                    <option value="real">Admin</option>
-                    <option value="none">Zero · $0</option>
-                    <option value="website">Website · $59</option>
-                    <option value="starter">Essential · $149 founding</option>
-                    <option value="growth">Growth · $399</option>
-                    <option value="elite">Elite · $799</option>
-                  </select>
-                </label>
-              )}
-              {founder && (
-                <button
-                  type="button"
-                  onClick={() => navigate("accounts")}
-                  className="hidden rounded-xl border border-[#888888] bg-[#2b2b2b] px-3.5 py-2.5 text-[12px] font-bold text-[#f5f5f5] hover:bg-[#dae9d6] sm:block"
-                >
-                  Accounts
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => navigate("website")}
-                className="hidden rounded-xl border border-[#494949] bg-[#2a2a2a] px-3.5 py-2.5 text-[12px] font-semibold text-white hover:bg-[#f0f3ec] md:block"
-              >
-                My website <span aria-hidden="true">↗</span>
-              </button>
-              <button
-                type="button"
-                onClick={logOut}
-                className="rounded-xl bg-[#262626] px-3 py-2.5 text-[11px] font-semibold text-[#f5f5f5] hover:bg-[#435345] sm:px-3.5 sm:text-[12px]"
-              >
-                Log out
-              </button>
-            </div>
-          </header>
-          <div className="mx-auto w-full max-w-[1500px] flex-1 bg-[radial-gradient(ellipse_at_85%_0%,rgba(0,0,0,.045),transparent_40%)] px-4 pb-16 pt-8 sm:px-8 sm:pt-10 lg:px-10">
-            {founderVerificationNeeded && (
+    <main className="fugth-workspace min-h-screen bg-[#f5faff] font-sans text-[#1b3b4d]">
+      <WorkspaceNavigation tabs={tabs} page={page} business={business} accountNumber={workspace.accountNumber||""} displayPlan={displayPlan}
+        founder={founder} previewPlan={previewPlan} onPreviewPlan={setPreviewPlan} onChangePage={navigate} onLogout={logOut}/>
+      <div className="fugth-workspace-content mx-auto w-full max-w-[1600px] px-4 pb-14 pt-8 sm:px-8 sm:pt-10 lg:px-12">
+        {founderVerificationNeeded && (
               <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[#e6d5a8] bg-[#fffaf0] p-5">
                 <div>
                   <p className="text-sm font-bold text-[#6e5430]">
@@ -720,157 +579,8 @@ export default function FugthWorkspace() {
               </div>
             )}
             {page === "home" && (
-              <div className="space-y-8">
-                <section className="rounded-[26px] border border-[#e2e6dd] bg-[#eaf0e7] px-6 py-9 sm:px-10 sm:py-12">
-                  <div className="flex flex-wrap items-start justify-between gap-7">
-                    <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-[.21em] text-[#7a8a76]">
-                        YOUR SPACE TO GROW
-                      </p>
-                      <h1 className="mt-4 max-w-[700px] text-[clamp(2.4rem,5.4vw,4.8rem)] font-semibold leading-[1.02] tracking-[-.08em] text-[#283429]">
-                        Good to see you
-                        <span className="font-serif font-normal italic">
-                          {" "}
-                          again.
-                        </span>
-                      </h1>
-                      <p className="mt-5 max-w-lg text-sm leading-7 text-[#657561]">
-                        Your calls, customers and business website, in one
-                        simple place.
-                      </p>
-                    </div>
-                    <span className="rounded-full border border-[#c9d5c5] bg-[#f8faf7] px-4 py-2 text-[11px] font-semibold text-[#566b53]">
-                      {displayPlan}
-                    </span>
-                  </div>
-                  <div className="mt-9 flex flex-wrap gap-3">
-                    <button
-                      type="button"
-                      onClick={() => navigate("calls")}
-                      className="inline-flex items-center gap-2 rounded-xl bg-[#27382b] px-5 py-3.5 text-sm font-semibold text-white"
-                    >
-                      See your calls <Symbol name="arrow" size={15} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => navigate("website")}
-                      className="rounded-xl border border-[#bfcbbb] bg-white px-5 py-3.5 text-sm font-semibold text-[#293c2b]"
-                    >
-                      Edit your website
-                    </button>
-                  </div>
-                </section>
-                <div className="grid gap-4 md:grid-cols-3">
-                  {[
-                    {
-                      title: "Calls",
-                      value: calls.length,
-                      sub: "Recent calls in your inbox",
-                      target: "calls",
-                    },
-                    {
-                      title: "Customers",
-                      value: leads.length,
-                      sub: "Saved customer leads",
-                      target: "customers",
-                    },
-                    {
-                      title: "Appointments",
-                      value: appointments.length,
-                      sub: "Recent saved appointments",
-                      target: "customers",
-                    },
-                  ].map((item) => (
-                    <button
-                      key={item.title}
-                      type="button"
-                      onClick={() => navigate(item.target)}
-                      className={`${panel} p-6 text-left transition hover:border-[#becbb5] hover:shadow-[0_10px_35px_rgba(41,53,36,.04)]`}
-                    >
-                      <p className="text-sm text-[#868b80]">{item.title}</p>
-                      <p className="mt-5 text-4xl font-semibold tracking-[-.07em] text-[#293429]">
-                        {item.value}
-                      </p>
-                      <p className="mt-2 text-xs text-[#a0a59a]">{item.sub}</p>
-                    </button>
-                  ))}
-                </div>
-                {notifications.length > 0 && (
-                  <section className="rounded-[22px] border border-[#cee1c9] bg-[#edf5e9] p-5 sm:p-6">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-[#788e75]">
-                          AUTOMATIC CALL ALERTS
-                        </p>
-                        <h3 className="mt-2 text-lg font-semibold text-[#2a4a31]">
-                          Your receptionist captured {notifications.length}{" "}
-                          recent updates
-                        </h3>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => navigate("customers")}
-                        className="rounded-xl bg-[#2e5139] px-4 py-3 text-xs font-semibold text-white"
-                      >
-                        Review leads ↗
-                      </button>
-                    </div>
-                    <div className="mt-4 space-y-2">
-                      {notifications.slice(0, 3).map((n) => (
-                        <div
-                          key={n.id}
-                          className="rounded-xl border border-[#d8e6d4] bg-white p-3 text-xs leading-6 text-[#607960]"
-                        >
-                          {n.text || "New call activity"}{" "}
-                          <span className="ml-2 text-[10px] text-[#90a08b]">
-                            {freshDate(n.createdAt)}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </section>
-                )}
-                <section className={`${panel} p-6 sm:p-8`}>
-                  <div className="mb-5 flex items-center justify-between gap-4">
-                    <h3 className="text-lg font-semibold">
-                      What happened recently
-                    </h3>
-                    <button
-                      type="button"
-                      onClick={() => navigate("calls")}
-                      className="text-xs font-semibold text-[#53684e]"
-                    >
-                      View all calls →
-                    </button>
-                  </div>
-                  {calls.length ? (
-                    calls
-                      .slice(0, 4)
-                      .map((c) => (
-                        <ListRecord
-                          key={c.id}
-                          title={
-                            c.callerName ||
-                            c.customerName ||
-                            c.from ||
-                            c.phoneNumber ||
-                            "Customer call"
-                          }
-                          detail={[
-                            c.summary || c.transcriptSummary || "Call recorded",
-                            freshDate(c.createdAt),
-                          ].join(" · ")}
-                          meta={c.status || c.intent || "Call"}
-                        />
-                      ))
-                  ) : (
-                    <Empty
-                      title="Your calls will appear here"
-                      description="Once your phone line is connected, you'll see your recent call records and follow-up information."
-                    />
-                  )}
-                </section>
-              </div>
+              <WorkspaceOverview business={business} displayPlan={displayPlan} workspace={workspace}
+                calls={calls} leads={leads} appointments={appointments} notifications={notifications} navigate={navigate}/>
             )}
             {page === "calls" && (
               <div>
@@ -1537,11 +1247,11 @@ export default function FugthWorkspace() {
                 description="Administration is available only to authorized FUGTH team accounts."
               />
             )}
-          </div>
-          <footer className="border-t border-[#333333] bg-[#141414] px-4 py-6 text-center text-[11px] text-[#cccccc] sm:px-8">
-            FUGTH Management · A calmer way to run your business
-          </footer>
         </div>
+        <footer className="mt-9 flex flex-wrap items-center justify-between gap-3 border-t border-[#d9e8f1] pt-6 text-[11px] text-[#708b9a]">
+          <span>© 2026 FUGTH Chat LLC · One business. One connected workspace.</span>
+          <div className="flex flex-wrap gap-4"><Link href="/privacy" className="hover:underline">Privacy</Link><Link href="/terms" className="hover:underline">Terms</Link><Link href="/cookies" className="hover:underline">Cookies</Link><Link href="/plans" className="font-bold hover:underline">Subscriptions ↗</Link></div>
+        </footer>
       </div>
     </main>
   );
