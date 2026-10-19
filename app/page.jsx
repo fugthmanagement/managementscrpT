@@ -1,377 +1,78 @@
 "use client";
-
 import Link from "next/link";
-import { useState } from "react";
+import {useState} from "react";
 import {getIndustryPhotos} from "../lib/site-images";
+import {CookieSettingsButton} from "../components/cookie-consent";
 
-const productAreas = [
-  [
-    "01",
-    "Calls",
-    "Test the receptionist, review recordings, read transcripts, and move every useful conversation forward.",
-  ],
-  [
-    "02",
-    "Customers",
-    "Keep caller details, leads, notes, follow-ups, and appointments in one working list.",
-  ],
-  [
-    "03",
-    "Marketing",
-    "Prepare outreach, organize prospects, and keep the next action visible without a separate maze of tools.",
-  ],
-  [
-    "04",
-    "Website",
-    "Build, preview, save, and publish a business website from the same account that manages the business.",
-  ],
+const pictures={
+ crew:getIndustryPhotos("contractor")[1]||getIndustryPhotos("roofing")[0],
+ detail:getIndustryPhotos("contractor")[0]||getIndustryPhotos("hvac")[0],
+ shop:getIndustryPhotos("automotive")[0]||getIndustryPhotos("landscaping")[0]
+};
+const features=[
+ {id:"calls",number:"01",title:"Never lose track of a call.",tag:"CALLS & RECEPTION",desc:"Give unanswered calls a clear next step. Review transcripts, customer details and follow-up needs together.",icon:"☎"},
+ {id:"leads",number:"02",title:"From inquiry to opportunity.",tag:"LEADS & FOLLOW-UP",desc:"Keep new contacts, quote requests and upcoming appointments organized without another scattered inbox.",icon:"↗"},
+ {id:"sites",number:"03",title:"Your website works with your desk.",tag:"WEBSITE STUDIO",desc:"Choose a polished industry layout, preview it on mobile and keep your business details connected.",icon:"◇"}
 ];
-
-const workflow = [
-  [
-    "A call comes in",
-    "Your FUGTH number answers with the business details you approved.",
-  ],
-  [
-    "The request becomes a record",
-    "The caller, reason, transcript, summary, and booking details stay together.",
-  ],
-  [
-    "You decide what happens next",
-    "Follow up, save the customer, review the appointment, or update the website.",
-  ],
-];
-
-const plans = [
-  ["Low", "$49", "A focused starting point for one business."],
-  ["Mid", "$149", "The complete operating workspace for a growing team."],
-  ["High", "$499", "More automation, access, and hands-on support."],
-];
-
-function Arrow() {
-  return <span aria-hidden="true">→</span>;
-}
-
-export default function Home() {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const dashboardPhoto=getIndustryPhotos("contractor")[1]||getIndustryPhotos("roofing")[0];
-
-  return (
-    <main className="fugth-app min-h-screen bg-white text-black">
-      <header className="fugth-topbar sticky top-0 z-40 border-b border-black bg-white">
-        <div className="mx-auto flex h-16 w-full max-w-[1440px] items-center justify-between px-4 sm:h-20 sm:px-8 lg:px-12">
-          <Link
-            href="/"
-            className="flex items-center gap-3"
-            aria-label="FUGTH Management home"
-          >
-            <span className="grid h-9 w-9 place-items-center border border-black text-sm font-black">
-              F
-            </span>
-            <span className="text-sm font-black uppercase tracking-[.18em]">
-              FUGTH Management
-            </span>
-          </Link>
-          <p className="hidden text-[10px] font-black uppercase tracking-[.24em] text-zinc-500 lg:block">Business operations system</p>
-          <div className="hidden items-center gap-3 sm:flex">
-            <Link
-              href="/login"
-              className="px-4 py-3 text-xs font-bold uppercase tracking-[.12em]"
-            >
-              Log in
-            </Link>
-            <Link
-              href="/login?signup=1"
-              className="fugth-topbar-cta border border-black px-4 py-3 text-xs font-bold uppercase tracking-[.12em]"
-            >
-              Create account
-            </Link>
-          </div>
-          <button
-            type="button"
-            className="grid h-10 w-10 place-items-center border border-black sm:hidden"
-            onClick={() => setMenuOpen((value) => !value)}
-            aria-expanded={menuOpen}
-            aria-label="Toggle navigation"
-          >
-            {menuOpen ? "×" : "≡"}
-          </button>
-        </div>
-        {menuOpen ? (
-          <nav className="grid border-t border-black px-4 py-4 text-sm font-bold sm:hidden">
-            {[
-              ["Platform", "#platform"],
-              ["Workflow", "#workflow"],
-              ["Website Studio", "#studio"],
-              ["Plans", "#plans"],
-            ].map(([label, href]) => (
-              <a
-                key={href}
-                href={href}
-                onClick={() => setMenuOpen(false)}
-                className="border-b border-black py-4"
-              >
-                {label}
-              </a>
-            ))}
-            <Link href="/login" className="py-4">
-              Log in
-            </Link>
-          </nav>
-        ) : null}
-      </header>
-
-      <section className="fugth-home-hero border-b border-black">
-        <nav className="fugth-center-tabs" aria-label="FUGTH sections">
-          <a className="is-active" href="#platform">Overview</a>
-          <a href="#workflow">Calls & leads</a>
-          <a href="#studio">Website maker</a>
-          <a href="#plans">Plans</a>
-          <a href="#workflow">How it works</a>
-        </nav>
-        <div className="mx-auto grid min-h-[calc(100vh-80px)] w-full max-w-[1440px] lg:grid-cols-[1.1fr_.9fr]">
-          <div className="flex flex-col justify-between border-black px-4 py-12 sm:px-8 sm:py-16 lg:border-r lg:px-12 lg:py-20">
-            <p className="text-xs font-bold uppercase tracking-[.2em]">
-              Business management, without the clutter.
-            </p>
-            <div className="my-16 max-w-5xl lg:my-24">
-              <h1 className="text-[clamp(3.8rem,9vw,8.6rem)] font-black leading-[.82] tracking-[-.085em]">
-                One place.
-                <br />
-                Every next step.
-              </h1>
-              <p className="mt-10 max-w-2xl text-base leading-8 sm:text-lg">
-                FUGTH brings calls, customers, appointments, outreach, and your
-                business website into one direct workspace.
-              </p>
-            </div>
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <Link
-                href="/login?signup=1"
-                className="flex min-h-14 items-center justify-between border border-black px-5 text-sm font-bold sm:min-w-64"
-              >
-                Start your workspace <Arrow />
-              </Link>
-              <a
-                href="#platform"
-                className="flex min-h-14 items-center justify-between border border-black px-5 text-sm font-bold sm:min-w-56"
-              >
-                See the platform <Arrow />
-              </a>
-            </div>
-          </div>
-          <div className="fugth-preview-shell border-t border-black lg:border-t-0">
-            <div className="flex items-center justify-between border-b border-black px-5 py-4 text-xs font-bold uppercase tracking-[.14em] sm:px-8"><span>FUGTH / Live desk</span><span className="fugth-status-dot">Today</span></div>
-            <div className="p-4 sm:p-6">
-              <div className="grid gap-3 sm:grid-cols-3"><article className="fugth-metric"><span>Missed calls</span><strong>03</strong><small>Need a callback</small></article><article className="fugth-metric fugth-metric-blue"><span>New leads</span><strong>12</strong><small>+4 this week</small></article><article className="fugth-metric"><span>Booked</span><strong>06</strong><small>Next 7 days</small></article></div>
-              <div className="mt-4 grid gap-4 lg:grid-cols-[.92fr_1.08fr]">
-                <section className="fugth-call-card"><div className="flex items-center justify-between"><p className="text-[10px] font-black uppercase tracking-[.16em]">Needs attention</p><span className="fugth-status-dot">Live</span></div><h2>Missed call from<br/><span>(305) 555-0194</span></h2><p>“Need an estimate for a roof repair this week.”</p><div className="mt-5 flex gap-2"><button type="button">Call back</button><button type="button" className="fugth-quiet-button">View lead</button></div></section>
-                <section className="fugth-photo-card"><img src={dashboardPhoto?.src} alt={dashboardPhoto?.alt||"A local contractor at work"}/><div><p>Website activity</p><strong>7 visitors asked about estimates</strong><span>Today · Your website works with your calls</span></div></section>
-              </div>
-              <section className="fugth-lead-list mt-4"><div className="flex items-center justify-between"><p>Recent lead activity</p><button type="button">Open all</button></div><div><span className="fugth-avatar">JM</span><p><strong>Jordan Mitchell</strong><small>Requested a repair estimate</small></p><em>New</em></div><div><span className="fugth-avatar fugth-avatar-blue">SC</span><p><strong>Sarah Collins</strong><small>Asked to reschedule an appointment</small></p><em>2m</em></div></section>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section id="platform" className="border-b border-black">
-        <div className="mx-auto w-full max-w-[1440px] px-4 py-20 sm:px-8 sm:py-28 lg:px-12">
-          <div className="grid gap-10 lg:grid-cols-[.75fr_1.25fr] lg:gap-20">
-            <p className="text-xs font-bold uppercase tracking-[.2em]">
-              The full platform
-            </p>
-            <div>
-              <h2 className="max-w-5xl text-5xl font-black leading-[.9] tracking-[-.07em] sm:text-7xl lg:text-8xl">
-                Built around the work you actually do.
-              </h2>
-              <p className="mt-8 max-w-2xl text-base leading-8">
-                No decorative dashboard. No disconnected feature pile. Each part
-                of the workspace leads to a concrete business action.
-              </p>
-            </div>
-          </div>
-          <div className="mt-16 grid border-l border-t border-black sm:grid-cols-2 lg:grid-cols-4">
-            {productAreas.map(([number, title, copy]) => (
-              <article
-                key={title}
-                className="min-h-72 border-b border-r border-black p-6 sm:p-8"
-              >
-                <p className="text-xs font-bold">{number}</p>
-                <h3 className="mt-16 text-3xl font-black tracking-[-.05em]">
-                  {title}
-                </h3>
-                <p className="mt-5 text-sm leading-7">{copy}</p>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section id="workflow" className="border-b border-black">
-        <div className="mx-auto grid w-full max-w-[1440px] lg:grid-cols-[.72fr_1.28fr]">
-          <div className="border-black px-4 py-20 sm:px-8 lg:border-r lg:px-12 lg:py-28">
-            <p className="text-xs font-bold uppercase tracking-[.2em]">
-              How it works
-            </p>
-            <h2 className="mt-8 text-5xl font-black leading-[.9] tracking-[-.07em] sm:text-7xl">
-              From hello to handled.
-            </h2>
-          </div>
-          <div className="border-t border-black lg:border-t-0">
-            {workflow.map(([title, copy], index) => (
-              <article
-                key={title}
-                className="grid gap-6 border-b border-black px-4 py-10 last:border-b-0 sm:grid-cols-[70px_1fr] sm:px-8 lg:px-12"
-              >
-                <p className="text-xs font-bold">0{index + 1}</p>
-                <div>
-                  <h3 className="text-2xl font-black tracking-[-.04em]">
-                    {title}
-                  </h3>
-                  <p className="mt-3 max-w-xl text-sm leading-7">{copy}</p>
-                </div>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section id="studio" className="border-b border-black">
-        <div className="mx-auto grid w-full max-w-[1440px] lg:grid-cols-2">
-          <div className="border-black px-4 py-20 sm:px-8 lg:border-r lg:px-12 lg:py-28">
-            <p className="text-xs font-bold uppercase tracking-[.2em]">
-              Website Studio
-            </p>
-            <h2 className="mt-8 text-5xl font-black leading-[.9] tracking-[-.07em] sm:text-7xl">
-              Your public site and private tools, connected.
-            </h2>
-            <p className="mt-8 max-w-xl text-base leading-8">
-              Choose a real layout, edit the content, manage the images, preview
-              every breakpoint, and publish when the business is ready.
-            </p>
-            <Link
-              href="/login"
-              className="mt-10 inline-flex min-h-14 items-center gap-16 border border-black px-5 text-sm font-bold"
-            >
-              Open Website Studio <Arrow />
-            </Link>
-          </div>
-          <div className="border-t border-black p-4 sm:p-8 lg:border-t-0 lg:p-12">
-            <div className="border border-black">
-              <div className="flex items-center justify-between border-b border-black px-4 py-3 text-[10px] font-bold uppercase tracking-[.16em]">
-                <span>Desktop preview</span>
-                <span>Draft saved</span>
-              </div>
-              <div className="grid sm:grid-cols-[160px_1fr]">
-                <div className="border-b border-black p-4 sm:border-b-0 sm:border-r">
-                  <p className="text-[10px] font-bold uppercase tracking-[.14em]">
-                    Layout
-                  </p>
-                  {["Service Pro", "Care Pro", "Studio Pro"].map(
-                    (name, index) => (
-                      <div
-                        key={name}
-                        className={`mt-4 border border-black p-3 text-xs font-bold ${index === 0 ? "underline underline-offset-4" : ""}`}
-                      >
-                        {name}
-                      </div>
-                    ),
-                  )}
-                </div>
-                <div>
-                  <div className="flex items-center justify-between border-b border-black p-4">
-                    <b>North Star Electric</b>
-                    <span className="text-xs">Menu</span>
-                  </div>
-                  <div className="p-6 sm:p-10">
-                    <p className="text-[10px] font-bold uppercase tracking-[.16em]">
-                      Electrical work, clearly done
-                    </p>
-                    <p className="mt-6 text-4xl font-black leading-[.9] tracking-[-.07em] sm:text-6xl">
-                      Powering the places that matter.
-                    </p>
-                    <div className="mt-8 inline-block border border-black px-4 py-3 text-xs font-bold">
-                      Request an estimate
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-3 border-t border-black">
-                    <div className="h-20 border-r border-black" />
-                    <div className="h-20 border-r border-black" />
-                    <div className="h-20" />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section id="plans" className="border-b border-black">
-        <div className="mx-auto w-full max-w-[1440px] px-4 py-20 sm:px-8 sm:py-28 lg:px-12">
-          <div className="flex flex-col justify-between gap-8 lg:flex-row lg:items-end">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[.2em]">
-                Plans
-              </p>
-              <h2 className="mt-6 text-5xl font-black leading-[.9] tracking-[-.07em] sm:text-7xl">
-                Start where you are.
-              </h2>
-            </div>
-            <p className="max-w-md text-sm leading-7">
-              Choose the level that fits now. The workspace stays familiar as
-              the business grows.
-            </p>
-          </div>
-          <div className="mt-14 grid border-l border-t border-black lg:grid-cols-3">
-            {plans.map(([name, price, copy]) => (
-              <article
-                key={name}
-                className="flex min-h-96 flex-col border-b border-r border-black p-6 sm:p-8"
-              >
-                <p className="text-xs font-bold uppercase tracking-[.16em]">
-                  {name}
-                </p>
-                <p className="mt-10 text-6xl font-black tracking-[-.08em]">
-                  {price}
-                </p>
-                <p className="mt-2 text-xs">per month</p>
-                <p className="mt-8 max-w-sm text-sm leading-7">{copy}</p>
-                <Link
-                  href="/plans"
-                  className="mt-auto flex items-center justify-between border-t border-black pt-5 text-sm font-bold"
-                >
-                  View {name} <Arrow />
-                </Link>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="border-b border-black">
-        <div className="mx-auto flex w-full max-w-[1440px] flex-col justify-between gap-12 px-4 py-20 sm:px-8 sm:py-28 lg:flex-row lg:items-end lg:px-12">
-          <h2 className="max-w-5xl text-5xl font-black leading-[.88] tracking-[-.07em] sm:text-7xl lg:text-8xl">
-            Run the business.
-            <br />
-            Keep the work clear.
-          </h2>
-          <Link
-            href="/login?signup=1"
-            className="flex min-h-16 shrink-0 items-center gap-16 border border-black px-6 text-sm font-bold"
-          >
-            Create your account <Arrow />
-          </Link>
-        </div>
-      </section>
-      <footer className="mx-auto flex w-full max-w-[1440px] flex-col justify-between gap-6 px-4 py-8 text-xs font-bold uppercase tracking-[.12em] sm:flex-row sm:px-8 lg:px-12">
-        <span>FUGTH Management</span>
-        <div className="flex flex-wrap gap-5">
-          <Link href="/login">Log in</Link>
-          <Link href="/plans">Plans</Link>
-          <a href="#studio">Website Studio</a>
-        </div>
-        <span>© 2026</span>
-      </footer>
-    </main>
-  );
+const activity={
+ calls:{eyebrow:"INBOUND CALL • EXAMPLE",name:"New service inquiry",detail:"Customer needs an estimate for electrical panel work.",stat:"Follow-up requested",tag:"Needs review"},
+ leads:{eyebrow:"NEW LEAD • EXAMPLE",name:"Estimate request",detail:"Customer is interested in residential installation.",stat:"Contact captured",tag:"Lead created"},
+ sites:{eyebrow:"WEBSITE VIEW • EXAMPLE",name:"Your business, online",detail:"An industry-specific preview with a clear request path.",stat:"Mobile-ready layout",tag:"Preview"}
+};
+function Arrow({diagonal=false}){return <span aria-hidden="true" className="inline-block">{diagonal?"↗":"→"}</span>}
+function Dot({soft=false}){return <span aria-hidden="true" className={"inline-block h-2 w-2 rounded-full "+(soft?"bg-[#a9dff9]":"bg-[#55acdb]")}/>}
+function FeatureIcon({kind}){return <span aria-hidden="true" className="grid h-11 w-11 place-items-center rounded-2xl border border-[#acd8ef] bg-[#e5f6ff] text-xl font-black text-[#226687]">{kind}</span>}
+export default function Home(){
+ const [menuOpen,setMenuOpen]=useState(false),[panel,setPanel]=useState("calls");
+ const selected=activity[panel];
+ const links=[["Overview","#home"],["Platform","#platform"],["How it works","#workflow"],["Website Maker","#studio"],["Pricing","#plans"]];
+ return <main className="fugth-public overflow-x-clip bg-[#fcfdff] text-[#14212e]">
+  <header className="fugth-public-header sticky top-0 z-[90] border-b border-white/10 bg-[#101923]/95 text-white backdrop-blur-xl">
+   <div className="mx-auto flex min-h-[72px] max-w-[1440px] items-center justify-between gap-3 px-4 sm:px-7 lg:min-h-[84px] lg:px-10">
+    <Link href="/" aria-label="FUGTH Management home" className="flex shrink-0 items-center gap-3">
+     <span className="relative grid h-10 w-10 place-items-center rounded-[13px] bg-[#b9e5fb] text-xl font-black text-[#112d3c]">F<span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border-2 border-[#101923] bg-[#f0be86]"/></span>
+     <span className="flex flex-col leading-tight"><strong className="text-[13px] font-black tracking-[-.02em] sm:text-sm">FUGTH<span className="ml-1 font-medium text-[#a7c4d4]">Management</span></strong><small className="mt-1 hidden text-[9px] font-bold uppercase tracking-[.17em] text-[#8cacc0] sm:block">Business, handled.</small></span>
+    </Link>
+    <nav className="fugth-public-pill hidden items-center gap-1 rounded-full border border-white/15 bg-white/10 p-1.5 lg:flex" aria-label="Primary navigation">{links.map(([name,href])=><a key={href} href={href} className="rounded-full px-4 py-2.5 text-[11px] font-bold text-[#d5e7f0] transition hover:bg-white/15 hover:text-white focus-visible:outline focus-visible:outline-[#b9e5fb]">{name}</a>)}</nav>
+    <div className="flex shrink-0 items-center gap-2"><Link href="/login" className="rounded-full px-3 py-2.5 text-xs font-bold text-white hover:bg-white/10 sm:px-4">Log in</Link><Link href="/login?signup=1" className="rounded-full bg-[#b9e5fb] px-3 py-2.5 text-xs font-black text-[#123b50] shadow-[0_3px_16px_rgba(185,229,251,.12)] transition hover:bg-[#d7f1fe] sm:px-5">Get started <Arrow diagonal/></Link><button onClick={()=>setMenuOpen(x=>!x)} aria-expanded={menuOpen} aria-label={menuOpen?"Close menu":"Open menu"} type="button" className="grid h-10 w-10 place-items-center rounded-full border border-white/20 text-lg lg:hidden">{menuOpen?"×":"☰"}</button></div>
+   </div>
+   <nav className={"fugth-public-mobile-nav border-t border-white/10 px-3 py-2 lg:hidden "+(menuOpen?"flex flex-wrap justify-center gap-2":"flex gap-1 overflow-x-auto")} aria-label="Mobile navigation">{links.map(([name,href])=><a key={href} href={href} onClick={()=>setMenuOpen(false)} className="shrink-0 rounded-full px-3 py-2 text-[11px] font-bold text-[#cee7f4] hover:bg-white/15">{name}</a>)}</nav>
+  </header>
+  <section id="home" className="fugth-public-hero relative isolate scroll-mt-32 overflow-hidden bg-[#111e2b] text-white">
+   <div aria-hidden="true" className="fugth-public-orb"/>
+   <div aria-hidden="true" className="pointer-events-none absolute -left-40 top-0 h-96 w-96 rounded-full bg-[#5db5e9]/10 blur-[95px]"/>
+   <div className="relative mx-auto grid max-w-[1440px] gap-10 px-5 pb-20 pt-16 sm:px-9 sm:pt-24 lg:min-h-[720px] lg:grid-cols-[.95fr_1.05fr] lg:items-center lg:gap-16 lg:px-12 lg:pb-24">
+    <div className="relative z-10 max-w-2xl">
+     <div className="inline-flex items-center gap-2 rounded-full border border-[#7dc7ec]/30 bg-[#2e5269]/40 px-4 py-2.5 text-[10px] font-black uppercase tracking-[.18em] text-[#b9e5fb]"><Dot soft/> AI receptionist + business workspace</div>
+     <h1 className="mt-9 text-[clamp(3.5rem,7vw,7.5rem)] font-black leading-[.95] tracking-[-.085em]">Every call.<br/>Every lead.<br/><span className="fugth-public-sky-text">One place.</span></h1>
+     <p className="mt-7 max-w-[520px] text-base leading-8 text-[#b6cbd8] sm:text-lg">Keep up with the work you do—and the customers looking for you. FUGTH brings your calls, leads, appointments, and business website together in one clear workspace.</p>
+     <div className="mt-9 flex flex-wrap gap-3"><Link href="/login?signup=1" className="inline-flex min-h-14 items-center gap-9 rounded-full bg-[#b9e5fb] px-7 py-4 text-sm font-black text-[#10374c] transition hover:-translate-y-0.5 hover:bg-[#d5f1ff]">Start your workspace <Arrow/></Link><a href="#studio" className="inline-flex min-h-14 items-center gap-5 rounded-full border border-white/30 px-7 py-4 text-sm font-bold text-white transition hover:border-[#b9e5fb] hover:bg-white/10">Explore Website Maker <Arrow diagonal/></a></div>
+     <div className="mt-10 flex flex-wrap items-center gap-x-6 gap-y-3 text-xs font-semibold text-[#a6c4d4]"><span className="inline-flex items-center gap-2"><span className="text-[#b9e5fb]">✓</span> Built for service businesses</span><span className="inline-flex items-center gap-2"><span className="text-[#b9e5fb]">✓</span> Website preview before commitment</span></div>
+    </div>
+    <div className="relative z-10 mx-auto w-full max-w-[720px] lg:max-w-none">
+     <div className="fugth-public-dashboard relative rounded-[28px] border border-white/15 bg-[#f5faff] p-3 text-[#183041] shadow-[0_32px_95px_rgba(0,0,0,.38)] sm:p-4">
+      <div className="flex items-center justify-between gap-2 rounded-xl bg-[#182b39] px-4 py-3 text-white"><div className="flex items-center gap-2"><span className="grid h-7 w-7 place-items-center rounded-lg bg-[#b9e5fb] text-xs font-black text-[#204059]">F</span><strong className="text-xs font-black">Live Desk</strong><span className="hidden text-[10px] text-[#a7becc] sm:inline">/ Overview</span></div><div className="flex items-center gap-2 text-[10px] font-bold text-[#b8dff3]"><Dot/> Sample workspace</div></div>
+      <div className="mt-3 flex gap-2 overflow-x-auto pb-1">{[["calls","Calls"],["leads","Leads"],["sites","Website"]].map(([id,label])=><button key={id} type="button" onClick={()=>setPanel(id)} aria-pressed={panel===id} className={"shrink-0 rounded-full px-4 py-2 text-[11px] font-black transition "+(panel===id?"bg-[#183849] text-white":"border border-[#dce8ef] bg-white text-[#547489] hover:bg-[#eaf7ff]")}>{label}</button>)}</div>
+      <div className="mt-3 grid grid-cols-3 gap-2 sm:gap-3">{[["03","Calls to review"],["12","New inquiries"],["06","Appointments"]].map(([n,label],i)=><article key={label} className={"rounded-2xl border p-3 sm:p-4 "+(i===1?"border-[#acdff6] bg-[#e4f5ff]":"border-[#deebf2] bg-white")}><span className="text-[9px] font-semibold text-[#678496] sm:text-[11px]">{label}</span><strong className="mt-2 block text-2xl font-black tracking-tight sm:text-4xl">{n}</strong><span className="mt-2 block text-[9px] text-[#608095]">{i===0?"Needs attention":i===1?"This week":"Coming up"}</span></article>)}</div>
+      <div className="mt-3 grid gap-3 sm:grid-cols-[1.06fr_.94fr]"><article className="flex min-h-[230px] flex-col rounded-[20px] border border-[#d8e6ef] bg-white p-5"><div className="flex items-center justify-between gap-2"><span className="text-[10px] font-black uppercase tracking-[.13em] text-[#387b9e]">{selected.eyebrow}</span><span className="rounded-full bg-[#e8f6fc] px-2.5 py-1 text-[9px] font-bold text-[#2b6e92]">{selected.tag}</span></div><h3 className="mt-6 text-2xl font-black tracking-[-.05em]">{selected.name}</h3><p className="mt-3 max-w-xs text-xs leading-6 text-[#5e7888]">{selected.detail}</p><div className="mt-auto flex items-center justify-between gap-2 border-t border-[#e4edf3] pt-4 text-[11px] font-bold text-[#3d718f]"><span>{selected.stat}</span><span>↗</span></div></article>
+      <div className="relative min-h-[230px] overflow-hidden rounded-[20px] bg-[#b8d5e4]"><img src={pictures.crew?.src} alt={pictures.crew?.alt||"Contractor working on a service project"} className="absolute inset-0 h-full w-full object-cover" loading="eager"/><div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#112434]/90 via-[#112434]/50 to-transparent p-4 pt-14 text-white"><p className="text-[10px] font-black uppercase tracking-[.12em] text-[#b9e5fb]">Connected workflow</p><p className="mt-1 text-sm font-bold">While you're on the job, the next inquiry still matters.</p></div></div></div>
+      <p className="px-1 pb-1 pt-3 text-[10px] text-[#8ba3b2]">Illustrative product experience. Figures and contacts shown here are examples, not actual live customer data.</p>
+     </div>
+     <div className="absolute -bottom-7 -left-5 hidden rotate-[-5deg] rounded-2xl border border-[#7ebfe3]/40 bg-[#193344] p-4 text-white shadow-2xl lg:block"><div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-[#b9e5fb] text-lg text-[#1a4964]">↗</span><div><p className="text-[10px] font-black uppercase tracking-widest text-[#a6d3e9]">One clear next step</p><p className="mt-1 text-xs font-bold">Never lose the follow-up.</p></div></div></div>
+    </div>
+   </div>
+  </section>
+  <section className="border-b border-[#e6edf2] bg-[#eff8fd] px-5 py-5 sm:px-9"><div className="mx-auto flex max-w-[1340px] flex-wrap items-center justify-center gap-x-10 gap-y-3 text-[11px] font-bold tracking-[.04em] text-[#4d758a]"><span>ONE ACCOUNT</span><span className="text-[#90bfd8]">✳</span><span>CALLS + CUSTOMERS</span><span className="text-[#90bfd8]">✳</span><span>BUSINESS WEBSITE</span><span className="text-[#90bfd8]">✳</span><span>YOUR NEXT STEP, ORGANIZED</span></div></section>
+  <section id="platform" className="scroll-mt-32 px-5 py-24 sm:px-9 lg:py-32"><div className="mx-auto max-w-[1340px]"><div className="grid gap-8 lg:grid-cols-[.72fr_1fr] lg:items-end"><div><p className="fugth-public-kicker">01 / THE PLATFORM</p><h2 className="mt-4 max-w-[650px] text-4xl font-black leading-[1.02] tracking-[-.065em] sm:text-6xl">Less chasing.<br/><span className="text-[#5197bc]">More moving forward.</span></h2></div><p className="max-w-[570px] text-base leading-8 text-[#617b8c]">A customer calls while you're busy. Someone requests a quote. A booking needs attention. FUGTH keeps those moments connected so the day feels more manageable.</p></div>
+   <div className="mt-12 grid gap-4 lg:grid-cols-3">{features.map((f,i)=><article key={f.id} className={"fugth-public-feature rounded-[27px] border p-7 sm:p-8 "+(i===1?"border-[#afdbf2] bg-[#eaf7ff]":"border-[#e2eaf0] bg-white")}><div className="flex items-start justify-between"><FeatureIcon kind={f.icon}/><span className="text-[11px] font-black tracking-[.15em] text-[#a0b6c3]">{f.number}</span></div><p className="mt-10 text-[10px] font-black uppercase tracking-[.19em] text-[#4184a8]">{f.tag}</p><h3 className="mt-3 text-[27px] font-black leading-[1.1] tracking-[-.055em]">{f.title}</h3><p className="mt-4 text-sm leading-7 text-[#637f90]">{f.desc}</p><button onClick={()=>{setPanel(f.id);document.getElementById("home")?.scrollIntoView({behavior:"smooth"})}} className="mt-7 flex items-center gap-3 text-xs font-black text-[#266f95]">Explore the dashboard preview <Arrow/></button></article>)}</div>
+  </div></section>
+  <section id="workflow" className="scroll-mt-32 bg-[#132331] px-5 py-24 text-white sm:px-9 lg:py-32"><div className="mx-auto grid max-w-[1340px] gap-12 lg:grid-cols-[.9fr_1.1fr] lg:items-center"><div><p className="fugth-public-kicker text-[#9bdcfb]">02 / BUILT AROUND YOUR DAY</p><h2 className="mt-4 text-4xl font-black leading-[1.02] tracking-[-.06em] sm:text-6xl">You're doing the work.<br/><span className="text-[#b9e5fb]">We help organize what comes next.</span></h2><p className="mt-6 max-w-lg text-sm leading-8 text-[#b5cbd8]">A practical workspace for service businesses, whether you're at a job site, in the shop or planning tomorrow's schedule.</p><Link href="/plans" className="mt-9 inline-flex items-center gap-5 rounded-full border border-[#85bad9] px-6 py-3.5 text-sm font-black text-white hover:bg-white/10">View options <Arrow/></Link></div>
+   <div className="overflow-hidden rounded-[28px] border border-white/15 bg-[#1b3546] p-3 shadow-2xl"><div className="relative h-[300px] overflow-hidden rounded-[18px] sm:h-[370px]"><img src={pictures.detail?.src} alt={pictures.detail?.alt||"Contractor working on a project"} loading="lazy" className="h-full w-full object-cover"/><div className="absolute bottom-4 left-4 right-4 rounded-2xl border border-white/25 bg-[#112b3d]/85 p-5 backdrop-blur-md"><p className="text-[10px] font-black tracking-[.16em] text-[#b9e5fb]">WHEN A CUSTOMER REACHES OUT</p><p className="mt-2 text-base font-bold">Capture the request → Keep the details → Follow through</p></div></div><div className="grid gap-2 p-4 sm:grid-cols-3">{[["01","A call comes in"],["02","The lead is organized"],["03","You decide what follows"]].map(([n,t])=><div key={n} className="rounded-xl border border-white/10 bg-white/5 p-4"><span className="text-xs font-black text-[#9bdcfb]">{n}</span><p className="mt-3 text-xs font-bold">{t}</p></div>)}</div></div>
+  </div></section>
+  <section id="studio" className="scroll-mt-32 px-5 py-24 sm:px-9 lg:py-32"><div className="mx-auto grid max-w-[1340px] items-center gap-12 lg:grid-cols-[.96fr_1.04fr]"><div className="relative overflow-hidden rounded-[30px] border border-[#cce1ed] bg-[#eef8fd] p-5 shadow-[0_20px_55px_rgba(42,84,115,.1)] sm:p-8"><div className="overflow-hidden rounded-[18px] border border-[#dbe9f0] bg-white shadow-xl"><div className="flex items-center justify-between border-b border-[#dbe8f0] px-4 py-3 text-xs font-bold"><span>Website Studio / Design preview</span><span className="rounded-full bg-[#e5f6ff] px-3 py-1 text-[10px] text-[#3e82a5]">Preview</span></div><div className="grid sm:grid-cols-[110px_1fr]"><div className="flex gap-1 border-b border-[#e0edf4] bg-[#f7fbfe] p-3 sm:flex-col sm:border-b-0 sm:border-r">{["Design","Pages","Content","Preview"].map((t,i)=><span key={t} className={"rounded-lg px-2 py-2 text-[9px] font-bold "+(i===0?"bg-[#d8f1ff] text-[#235e80]":"text-[#88a1b0]")}>{t}</span>)}</div><div><div className="flex items-center justify-between px-4 py-3"><strong className="text-[11px]">A better business website.</strong><span className="text-[10px]">☰</span></div><div className="relative h-[225px] overflow-hidden bg-[#d6e8f1]"><img src={pictures.shop?.src} alt={pictures.shop?.alt||"Business team at work"} className="h-full w-full object-cover" loading="lazy"/><div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#152c3e]/95 to-transparent p-5 pt-20 text-white"><small className="font-bold uppercase tracking-widest text-[#bbecff]">An industry-specific starting point</small><p className="mt-1 text-[25px] font-black leading-none tracking-tight sm:text-[33px]">Made for your work.<br/>Made to stand out.</p></div></div><div className="grid grid-cols-3 gap-2 p-4">{["Services","Projects","Contact"].map(x=><span key={x} className="rounded-lg border border-[#dfecf3] p-3 text-center text-[10px] font-bold text-[#497a94]">{x}</span>)}</div></div></div></div><div className="absolute -bottom-1 -right-1 hidden rounded-tl-2xl bg-[#b9e5fb] px-5 py-4 text-xs font-black text-[#235b78] sm:block">Different layouts. Not just different colors. ↗</div></div>
+   <div><p className="fugth-public-kicker">03 / FUGTH WEBSITE MAKER</p><h2 className="mt-4 max-w-xl text-4xl font-black leading-[1.02] tracking-[-.065em] sm:text-6xl">A website that feels like <span className="text-[#4f97be]">your business.</span></h2><p className="mt-6 max-w-lg text-sm leading-8 text-[#617b8c]">Choose a real page layout, personalize your services and messaging, and see how everything looks on a phone before you publish. The website and customer tools share one place.</p><div className="mt-7 flex flex-wrap gap-2">{["Distinct visual layouts","Mobile preview","Brand and section controls","Industry photography"].map(t=><span key={t} className="rounded-full border border-[#cde8f7] bg-[#edf9ff] px-4 py-2 text-[11px] font-bold text-[#3c7190]">✓ {t}</span>)}</div><Link href="/login?signup=1" className="mt-9 inline-flex items-center gap-7 rounded-full bg-[#152f42] px-7 py-4 text-sm font-black text-white hover:bg-[#244a61]">Explore Website Maker <Arrow/></Link></div>
+  </div></section>
+  <section id="plans" className="scroll-mt-32 border-y border-[#dbe9f2] bg-[#eaf7ff] px-5 py-20 sm:px-9 lg:py-24"><div className="mx-auto flex max-w-[1340px] flex-col items-start justify-between gap-7 lg:flex-row lg:items-center"><div><p className="fugth-public-kicker">04 / FIND YOUR STARTING POINT</p><h2 className="mt-4 text-4xl font-black tracking-[-.065em] sm:text-6xl">Build the right setup.<br/>Grow from there.</h2><p className="mt-4 max-w-lg text-sm leading-7 text-[#5c7a8b]">See current package prices, one-time setup costs and any add-ons before choosing a plan. No surprise checkout estimate.</p></div><div className="flex flex-wrap gap-3"><Link href="/plans" className="inline-flex items-center gap-8 rounded-full bg-[#132e40] px-7 py-4 text-sm font-black text-white">See pricing <Arrow/></Link><Link href="/login?signup=1" className="inline-flex items-center gap-8 rounded-full border border-[#87c1df] bg-white px-7 py-4 text-sm font-black text-[#205979]">Create free account <Arrow diagonal/></Link></div></div></section>
+  <footer className="bg-[#111c28] px-5 py-12 text-[#b4cbd8] sm:px-9"><div className="mx-auto grid max-w-[1340px] gap-9 md:grid-cols-[1.2fr_.8fr_.8fr]"><div><Link href="/" className="inline-flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-[#b9e5fb] text-xl font-black text-[#153c51]">F</span><span className="text-lg font-black text-white">FUGTH Management</span></Link><p className="mt-4 max-w-sm text-sm leading-7 text-[#a0bac9]">Tools that help service businesses answer, organize and follow through.</p><p className="mt-3 text-xs text-[#7f9aab]">FUGTH Chat LLC · Florida operations, United States</p></div><div><h3 className="text-xs font-black uppercase tracking-[.2em] text-white">Explore</h3><div className="mt-4 grid gap-3 text-sm"><Link href="/plans">Pricing</Link><Link href="/login">Log in</Link><Link href="/login?signup=1">Create account</Link><a href="#studio">Website Maker</a></div></div><div><h3 className="text-xs font-black uppercase tracking-[.2em] text-white">Legal and support</h3><div className="mt-4 grid gap-3 text-sm"><Link href="/privacy">Privacy policy</Link><Link href="/terms">Terms of service</Link><Link href="/cookies">Cookie policy</Link><CookieSettingsButton className="text-left hover:underline"/><a href="mailto:fugthmanagement@gmail.com">Contact support</a></div></div></div><div className="mx-auto mt-10 flex max-w-[1340px] flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-6 text-xs text-[#7895a6]"><span>© {new Date().getFullYear()} FUGTH Chat LLC. All rights reserved.</span><span>Built for the people doing the work.</span></div></footer>
+ </main>;
 }
