@@ -304,30 +304,28 @@ export default function FugthWorkspace() {
       },
       errors,
     );
-    const watch = (name, setter) =>
-      onSnapshot(
-        query(
-          collection(db, "users", uid, name),
-          orderBy("createdAt", "desc"),
-          limit(60),
-        ),
-        (snap) => setter(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
-        errors,
-      );
-    const off2 = watch("calls", (records) =>
-        setCalls(records.filter((c) => c.source !== "preview_quota")),
-      ),
-      off3 = watch("leads", setLeads),
-      off4 = watch("appointments", setAppointments),
-      off5 = watch("notifications", setNotifications);
-    return () => {
-      unsub1();
-      off2();
-      off3();
-      off4();
-      off5();
-    };
-  }, [user?.uid]);
+    const offNotifications=onSnapshot(
+      query(collection(db,"users",uid,"notifications"),orderBy("createdAt","desc"),limit(60)),
+      snap=>setNotifications(snap.docs.map(doc=>({id:doc.id,...doc.data()}))),
+      ()=>{/* Notifications may not be configured on new accounts. */}
+    );
+    return ()=>{unsub1();offNotifications();};
+  },[user?.uid]);
+  useEffect(()=>{
+    if(!user?.uid||!db)return;
+    const uid=user.uid;
+    const permitted=founder||hasPlan(accountAccessPlan(workspace,verifiedGrant),"starter");
+    if(!permitted){setCalls([]);setLeads([]);setAppointments([]);return;}
+    const watch=(name,setter)=>onSnapshot(
+      query(collection(db,"users",uid,name),orderBy("createdAt","desc"),limit(60)),
+      snap=>setter(snap.docs.map(d=>({id:d.id,...d.data()}))),
+      ()=>setError("Could not load the "+name+" records. Check your plan and permissions.")
+    );
+    const offCalls=watch("calls",records=>setCalls(records.filter(c=>c.source!=="preview_quota")));
+    const offLeads=watch("leads",setLeads);
+    const offAppointments=watch("appointments",setAppointments);
+    return ()=>{offCalls();offLeads();offAppointments();};
+  },[user?.uid,founder,verifiedGrant,workspace.billingActive,workspace.planTier,workspace.plan]);
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
     if (q.has("integration")) {
