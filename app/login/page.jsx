@@ -261,6 +261,11 @@ export default function Login() {
           </div>
           <div className="absolute inset-x-0 bottom-0 -z-0 h-56 bg-gradient-to-t from-[#32637d]/60 via-[#32637d]/10 to-transparent"/><span aria-hidden="true" className="absolute -right-20 top-10 h-64 w-64 rounded-full border-[40px] border-[#9bdcfb]/10"/></aside>
         <section className="flex min-h-[570px] flex-col justify-center rounded-[28px] border border-[#cde3f1] bg-white shadow-[0_22px_55px_rgba(26,73,111,.08)] p-6 sm:p-10 lg:p-12">
+          <div className="relative mb-7 overflow-hidden rounded-2xl bg-[#173449] px-5 py-6 text-white lg:hidden">
+            <span aria-hidden="true" className="pointer-events-none absolute -right-10 -top-12 h-44 w-44 rounded-full border-[30px] border-[#b9e5fb]/10"/>
+            <p className="relative text-[10px] font-black uppercase tracking-[.18em] text-[#b9e5fb]">Your business deserves a better desk</p>
+            <h2 className="relative mt-2 max-w-sm text-2xl font-black leading-tight tracking-tight">Calls. Leads. Your website.<br/><span className="text-[#b9e5fb]">All connected.</span></h2>
+          </div>
           <div className="mb-9 inline-flex w-fit gap-1 rounded-xl bg-[#edf8ff] p-1">
             <button
               type="button"
@@ -280,7 +285,7 @@ export default function Login() {
                 setMode("signup");
                 setError("");
               }}
-              className={`rounded-lg px-5 py-2.5 text-xs font-semibold ${mode === "signup" ? "bg-[#293c2d] text-white" : "text-[#788974]"}`}
+              className={`rounded-lg px-5 py-2.5 text-xs font-semibold ${mode === "signup" ? "bg-[#17384d] text-white" : "text-[#60829a]"}`}
             >
               Create account
             </button>
