@@ -6,6 +6,7 @@ import {doc,getDoc,setDoc,serverTimestamp} from "firebase/firestore";
 import SiteImageLibrary from "./site-image-library";
 import {buildStarterSite,getIndustry,getIndustryThemes,SITE_THEMES,siteFields} from "../lib/site-presets";
 import SiteStudioBuilder from "./site-studio-builder";
+import {themeNarrative} from "../lib/site-layout-copy";
 import ClientPresentationStudio from "./client-presentation-studio";
 
 export const LOCAL_SITE_DRAFT="fugth-site-draft-v1";
@@ -80,7 +81,17 @@ export default function SiteStudio({user,workspace={},targetUid=null,locked=fals
   });
   setMessage(locked?"Preview only — these changes are stored in this browser and are not published.":"Unsaved changes. Review your site, then choose Save design.");
  }
- function chooseTemplate(theme){change({template:theme.id,theme:theme.id,...theme.palette});}
+ function chooseTemplate(theme){
+  const industry=getIndustry(site.industry);
+  const nextCopy=themeNarrative(industry.id,theme.id,{...industry,services:site.services});
+  const previousCopies=getIndustryThemes(industry.id).map(t=>themeNarrative(industry.id,t.id,{...industry,services:site.services}));
+  const copy={};
+  for(const key of ["headline","eyebrow","description"]){
+   const original=key==="description"?industry.lead:industry[key];
+   if(!site[key]||site[key]===original||previousCopies.some(v=>v[key]===site[key]))copy[key]=nextCopy[key];
+  }
+  change({template:theme.id,theme:theme.id,...theme.palette,...copy});
+ }
  async function choosePhoto(slot,imageId){
   if(!/^fugth-upload-[a-f0-9]{32}$/.test(String(imageId||"")))return;
   const gallery=Array.isArray(site?.galleryImageIds)?[...site.galleryImageIds]:[];
