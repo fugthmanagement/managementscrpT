@@ -6,7 +6,7 @@ function normalize(raw){
  const digits=String(raw||"").replace(/\D/g,"");
  return digits.length===10?"+1"+digits:digits.length===11&&digits.startsWith("1")?"+"+digits:"";
 }
-const input="mt-2 block w-full rounded-xl border border-[#d8e0d3] bg-white px-4 py-3.5 text-sm text-[#253528] outline-none focus:border-[#69835e]";
+const input="mt-2 block w-full rounded-xl border border-[#cfdfeb] bg-white px-4 py-3.5 text-sm text-[#1b4257] outline-none focus:border-[#5f8daa]";
 const FALLBACK_FOCUS=[
  {id:"balanced",label:"Balanced — questions, prices & booking"},
  {id:"booking",label:"Booking — appointment requests"},
@@ -91,18 +91,18 @@ export default function ReceptionistPreview({user,workspace,onGoPhoneSetup,admin
  const industry=data?.business?.industryName||workspace?.businessType||"local business";
  const available=data?.available===true;
  const demoSeconds=data?.maxDurationSeconds||30;
- return <section className="overflow-hidden rounded-[26px] border border-[#292929] bg-[#111111] text-white shadow-[0_28px_80px_rgba(24,42,31,.14)]">
+ return <section className="overflow-hidden rounded-[26px] border border-[#1c3040] bg-[#132533] text-white shadow-[0_28px_80px_rgba(24,42,31,.14)]">
   <div className="grid gap-7 p-6 sm:p-9 lg:grid-cols-[1.2fr_.8fr]">
-   <div><p className="text-[11px] font-bold uppercase tracking-[.18em] text-[#cfcfcf]">LIVE RECEPTIONIST DEMO</p>
-    <h3 className="mt-4 max-w-xl text-[clamp(2rem,5vw,3.7rem)] font-semibold leading-[1.07] tracking-[-.07em]">Hear your business <span className="font-serif italic text-[#eeeeee]">answer.</span></h3>
-    <p className="mt-4 max-w-lg text-sm leading-7 text-[#d5d5d5]">Your FUGTH receptionist answers using your business name and details. Try booking, pricing, or customer questions.</p>
-    <div className="mt-5 flex flex-wrap gap-2"><span className="rounded-full border border-white/20 px-3 py-2 text-xs text-[#e0e0e0]">{business}</span><span className="rounded-full border border-white/20 px-3 py-2 text-xs text-[#e0e0e0]">{industry}</span></div>
+   <div><p className="text-[11px] font-bold uppercase tracking-[.18em] text-[#cadce7]">LIVE RECEPTIONIST DEMO</p>
+    <h3 className="mt-4 max-w-xl text-[clamp(2rem,5vw,3.7rem)] font-semibold leading-[1.07] tracking-[-.07em]">Hear your business <span className="font-serif italic text-[#edf8ff]">answer.</span></h3>
+    <p className="mt-4 max-w-lg text-sm leading-7 text-[#d7e9f2]">Your FUGTH receptionist answers using your business name and details. Try booking, pricing, or customer questions.</p>
+    <div className="mt-5 flex flex-wrap gap-2"><span className="rounded-full border border-white/20 px-3 py-2 text-xs text-[#dae7ef]">{business}</span><span className="rounded-full border border-white/20 px-3 py-2 text-xs text-[#dae7ef]">{industry}</span></div>
    </div>
    <div className="rounded-[20px] border border-white/15 bg-white/[.07] p-5">
-    <p className="text-xs font-bold uppercase tracking-wider text-[#eeeeee]">How it works</p>
-    <p className="mt-3 text-sm leading-7 text-[#eeeeee]"><strong>Answer the call and act like you called your business.</strong> The AI will greet you as its receptionist.</p>
-    <p className="mt-4 rounded-xl bg-white/10 p-3 text-xs leading-6 text-[#dddddd]">{adminMode?`Admin test mode · No cooldown · No SMS verification · ${demoSeconds}-second calls`:`${demoSeconds}-second live demo · One test every 3 hours per account and phone number · No SMS verification.`}</p>
-    <p className="mt-3 text-xs leading-6 text-[#cccccc]">Appointments and prices are examples only. Nothing is booked or charged on the demo.</p>
+    <p className="text-xs font-bold uppercase tracking-wider text-[#edf8ff]">How it works</p>
+    <p className="mt-3 text-sm leading-7 text-[#edf8ff]"><strong>Answer the call and act like you called your business.</strong> The AI will greet you as its receptionist.</p>
+    <p className="mt-4 rounded-xl bg-white/10 p-3 text-xs leading-6 text-[#dae8f1]">{adminMode?`Admin test mode · No cooldown · No SMS verification · ${demoSeconds}-second calls`:`${demoSeconds}-second live demo · One test every 3 hours per account and phone number · No SMS verification.`}</p>
+    <p className="mt-3 text-xs leading-6 text-[#b4c9d6]">Appointments and prices are examples only. Nothing is booked or charged on the demo.</p>
    </div>
   </div>
   <div className="bg-[#ffffff] px-6 py-7 text-[#262626] sm:px-9 sm:py-9">
@@ -115,31 +115,31 @@ export default function ReceptionistPreview({user,workspace,onGoPhoneSetup,admin
        <button type="button" onClick={load} className="mt-3 rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-xs font-bold">Refresh connection</button>
      </div>}
      <div className="grid gap-4 sm:grid-cols-2">
-      <label className="text-xs font-semibold text-[#595959]">What should the AI focus on?
+      <label className="text-xs font-semibold text-[#61798a]">What should the AI focus on?
        <select value={focus} onChange={e=>setFocus(e.target.value)} className={input}>
         {(data.focusOptions||FALLBACK_FOCUS).map(item=><option value={item.id} key={item.id}>{item.label}</option>)}
        </select>
       </label>
-      <label className="text-xs font-semibold text-[#595959]">What kind of call?
+      <label className="text-xs font-semibold text-[#61798a]">What kind of call?
        <select value={scenario} onChange={e=>setScenario(e.target.value)} className={input}>
         {(data.scenarioOptions||FALLBACK_SCENARIOS).map(item=><option value={item.id} key={item.id}>{item.label}</option>)}
        </select>
       </label>
      </div>
      {data?.warning&&<p role="alert" className="mb-4 rounded-xl border border-[#f0d9c2] bg-[#fff8f1] p-4 text-xs text-[#936b42]">{data.warning}</p>}
-     <label className="mt-5 block text-xs font-semibold text-[#595959]">Number to call
+     <label className="mt-5 block text-xs font-semibold text-[#61798a]">Number to call
       <input type="tel" autoComplete="tel" inputMode="tel" placeholder="(305) 555-0140" value={phone} onChange={e=>setPhone(e.target.value)} className={input+" text-base"}/>
      </label>
      <label className="mt-5 flex cursor-pointer items-start gap-3 text-xs leading-6 text-[#6e806e]">
-      <input type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)} className="mt-1 h-4 w-4 shrink-0 accent-[#333333]"/>
+      <input type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)} className="mt-1 h-4 w-4 shrink-0 accent-[#274558]"/>
       <span>I own this number or have explicit permission to receive a one-time FUGTH demo call.</span>
      </label>
      {!adminMode&&remaining>0&&<div className="mt-5 rounded-xl border border-[#e7dfca] bg-[#fdf9ed] p-4 text-sm text-[#806f40]">Your next demo unlocks on <strong>{formatUnlockDate(cooldownUntil)}</strong> (in {formatRemaining(remaining)}). Your administrator may reset the limit.</div>}
      <div className="mt-6 flex flex-wrap gap-3">
-      <button type="button" onClick={startCall} disabled={busy||!available||!consent||(!adminMode&&remaining>0)||!normalize(phone)||Boolean(call?.callId&&!["ended","failed"].includes(call.status))} className="rounded-xl bg-[#111111] px-7 py-4 text-sm font-semibold text-white disabled:opacity-40">{busy?"Connecting…":adminMode&&["ended","failed"].includes(call?.status)?"Run another admin test ↗":"Call me for a live demo ↗"}</button>
+      <button type="button" onClick={startCall} disabled={busy||!available||!consent||(!adminMode&&remaining>0)||!normalize(phone)||Boolean(call?.callId&&!["ended","failed"].includes(call.status))} className="rounded-xl bg-[#132533] px-7 py-4 text-sm font-semibold text-white disabled:opacity-40">{busy?"Connecting…":adminMode&&["ended","failed"].includes(call?.status)?"Run another admin test ↗":"Call me for a live demo ↗"}</button>
       <button type="button" onClick={onGoPhoneSetup} className="rounded-xl border border-[#e1e8db] px-5 py-4 text-sm font-semibold text-[#687d65]">Business phone settings</button>
      </div>
-     {message&&<p role="status" className="mt-5 rounded-xl border border-[#d8e5d4] bg-[#f1f7ee] p-4 text-sm text-[#333333]">{message}</p>}
+     {message&&<p role="status" className="mt-5 rounded-xl border border-[#d8e5d4] bg-[#f1f7ee] p-4 text-sm text-[#274558]">{message}</p>}
      {error&&<p role="alert" className="mt-5 rounded-xl border border-[#ecd8ca] bg-[#fff5ec] p-4 text-sm text-[#966441]">{error}</p>}
      {call?.callId&&<div className="mt-5 rounded-xl border border-[#dee8d7] bg-[#f3f8ef] p-5"><p className="text-sm font-semibold">Live demo call requested</p><p className="mt-2 text-xs text-[#6e866b]">Status: {call.status||"Connecting"}</p>{call.summary&&<p className="mt-3 text-sm leading-6 text-[#465a49]">{call.summary}</p>}{["ended","failed"].includes(call.status)&&<p className="mt-2 text-xs text-[#617563]">{call.recordingSaved&&call.leadSaved?"Audio and customer lead saved. Open Call Library to listen and review the lead.":call.saved?"Call saved. Open Call Library to retrieve audio and follow-up details while analysis finishes.":"Saving the call summary and customer lead…"}</p>}</div>}
      <div className="mt-5 rounded-xl border border-[#dbe5d7] bg-[#f6faf3] p-4 text-xs leading-6 text-[#657663]"><strong>Need more than {demoSeconds} seconds?</strong> <a href="mailto:fugthmanagement@gmail.com?subject=FUGTH%20extended%20AI%20receptionist%20demo" className="font-bold underline underline-offset-2">Request a longer guided demonstration</a> with the FUGTH management team. Email is the quickest way to reach us. Or book an appointment with the management team through the website.</div>
