@@ -22,7 +22,8 @@ service cloud.firestore {
       return isFounderReader() ||
         (get(/databases/$(database)/documents/users/$(uid)).data.billingActive == true
         && (get(/databases/$(database)/documents/users/$(uid)).data.planTier in ['growth','elite'] ||
-          'email' in get(/databases/$(database)/documents/users/$(uid)).data.billingAddons));
+          ('billingAddons' in get(/databases/$(database)/documents/users/$(uid)).data &&
+           'email' in get(/databases/$(database)/documents/users/$(uid)).data.billingAddons)));
     }
     function protectedKeys() {
       return [
