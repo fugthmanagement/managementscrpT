@@ -245,6 +245,7 @@ export default function Login() {
               together without the clutter.
             </p>
           </div>
+          <div className="relative z-10 my-6 h-[185px] overflow-hidden rounded-2xl border border-white/15 bg-[#2b576d]"><img src={(getIndustryPhotos("contractor")[1]||getIndustryPhotos("roofing")[0])?.src} alt="Professional trade work showing FUGTH's service-business focus" className="h-full w-full object-cover" loading="lazy"/><div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#0f2534]/95 via-[#0f2534]/50 to-transparent p-4 pt-14"><p className="text-[10px] font-black uppercase tracking-[.16em] text-[#b9e5fb]">Your day keeps moving</p><p className="mt-1 text-sm font-bold">Make room for every next customer.</p></div></div>
           <div className="relative z-10 grid grid-cols-3 gap-2 border-t border-white/10 pt-4">
             {["Stay connected", "Stay organized", "Look your best"].map(
               (x, i) => (
