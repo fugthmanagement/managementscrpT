@@ -24,6 +24,7 @@ import {SITE_INDUSTRIES} from "../lib/site-presets";
 import {cleanBusinessDescription} from "../lib/business-profile";
 import WorkspaceNavigation from "./workspace-navigation";
 import WorkspaceOverview from "./workspace-overview";
+import GoogleConnectPrompt from "./google-connect-prompt";
 import PhoneSetup from "./phone-setup";
 import IntegrationsHub from "./integrations-hub";
 import BookingAvailabilitySettings from "./booking-availability-settings";
@@ -584,6 +585,7 @@ export default function FugthWorkspace() {
       <WorkspaceNavigation tabs={tabs} page={page} business={business} accountNumber={workspace.accountNumber||""} displayPlan={displayPlan}
         founder={founder} previewPlan={previewPlan} onPreviewPlan={setPreviewPlan} onChangePage={navigate} onLogout={logOut}/>
       <div className="fugth-workspace-content mx-auto w-full max-w-[1600px] px-4 pb-14 pt-8 sm:px-8 sm:pt-10 lg:px-12">
+        {page==="home"&&<GoogleConnectPrompt user={user}/> }
         {founderVerificationNeeded && (
               <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[#e6d5a8] bg-[#fffaf0] p-5">
                 <div>
