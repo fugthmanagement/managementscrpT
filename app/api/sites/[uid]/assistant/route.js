@@ -5,7 +5,7 @@ import {siteFields} from "../../../../../lib/site-presets";
 import {
  factChunks,classifyBusinessQuestion,retrieveBusinessFacts,
  safeBusinessAnswer,validateGroundedAnswer,
- BUSINESS_AGENT_OFF_TOPIC,BUSINESS_AGENT_UNVERIFIED,businessTokens
+ BUSINESS_AGENT_OFF_TOPIC,BUSINESS_AGENT_UNVERIFIED
 } from "../../../../../lib/business-agent-rag";
 import {
  localAgentReadiness,resolveWeakBusinessGate,groundedBusinessCompletion
@@ -33,7 +33,7 @@ async function publishedSite(uid){
  const snapshot=await firebaseAdmin().firestore().doc("publicSites/"+uid).get();
  if(!snapshot.exists||snapshot.data()?.visibility!=="published")return null;
  const data=snapshot.data();
- if(data.showChatbot===false)return null;
+ if(data.showChatbot===false||data.aiAgentMode==="off")return null;
  return siteFields(data);
 }
 export async function GET(request,{params}){
