@@ -1,3 +1,4 @@
+import {businessEntitlement} from "../../../../lib/server/feature-entitlement";
 import {NextResponse} from "next/server";
 import {authenticatedUser} from "../../../../lib/server/auth";
 import {saveVerifiedCall,ended} from "../../../../lib/server/voice-call-history";
@@ -8,6 +9,7 @@ export const dynamic="force-dynamic";
 export async function POST(request){
  const user=await authenticatedUser(request);
  if(!user?.uid)return NextResponse.json({error:"Sign in to sync your calls."},{status:401});
+ const permit=await businessEntitlement(user,"voice");if(!permit.allowed)return NextResponse.json({error:permit.reason,tier:permit.tier},{status:403});
  const token=(request.headers.get("authorization")||"").replace(/^Bearer\s+/,"").trim();
  const key=process.env.VOICE_PRIVATE_KEY||process.env.VAPI_PRIVATE_KEY;
  if(!key)return NextResponse.json({error:"Your voice connection is unavailable."},{status:503});
