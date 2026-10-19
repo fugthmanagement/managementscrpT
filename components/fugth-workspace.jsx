@@ -572,6 +572,9 @@ export default function FugthWorkspace() {
       : verifiedGrant
         ? "Founder access · " + String(verifiedGrant.tier).toUpperCase()
         : "No active plan";
+  const canUseCRM=hasPlan(effectivePlanKey,"starter");
+  const canUseVoice=hasPlan(effectivePlanKey,"starter");
+  const canBook=hasPlan(effectivePlanKey,"starter");
   const displayPlan = isSimulating
     ? `ADMIN VIEW · ${currentPlan.name.toUpperCase()}`
     : plan;
@@ -641,9 +644,12 @@ export default function FugthWorkspace() {
                     <button
                       type="button"
                       onClick={() => {
+                        if(!canUseVoice)return;
                         setPage("settings");
                         setSettingsSection("phone");
                       }}
+                      disabled={!canUseVoice}
+                      title={!canUseVoice?"Essential plan required":undefined}
                       className="rounded-xl border border-[#d7e8f1] bg-white px-4 py-3 text-xs font-semibold"
                     >
                       Phone setup ↗
@@ -661,15 +667,15 @@ export default function FugthWorkspace() {
                 />
                 <div className="mt-6">
                   <FeatureGate
-                    locked={false}
+                    locked={!canUseVoice}
                     title="Call history"
                     description="Your free 30-second receptionist demo works without upgrading. The full call inbox, recordings and transcripts unlock with your plan."
                   >
                     <CallInbox
-                      calls={calls}
-                      leads={leads}
+                      calls={canUseVoice?calls:[]}
+                      leads={canUseVoice?leads:[]}
                       user={user}
-                      locked={false}
+                      locked={!canUseVoice}
                       onViewCustomer={() => {
                         setPage("customers");
                         setCustomerView("leads");
@@ -707,10 +713,7 @@ export default function FugthWorkspace() {
                   </button>
                 </div>
                 <FeatureGate
-                  locked={
-                    customerView === "appointments" &&
-                    !hasPlan(effectivePlanKey, "starter")
-                  }
+                  locked={!canUseCRM}
                   title={
                     customerView === "appointments"
                       ? "Appointments unlock on Essential"
@@ -773,7 +776,7 @@ export default function FugthWorkspace() {
                           </button>
                         </form>
                       )}
-                      {leads.length ? (
+                      {canUseCRM&&leads.length ? (
                         leads.map((c) => (
                           <ListRecord
                             key={c.id}
@@ -864,7 +867,7 @@ export default function FugthWorkspace() {
                           </button>
                         </form>
                       )}
-                      {appointments.length ? (
+                      {canBook&&appointments.length ? (
                         appointments.map((a) => (
                           <ListRecord
                             key={a.id}
@@ -1061,11 +1064,19 @@ export default function FugthWorkspace() {
                   </section>
                 )}
                 {settingsSection === "phone" && (
-                  <PhoneSetup user={user} workspace={workspace} />
+                  <FeatureGate locked={!canUseVoice}
+                    title="Phone setup is an AI receptionist feature"
+                    description="Website-only and free accounts can preview phone setup, but an Essential plan or higher is required to request or configure a FUGTH voice line.">
+                    <PhoneSetup user={canUseVoice?user:null} workspace={canUseVoice?workspace:{}} locked={!canUseVoice}/>
+                  </FeatureGate>
                 )}
                 {settingsSection === "connections" && (
                   <>
-                    <BookingAvailabilitySettings user={user} />
+                    <FeatureGate locked={!canBook}
+                      title="Booking rules unlock with Essential"
+                      description="Your Google connection can still be linked below. Configuring active bookings and appointment availability requires a call-and-CRM plan.">
+                      <BookingAvailabilitySettings user={canBook?user:null}/>
+                    </FeatureGate>
                     <div className="mt-6">
                       <IntegrationsHub />
                     </div>
