@@ -109,7 +109,7 @@ export default function Login() {
       try {
         const result = await signInWithPopup(auth, provider);
         await completeGoogleLogin(result.user);
-        window.location.replace("/dashboard");
+        window.location.replace(safeNext("/dashboard"));
       } catch (error) {
         if (
           [
@@ -140,7 +140,7 @@ export default function Login() {
         throw Error("Enter a password of at least six characters.");
       if (mode === "login") {
         await signInWithEmailAndPassword(auth, address, password);
-        window.location.replace("/dashboard");
+        window.location.replace(safeNext("/dashboard"));
         return;
       }
       const created = await createUserWithEmailAndPassword(
