@@ -13,7 +13,10 @@ function validMagic(buffer,type){
  type==="image/png"?buffer.slice(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])):
  type==="image/webp"?buffer.toString("ascii",0,4)==="RIFF"&&buffer.toString("ascii",8,12)==="WEBP":false;
 }
-async function driveOwner(){
+async function driveOwner(businessUid){
+ const own=await firebaseAdmin().firestore().doc("users/"+businessUid+"/integrations/google_calendar").get();
+ if(own.exists&&String(own.data()?.scopes||"").split(" ").includes("https://www.googleapis.com/auth/drive.file"))
+  return {uid:businessUid,token:await accessGoogleCalendar(businessUid,"drive.file")};
  const email=String(process.env.FUGTH_RECORDING_DRIVE_OWNER_EMAIL||"").trim().toLowerCase();
  if(!email||!isAdminEmail(email))throw Error("The private FUGTH image archive isn't authorized.");
  const owner=await firebaseAdmin().auth().getUserByEmail(email);
@@ -42,7 +45,7 @@ export async function POST(req){
   if(!allowed[type]||file.size>MAX_BYTES||file.size<32)return reply({error:"Choose a JPG, PNG or WebP photo under 5 MB."},400);
   const bytes=Buffer.from(await file.arrayBuffer());
   if(!validMagic(bytes,type))return reply({error:"This file isn't a supported image."},400);
-  const drive=await driveOwner();
+  const drive=await driveOwner(user.uid);
   const id="fugth-upload-"+randomUUID().replace(/-/g,"");
   const name="fugth-business-"+user.uid+"-"+id+"."+allowed[type];
   // Drive files never receive public or shared ACLs. Public website images
