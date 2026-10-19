@@ -13,6 +13,7 @@ import {
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "../../lib/firebase";
 import { detectIndustry } from "../../lib/site-presets";
+const safeNext=(fallback)=>{if(typeof window==="undefined")return fallback;const next=new URLSearchParams(window.location.search).get("next");return next==="/plans"?"/plans":fallback;};
 const field =
   "mt-2 w-full rounded-xl border border-[#dfe4db] bg-white px-4 py-3.5 text-[15px] text-[#283629] outline-none focus:border-[#70866b] focus:ring-2 focus:ring-[#e6ede0]";
 
@@ -32,7 +33,7 @@ export default function Login() {
       .then(async (result) => {
         if (result?.user) {
           await completeGoogleLogin(result.user);
-          window.location.replace("/dashboard");
+          window.location.replace(safeNext("/dashboard"));
         }
       })
       .catch((error) => setError(googleMessage(error)));
@@ -182,7 +183,7 @@ export default function Login() {
       } catch {
         /* Provisioning retries from workspace when configured. */
       }
-      window.location.replace("/plans");
+      window.location.replace(safeNext("/plans"));
     } catch (err) {
       const text = String(err?.code || err?.message || "Could not sign in");
       setError(
