@@ -13,11 +13,45 @@ export default function SiteChat({site,preview=false}){
  const [text,setText]=useState("");
  const [messages,setMessages]=useState([]);
  const [busy,setBusy]=useState(false),[voiceEnabled,setVoiceEnabled]=useState(false);
+ const [micAvailable,setMicAvailable]=useState(false),[listening,setListening]=useState(false);
  const sequence=useRef(0);
+ const recognitionRef=useRef(null);
  const [bookingOpen,setBookingOpen]=useState(false);
  const [booking,setBooking]=useState({name:"",contact:"",service:"",date:"",time:""});
  const [bookingNotice,setBookingNotice]=useState("");
  useEffect(()=>{try{if(window.parent!==window)window.parent.postMessage({type:"FUGTH_CHAT_RESIZE",open},"*");}catch{}},[open]);
+ useEffect(()=>{
+  setMicAvailable(Boolean(window.SpeechRecognition||window.webkitSpeechRecognition));
+  return()=>{
+   try{recognitionRef.current?.abort();window.speechSynthesis?.cancel();}catch{}
+  };
+ },[]);
+ function dictate(){
+  if(recognitionRef.current){
+   try{recognitionRef.current.stop();}catch{}
+   return;
+  }
+  const Recognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!Recognition)return;
+  const recognition=new Recognition();
+  recognition.lang="en-US";recognition.interimResults=false;recognition.continuous=false;
+  recognitionRef.current=recognition;
+  recognition.onstart=()=>setListening(true);
+  recognition.onresult=e=>{
+   const spoken=Array.from(e.results||[]).map(x=>x[0]?.transcript||"").join(" ").trim();
+   if(spoken)setText(spoken.slice(0,220));
+  };
+  recognition.onerror=e=>{
+   if(e.error==="not-allowed")setText("Please allow microphone permission or type your question.");
+  };
+  recognition.onend=()=>{
+   if(recognitionRef.current===recognition)recognitionRef.current=null;
+   setListening(false);
+  };
+  try{recognition.start();}
+  catch{recognitionRef.current=null;setListening(false);}
+ }
+
  if(site.showChatbot===false||site.aiAgentMode==="off")return null;
  async function ask(value){
   const question=String(value||"").trim().slice(0,350);
@@ -93,8 +127,9 @@ export default function SiteChat({site,preview=false}){
     <p className="text-[10px] leading-5 text-[#657566]">This requests an appointment; it does not reserve a calendar slot.</p>
    </form>}
    <div className="flex items-center justify-between gap-2 border-t border-[#e4edf3] bg-[#f6fbff] px-4 py-2 text-[10px] text-[#6287a0]"><span>Business questions only · No guesses</span><button type="button" onClick={()=>{setVoiceEnabled(v=>!v);window.speechSynthesis?.cancel();}} className="rounded-full border border-[#c9e3f1] bg-white px-3 py-1.5 font-bold text-[#377a9e]">{voiceEnabled?"🔊 Read answers: On":"🔈 Read answers: Off"}</button></div>
-   <form onSubmit={e=>{e.preventDefault();ask(text);}} className="flex gap-2 border-t border-zinc-200 bg-white p-3"><label className="sr-only" htmlFor="fugth-site-chat-input">Your question</label><input id="fugth-site-chat-input" maxLength={220} autoComplete="off" placeholder="Ask a quick question..." value={text} onChange={e=>setText(e.target.value)} className="min-w-0 flex-1 rounded-lg border border-zinc-200 px-3 py-3 text-sm text-zinc-900 outline-none focus:border-zinc-900"/><button disabled={busy||!text.trim()} className="rounded-lg bg-[#193e54] px-4 py-2 text-sm font-semibold text-white disabled:opacity-45">{busy?"Checking…":"Send"}</button></form>
-   <p className="px-4 pb-3 text-[10px] leading-5 text-zinc-500">Answers are restricted to the business's published information. Off-topic questions are filtered before the AI. Appointment requests open email; the business must confirm. No live booking occurs in chat.</p>
+   <form onSubmit={e=>{e.preventDefault();ask(text);}} className="flex gap-2 border-t border-zinc-200 bg-white p-3"><label className="sr-only" htmlFor="fugth-site-chat-input">Your question</label><input id="fugth-site-chat-input" maxLength={220} autoComplete="off" placeholder="Ask a quick question..." value={text} onChange={e=>setText(e.target.value)} className="min-w-0 flex-1 rounded-lg border border-zinc-200 px-3 py-3 text-sm text-zinc-900 outline-none focus:border-zinc-900"/>{micAvailable&&<button type="button" disabled={busy} onClick={dictate} className={"rounded-lg border px-3 py-2 text-xs font-bold disabled:opacity-40 "+(listening?"border-[#b8cbe0] bg-[#ecf8ff] text-[#1e729a]":"border-[#d7e7ef] bg-white text-[#5083a0]")} aria-label={listening?"Stop recording question":"Speak a business question"}>{listening?"■":"🎤"}</button>}
+    <button disabled={busy||!text.trim()} className="rounded-lg bg-[#193e54] px-4 py-2 text-sm font-semibold text-white disabled:opacity-45">{busy?"Checking…":"Send"}</button></form>
+   <p className="px-4 pb-3 text-[10px] leading-5 text-zinc-500">Answers are restricted to the business's published information. Off-topic questions are filtered before the AI. Appointment requests open email; the business must confirm. No live booking occurs in chat. Microphone input, if used, relies on browser speech-recognition services.</p>
   </section>}
   {!preview&&<div className="flex justify-end"><button type="button" onClick={()=>setOpen(!open)} aria-expanded={open} className="flex items-center gap-3 rounded-full bg-zinc-950 px-5 py-4 text-sm font-bold text-white shadow-xl"><span aria-hidden="true">✳</span>{open?"Close chat":"Chat with us"}</button></div>}
  </div>;
