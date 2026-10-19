@@ -503,24 +503,7 @@ export default function FugthWorkspace() {
    notificationPhone:profile.notificationPhone.trim().slice(0,32),
    callSmsAlertsEnabled:profile.callSmsAlertsEnabled===true,updatedAt:serverTimestamp()
   },{merge:true});
-  const hosted=founder||(workspace.billingActive===true&&
-   ["website","starter","growth","elite"].includes(String(workspace.planTier||workspace.plan||"").toLowerCase()));
-  if(!hosted){
-   setNotice("Business information saved. Your Website Maker preview will use the new details when you open Website. Publishing still requires a hosted site package.");return;
-  }
-  try{
-   const token=await auth.currentUser?.getIdToken();
-   const response=await fetch("/api/sites/"+encodeURIComponent(user.uid),{
-    method:"PUT",cache:"no-store",
-    headers:{Authorization:"Bearer "+token,"Content-Type":"application/json"},
-    body:JSON.stringify({action:"regenerate"})
-   });
-   const data=await response.json().catch(()=>({}));
-   if(!response.ok)throw Error(data.error||"Website refresh unavailable.");
-   setNotice("Business details saved; your website preset refreshed from your business description.");
-  }catch(error){
-   setNotice("Business details saved successfully. Website refresh still needs attention: "+String(error.message||"Service temporarily unavailable").slice(0,180));
-  }
+  setNotice("Business details and public opening hours saved. Your free website preview updates from these settings; existing published website designs are preserved. Open Website → Refresh from settings if you want to regenerate a live draft.");
  }catch(e){setError(e.message||"Unable to save business details.");}
  finally{setBusy("");}
 }
