@@ -20,6 +20,8 @@ import {
 } from "firebase/firestore";
 import { auth, db } from "../lib/firebase";
 import SiteStudio from "./site-studio";
+import {SITE_INDUSTRIES} from "../lib/site-presets";
+import {cleanBusinessDescription} from "../lib/business-profile";
 import WorkspaceNavigation from "./workspace-navigation";
 import WorkspaceOverview from "./workspace-overview";
 import PhoneSetup from "./phone-setup";
@@ -222,9 +224,10 @@ export default function FugthWorkspace() {
   });
   const [profile, setProfile] = useState({
     businessName: "",
-    businessType: "",
+    businessType: "general",
+    businessTypeOther: "",
+    businessDescription: "",
     serviceArea: "",
-    hours: "",
     phone: "",
     notificationEmail: "",
     notificationPhone: "",
@@ -288,9 +291,10 @@ export default function FugthWorkspace() {
         setWorkspace(data);
         setProfile({
           businessName: data.businessName || "",
-          businessType: data.businessType || "",
+          businessType: data.businessType || "general",
+          businessTypeOther: data.businessTypeOther || "",
+          businessDescription: data.businessDescription || "",
           serviceArea: data.serviceArea || "",
-          hours: data.hours || "",
           phone: data.phone || "",
           notificationEmail: data.notificationEmail || "",
           notificationPhone: data.notificationPhone || "",
@@ -438,39 +442,44 @@ export default function FugthWorkspace() {
       setBusy("");
     }
   }
-  async function saveBusiness(e) {
-    e.preventDefault();
-    setBusy("profile");
-    setError("");
-    try {
-      await setDoc(
-        doc(db, "users", user.uid),
-        { ...profile, updatedAt: serverTimestamp() },
-        { merge: true },
-      );
-      const token = await auth.currentUser?.getIdToken();
-      const response = await fetch(
-        "/api/sites/" + encodeURIComponent(user.uid),
-        {
-          method: "PUT",
-          headers: {
-            Authorization: "Bearer " + token,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ action: "regenerate" }),
-        },
-      );
-      if (!response.ok)
-        throw Error(
-          "Business details saved, but the website could not refresh. Open Website and retry Refresh from settings.",
-        );
-      setNotice("Business details and your website preset are updated.");
-    } catch (e) {
-      setError(e.message || "Unable to update business details.");
-    } finally {
-      setBusy("");
-    }
+  async function saveBusiness(e){
+ e.preventDefault();setBusy("profile");setError("");setNotice("");
+ try{
+  if(!db||!user?.uid)throw Error("Sign in before saving business details.");
+  const description=cleanBusinessDescription(profile.businessDescription);
+  if(profile.businessType==="other"&&!profile.businessTypeOther?.trim())throw Error("Describe your business type under Other.");
+  await setDoc(doc(db,"users",user.uid),{
+   businessName:profile.businessName.trim().slice(0,80),
+   businessType:profile.businessType,
+   businessTypeOther:profile.businessType==="other"?profile.businessTypeOther.trim().slice(0,90):"",
+   businessDescription:description,
+   serviceArea:profile.serviceArea.trim().slice(0,120),
+   phone:profile.phone.trim().slice(0,32),
+   notificationEmail:profile.notificationEmail.trim().slice(0,120),
+   notificationPhone:profile.notificationPhone.trim().slice(0,32),
+   callSmsAlertsEnabled:profile.callSmsAlertsEnabled===true,updatedAt:serverTimestamp()
+  },{merge:true});
+  const hosted=founder||(workspace.billingActive===true&&
+   ["website","starter","growth","elite"].includes(String(workspace.planTier||workspace.plan||"").toLowerCase()));
+  if(!hosted){
+   setNotice("Business information saved. Your Website Maker preview will use the new details when you open Website. Publishing still requires a hosted site package.");return;
   }
+  try{
+   const token=await auth.currentUser?.getIdToken();
+   const response=await fetch("/api/sites/"+encodeURIComponent(user.uid),{
+    method:"PUT",cache:"no-store",
+    headers:{Authorization:"Bearer "+token,"Content-Type":"application/json"},
+    body:JSON.stringify({action:"regenerate"})
+   });
+   const data=await response.json().catch(()=>({}));
+   if(!response.ok)throw Error(data.error||"Website refresh unavailable.");
+   setNotice("Business details saved; your website preset refreshed from your business description.");
+  }catch(error){
+   setNotice("Business details saved successfully. Website refresh still needs attention: "+String(error.message||"Service temporarily unavailable").slice(0,180));
+  }
+ }catch(e){setError(e.message||"Unable to save business details.");}
+ finally{setBusy("");}
+}
   async function createClient(e) {
     e.preventDefault();
     setBusy("client");
@@ -920,32 +929,53 @@ export default function FugthWorkspace() {
                       onSubmit={saveBusiness}
                       className="mt-7 grid gap-5 sm:grid-cols-2"
                     >
+                      <label className="text-xs font-semibold text-[#50738a]">
+                        Business name
+                        <input required maxLength={80} value={profile.businessName}
+                          onChange={e=>setProfile({...profile,businessName:e.target.value})}
+                          className={`mt-2 ${input}`}/>
+                      </label>
+                      <label className="text-xs font-semibold text-[#50738a]">
+                        Business type
+                        <select required value={SITE_INDUSTRIES.some(x=>x.id===profile.businessType)?profile.businessType:"other"}
+                          onChange={e=>setProfile({...profile,businessType:e.target.value})}
+                          className={`mt-2 ${input}`}>
+                          {SITE_INDUSTRIES.map(item=><option key={item.id} value={item.id}>{item.label}</option>)}
+                          <option value="other">Other — describe my business</option>
+                        </select>
+                      </label>
+                      {(profile.businessType==="other"||!SITE_INDUSTRIES.some(x=>x.id===profile.businessType))&&
+                        <label className="text-xs font-semibold text-[#50738a] sm:col-span-2">
+                          Other business type
+                          <input maxLength={90} required value={profile.businessTypeOther}
+                            onChange={e=>setProfile({...profile,businessTypeOther:e.target.value})}
+                            placeholder="e.g. Mobile phone repair, event rental, appliance installation"
+                            className={`mt-2 ${input}`}/>
+                        </label>}
+                      <label className="text-xs font-semibold text-[#50738a] sm:col-span-2">
+                        Business description <span className="ml-1 font-normal text-[#7895a6]">· used by Website Maker</span>
+                        <textarea rows={8} maxLength={4000} value={profile.businessDescription}
+                          onChange={e=>setProfile({...profile,businessDescription:e.target.value})}
+                          placeholder={"Tell FUGTH about your business in your own words.\n\nWhat services do you offer? Who are your customers? What areas do you cover? What makes your business different? Include specialties, types of jobs, products, and the tone your website should use.\n\nServices: Panel upgrades, EV chargers, generator installation"}
+                          className={`mt-2 min-h-[190px] resize-y ${input}`}/>
+                        <span className="mt-2 block text-[11px] font-normal leading-5 text-[#7a91a0]">
+                          Add as much detail as possible. FUGTH checks your keywords to choose an industry and personalize your website. Avoid passwords, cards or sensitive customer information. {profile.businessDescription.length}/4000 characters.
+                        </span>
+                      </label>
                       {[
-                        ["Business name", "businessName"],
-                        ["Business type", "businessType"],
-                        ["Business phone", "phone"],
-                        ["Service area", "serviceArea"],
-                        ["Business hours", "hours"],
-                        ["Call notification email", "notificationEmail"],
-                        [
-                          "Owner mobile for optional text alerts",
-                          "notificationPhone",
-                        ],
-                      ].map(([title, key]) => (
-                        <label
-                          key={key}
-                          className="text-xs font-semibold text-[#50738a]"
-                        >
-                          {title}
-                          <input
-                            value={profile[key]}
-                            onChange={(e) =>
-                              setProfile({ ...profile, [key]: e.target.value })
-                            }
-                            className={`mt-2 ${input}`}
-                          />
-                        </label>
-                      ))}
+                        ["Business phone","phone"],
+                        ["Service area","serviceArea"],
+                        ["Call notification email","notificationEmail"],
+                        ["Owner mobile for optional text alerts","notificationPhone"],
+                      ].map(([title,key])=><label key={key} className="text-xs font-semibold text-[#50738a]">
+                        {title}<input value={profile[key]} onChange={e=>setProfile({...profile,[key]:e.target.value})}
+                          className={`mt-2 ${input}`}/>
+                      </label>)}
+                      <div className="rounded-xl border border-[#cee7f4] bg-[#eff9ff] p-4 text-xs leading-6 text-[#557e96] sm:col-span-2">
+                        <strong className="text-[#1d5576]">Need to set business hours?</strong> Choose <button type="button"
+                          onClick={()=>{setSettingsSection("connections");window.scrollTo({top:0,behavior:"smooth"});}}
+                          className="font-bold text-[#1f719b] underline">Connections → Booking hours</button> for a day-by-day schedule. Existing saved hours won't be erased.
+                      </div>
                       <label className="flex items-start gap-3 text-xs leading-6 text-[#6b879a] sm:col-span-2">
                         <input
                           type="checkbox"
