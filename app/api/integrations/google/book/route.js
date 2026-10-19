@@ -1,3 +1,4 @@
+import {businessEntitlement} from "../../../../../lib/server/feature-entitlement";
 import {NextResponse} from "next/server";
 import {authenticatedUser,firebaseAdmin} from "../../../../../lib/server/auth";
 import {accessGoogleCalendar,businessCalendarSession} from "../../../../../lib/server/google-calendar";
@@ -43,6 +44,7 @@ async function readAvailability(uid,request){
 export async function POST(req){
  const user=await authenticatedUser(req);
  if(!user?.uid)return reply({error:"Sign in to book a FUGTH appointment."},401);
+ const permit=await businessEntitlement(user,"bookings");if(!permit.allowed)return reply({error:permit.reason,tier:permit.tier},403);
  let body;
  try{const raw=await req.text();if(raw.length>4000)throw Error();body=JSON.parse(raw);}
  catch{return reply({error:"Invalid appointment details."},400);}
