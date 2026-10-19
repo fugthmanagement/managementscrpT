@@ -334,6 +334,33 @@ export default function FugthWorkspace() {
       setSettingsSection("connections");
     }
   }, []);
+  // Pull edits from each business's own Google calendar while the workspace is
+  // open. Bookings made inside FUGTH are pushed through the confirmed book API.
+  useEffect(()=>{
+    if(!user?.uid)return;
+    let stopped=false,timer;
+    const sync=async()=>{
+      if(stopped||document.visibilityState!=="visible")return;
+      try{
+        const token=await auth.currentUser?.getIdToken();
+        if(!token)return;
+        await fetch("/api/integrations/google/sync",{
+          method:"POST",headers:{Authorization:"Bearer "+token},
+          cache:"no-store"
+        });
+      }catch{/* A disconnected account simply keeps its FUGTH records. */}
+    };
+    (async()=>{
+      try{
+        const token=await auth.currentUser?.getIdToken();
+        const response=await fetch("/api/integrations/google",{headers:{Authorization:"Bearer "+token},cache:"no-store"});
+        const connection=await response.json();
+        if(stopped||!response.ok||!connection.connected||!connection.calendarServiceReady)return;
+        sync();timer=window.setInterval(sync,125000);
+      }catch{}
+    })();
+    return()=>{stopped=true;if(timer)window.clearInterval(timer);};
+  },[user?.uid]);
   const tabs = founder
     ? [
         ...MENU,
@@ -413,34 +440,47 @@ export default function FugthWorkspace() {
       setBusy("");
     }
   }
-  async function saveAppointment(e) {
-    e.preventDefault();
-    setBusy("appointment");
-    setError("");
-    try {
-      if (!appointment.customerName || !appointment.date || !appointment.time)
+  async function saveAppointment(e){
+    e.preventDefault();setBusy("appointment");setError("");setNotice("");
+    try{
+      if(!appointment.customerName||!appointment.date||!appointment.time)
         throw Error("Add the name, date and time.");
-      await addDoc(collection(db, "users", user.uid, "appointments"), {
-        ...appointment,
-        status: "scheduled",
-        source: "manual",
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
-      setAppointment({
-        customerName: "",
-        phone: "",
-        service: "",
-        date: "",
-        time: "",
-      });
-      setShowAppointmentForm(false);
-      setNotice("Appointment saved.");
-    } catch (e) {
-      setError(e.message || "Could not save appointment.");
-    } finally {
-      setBusy("");
-    }
+      const begin=new Date(appointment.date+"T"+appointment.time+":00");
+      if(Number.isNaN(begin.getTime())||begin.getTime()<Date.now())
+        throw Error("Choose a future appointment date and time.");
+      const token=await auth.currentUser?.getIdToken();
+      if(!token)throw Error("Sign in before scheduling.");
+      const headers={Authorization:"Bearer "+token,"Content-Type":"application/json"};
+      const conn=await fetch("/api/integrations/google",{headers,cache:"no-store"});
+      const google=await conn.json().catch(()=>({}));
+      let resultMessage="";
+      if(conn.ok&&google.connected&&google.calendarServiceReady){
+        const booked=await fetch("/api/integrations/google/book",{
+          method:"POST",headers,body:JSON.stringify({
+            title:appointment.service||"Customer appointment",
+            customerName:appointment.customerName,
+            phone:appointment.phone,
+            startTime:begin.toISOString(),
+            endTime:new Date(begin.getTime()+60*60000).toISOString()
+          })
+        });
+        const bookedData=await booked.json().catch(()=>({}));
+        if(!booked.ok)throw Error(bookedData.error||"Google Calendar could not confirm this appointment.");
+        resultMessage=bookedData.workspaceSynced?
+          "Appointment confirmed in your business Google Calendar and FUGTH.":
+          "Appointment confirmed in Google Calendar, but FUGTH could not mirror it. Check the calendar before retrying.";
+      }else{
+        // Do not claim a Google booking if the business has not connected it.
+        await addDoc(collection(db,"users",user.uid,"appointments"),{
+          ...appointment,status:"scheduled",calendarSyncStatus:"not_connected",
+          source:"manual",createdAt:serverTimestamp(),updatedAt:serverTimestamp()
+        });
+        resultMessage="Appointment saved in FUGTH only. Connect Google Calendar for live conflict checks and calendar syncing.";
+      }
+      setAppointment({customerName:"",phone:"",service:"",date:"",time:""});
+      setShowAppointmentForm(false);setNotice(resultMessage);
+    }catch(e){setError(e.message||"Could not save appointment.");}
+    finally{setBusy("");}
   }
   async function saveBusiness(e){
  e.preventDefault();setBusy("profile");setError("");setNotice("");
