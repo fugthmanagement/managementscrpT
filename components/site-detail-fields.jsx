@@ -19,6 +19,14 @@ export default function SiteDetailFields({site,onChange}){
    {faqs.map((faq,i)=><div key={i} className="rounded-xl border border-[#e1edf3] bg-[#f9fcff] p-3"><div className="flex items-center justify-between"><span className="text-[11px] font-black text-[#49758f]">QUESTION {i+1}</span><button type="button" onClick={()=>onChange({faqItems:faqs.filter((_,j)=>i!==j)})} className="text-[11px] font-bold text-[#a45050] underline">Remove</button></div><label className="mt-3 block text-xs font-bold text-[#436476]">Question<input className={input} value={faq.question||""} maxLength={140} onChange={e=>replace("faqItems",faqs,i,{...faq,question:e.target.value})}/></label><label className="mt-3 block text-xs font-bold text-[#436476]">Answer<textarea className={input} rows={2} maxLength={420} value={faq.answer||""} onChange={e=>replace("faqItems",faqs,i,{...faq,answer:e.target.value})}/></label></div>)}
    <button disabled={faqs.length>=5} type="button" onClick={()=>onChange({faqItems:[...faqs,{question:"New question",answer:"Add a clear answer here."}],showFaq:true})} className="rounded-lg border border-[#a6d8f2] bg-[#e8f7ff] px-4 py-2 text-xs font-black text-[#1e658a] disabled:opacity-40">+ Add FAQ</button>
   </Group>
+  <Group title="Section headlines" hint="Replace the generic section titles with copy that sounds like your actual business.">
+   {[
+    ["servicesTitle","Services section title",95],
+    ["processTitle","How it works label",95],
+    ["faqTitle","FAQ section title",95],
+    ["contactTitle","Contact call-to-action title",130]
+   ].map(([key,label,max])=><label key={key} className="block text-xs font-bold text-[#436476]">{label}<input value={site[key]||""} maxLength={max} className={input} onChange={e=>onChange({[key]:e.target.value})}/></label>)}
+  </Group>
   <Group title="Visitor details" hint="These practical details help your site feel credible and complete.">
    <label className="block text-xs font-bold text-[#436476]">Business hours<input value={site.businessHours||""} maxLength={100} className={input} onChange={e=>onChange({businessHours:e.target.value})}/></label>
    <label className="block text-xs font-bold text-[#436476]">Announcement bar<input value={site.announcement||""} maxLength={140} className={input} onChange={e=>onChange({announcement:e.target.value})}/></label>
