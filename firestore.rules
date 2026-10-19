@@ -11,6 +11,19 @@ service cloud.firestore {
           'fugthchat@gmail.com','novaeriahengine@gmail.com'
         ];
     }
+    // These tier checks protect direct Firebase client access as well as UI
+    // gates. Firebase rules must be deployed separately from Vercel.
+    function voiceCrmAccess(uid){
+      return isFounderReader() ||
+        (get(/databases/$(database)/documents/users/$(uid)).data.billingActive == true
+        && get(/databases/$(database)/documents/users/$(uid)).data.planTier in ['starter','growth','elite']);
+    }
+    function marketingAccess(uid){
+      return isFounderReader() ||
+        (get(/databases/$(database)/documents/users/$(uid)).data.billingActive == true
+        && (get(/databases/$(database)/documents/users/$(uid)).data.planTier in ['growth','elite'] ||
+          'email' in get(/databases/$(database)/documents/users/$(uid)).data.billingAddons));
+    }
     function protectedKeys() {
       return [
         'plan','status','planTier','planStatus','billingActive','billingEmail','billingAddons','founderAccess','founderAccessUpdatedAt',
@@ -18,7 +31,8 @@ service cloud.firestore {
         'billingCurrentPeriodEnd','billingRenewsAt','billingExpiresAt',
         'billingCancelAtPeriodEnd','billingTrialEndsAt','billingUpdatedAt','billingCycle','vapiNumber','vapiPhoneNumberId',
         'vapiAssistantId','vapiLinked','vapiLinkedAt','needsVapiLink','voiceProvisionedAt',
-        'assignedNumberId','assignedAssistantId','accountNumber','accountNumberIssuedAt'
+        'assignedNumberId','assignedAssistantId','accountNumber','accountNumberIssuedAt',
+        'phoneSetup','bookingAvailability'
       ];
     }
     match /users/{uid} {
@@ -28,17 +42,21 @@ service cloud.firestore {
         !request.resource.data.diff(resource.data).affectedKeys().hasAny(protectedKeys());
       allow delete: if false;
       match /calls/{id} {
-        allow read, create: if isOwner(uid);
+        allow read, create: if isOwner(uid) && voiceCrmAccess(uid);
         // Owners may organize and rate a call, but cannot rewrite provider
         // recordings, transcripts, caller details, outcomes or timestamps.
-        allow update: if isOwner(uid) &&
+        allow update: if isOwner(uid) && voiceCrmAccess(uid) &&
           request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly(['favorite','ownerRating','updatedAt']);
-        allow delete: if isOwner(uid);
+        allow delete: if isOwner(uid) && voiceCrmAccess(uid);
       }
       match /{kind}/{id} {
         allow read, create, update, delete: if isOwner(uid) &&
-          kind in ['leads','appointments','campaigns','knowledge','knowledgeFiles','notifications'];
+          (
+            ((kind == 'leads' || kind == 'appointments') && voiceCrmAccess(uid)) ||
+            (kind == 'campaigns' && marketingAccess(uid)) ||
+            kind in ['knowledge','knowledgeFiles','notifications']
+          );
       }
     }
     // The public site document is an intentionally limited marketing preview, never
