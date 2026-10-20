@@ -71,7 +71,7 @@ function draftFromExisting(uid,profile,current){
  const base=current||buildStarterSite(uid,profile.businessName||"Your business",profile.businessType||"general",profile);
  // IMPORTANT: an AI build never starts from an auto-publish action.
  const safe=siteFields(base);
- return {...safe,ownerId:uid,visibility:"preview",aiAgentMode:"facts-only",aiAgentModel:"0.5b"};
+ return {...safe,ownerId:uid,visibility:"preview"};
 }
 async function runStep(job){
  const step=tasks[job.stepIndex];
@@ -120,7 +120,7 @@ async function runStep(job){
   const validated=siteFields({...draft,name:info.name,industry:info.industry,
    services:info.services.length?info.services:["Contact our team for service details"],
    phone:info.phone,contactEmail:info.email,serviceArea:info.area,businessHours:info.hours,
-   showChatbot:true,aiAgentMode:"facts-only",aiAgentModel:"0.5b"});
+   showChatbot:draft.showChatbot!==false,aiAgentMode:draft.aiAgentMode||"facts-only",aiAgentModel:draft.aiAgentModel||"0.5b"});
   draft={...validated,ownerId:job.uid,visibility:"preview"};
   output={source:"fugth_validator",summary:"Approved template, field lengths and verified contacts checked. Draft ready for human review."};
  }
