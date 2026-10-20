@@ -10,6 +10,7 @@ import {themeNarrative} from "../lib/site-layout-copy";
 import {getIndustryPhotos} from "../lib/site-images";
 import {siteFactsFromProfile} from "../lib/business-profile";
 import ClientPresentationStudio from "./client-presentation-studio";
+import AiSiteBuilder from "./ai-site-builder";
 
 export const LOCAL_SITE_DRAFT="fugth-site-draft-v1";
 const paletteFields=[
@@ -154,6 +155,7 @@ export default function SiteStudio({user,workspace={},targetUid=null,locked=fals
   {locked&&<div className="rounded-2xl border border-[#d0d0d0] bg-[#f4f4f4] p-5 text-[#333333] sm:p-6"><div className="flex flex-wrap items-center justify-between gap-4"><div><strong className="text-base">Your full website preview is unlocked</strong><p className="mt-2 max-w-2xl text-xs leading-6">Explore the entire site and try the included business chatbot now, even on Zero or Low. You can switch all three layout previews for free. Saving colors, publishing and personalized site modifications require a qualifying website package. FUGTH prepares your tailored website within 24 hours of receiving your onboarding details.</p></div><Link href="/plans" className="fugth-blue-fill rounded-xl px-5 py-3 text-xs font-bold">Unlock site customization ↗</Link></div></div>}
   {(error||message)&&<p role="status" className={`rounded-xl border px-4 py-3 text-sm ${error?"border-red-200 bg-red-50 text-red-800":"border-emerald-200 bg-emerald-50 text-emerald-800"}`}>{error||message}</p>}
   <div className="rounded-2xl border border-[#dddddd] bg-[#f5f5f5] p-5 text-[#333333] sm:p-6"><p className="text-xs font-bold uppercase tracking-wider">Preview design · Personalized launch service</p><p className="mt-2 text-sm leading-7">These designs are previews, not your finished custom website. Choose a FUGTH package that includes professional website customization and our team will personalize your site and prepare it for launch within 24 hours after purchase and receipt of your business details. Domain approval or content delays may affect the public launch time.</p><p className="mt-2 text-xs">Your preview helps us understand your style; the final design can be substantially improved.</p></div>
+  <AiSiteBuilder uid={uid} locked={locked} onSaved={load}/>
   <SiteStudioBuilder site={site} uid={uid} locked={locked} published={published} busy={busy} onChange={change} onTemplate={chooseTemplate} onSave={action} onPublish={()=>action("publish")} onUnpublish={()=>action("unpublish")}/>
   <section className="overflow-hidden rounded-[24px] border border-[#b9dceb] bg-white shadow-[0_10px_36px_rgba(31,81,110,.06)]">
    <div className="bg-[#143246] p-5 text-white sm:p-7"><p className="text-[10px] font-black uppercase tracking-[.19em] text-[#a9dff7]">FUGTH WEBSITE STUDIO / ASSISTANT</p><h3 className="mt-3 text-2xl font-black tracking-[-.04em]">Your site's own business agent.</h3><p className="mt-2 max-w-2xl text-xs leading-6 text-[#c3d8e5]">Each published website answers only from its published business facts. A relevance filter rejects unrelated questions before any local model runs. Assign your GGUF size here; the model weights and keys never go in the page.</p></div>
