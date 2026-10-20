@@ -37,6 +37,7 @@ import FounderSalesDesk from "./founder-sales-desk";
 import FounderRevenuePlanner from "./founder-revenue-planner";
 import FounderBillingHealth from "./founder-billing-health";
 import FounderVoiceHealth from "./founder-voice-health";
+import FounderAiHealth from "./founder-ai-health";
 import FounderDemoControls from "./founder-demo-controls";
 import FounderAccountDirectory from "./founder-account-directory";
 import MarketingHub from "./marketing-hub";
@@ -1120,6 +1121,7 @@ export default function FugthWorkspace() {
                   </div>
                   <FounderAccountDirectory />
                   <FounderRevenuePlanner />
+                  <FounderAiHealth />
                   <FounderVoiceHealth />
                   <FounderDemoControls />
                   <FounderBillingHealth />
