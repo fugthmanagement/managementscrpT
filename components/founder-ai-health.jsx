@@ -50,6 +50,7 @@ export default function FounderAiHealth(){
     <div className="flex flex-wrap justify-between gap-2"><h4 className="text-sm font-black">Global model assignment</h4><p className="text-xs text-[#7894a6]">New customer website mode still requires the owner's opt-in</p></div>
     {settings&&<>
      <label className="mt-4 flex items-center gap-3 text-xs font-bold"><input type="checkbox" checked={settings.enabled!==false} onChange={e=>setSettings({...settings,enabled:e.target.checked})}/> Master AI switch</label>
+     <label className="mt-3 flex items-center gap-3 text-xs font-bold"><input type="checkbox" checked={settings.forceWebsiteModel===true} onChange={e=>setSettings({...settings,forceWebsiteModel:e.target.checked})}/> Force selected website model for every business (overrides each website's individual model selector)</label>
      <div className="mt-4 grid gap-3 sm:grid-cols-3">
       {[["websiteModel","Website default"],["coldCallModel","Cold calling"],["emailModel","Email drafting"]].map(([key,label])=><label className="text-xs font-bold" key={key}>{label}<select className="mt-2 w-full rounded-xl border border-[#d4e6ef] bg-[#f9fcff] px-3 py-3" value={settings[key]||"0.5b"} onChange={e=>setSettings({...settings,[key]:e.target.value})}>{modelOptions.map(([value,name])=><option key={value} value={value}>{name}</option>)}</select></label>)}
      </div>
