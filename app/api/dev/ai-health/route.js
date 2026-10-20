@@ -30,7 +30,7 @@ export async function POST(request){
    note:health.online?"The gateway responded.":"The public wake request was sent but the gateway is not ready; check its Hugging Face logs."});
  }
  if(body?.action!=="configure")return respond({error:"Unknown action."},400);
- const allowed=["enabled","websiteEnabled","coldCallEnabled","emailEnabled","websiteModel","coldCallModel","emailModel"];
+ const allowed=["enabled","websiteEnabled","coldCallEnabled","emailEnabled","forceWebsiteModel","websiteModel","coldCallModel","emailModel"];
  const values=body.policy||{};
  const change={};
  for(const key of allowed){
