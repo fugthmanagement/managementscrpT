@@ -1,9 +1,10 @@
 import {NextResponse} from "next/server";
 import {authenticatedUser,isFounder,firebaseAdmin} from "../../../../lib/server/auth";
 import {hasAccess} from "../../../../lib/server/account-entitlements";
-import {gatewayChat,loadAiPolicy} from "../../../../lib/server/meplifeos";
+import {gatewayChat,gatewayReadiness,loadAiPolicy} from "../../../../lib/server/meplifeos";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
+export const maxDuration=45;
 const response=(data,status=200)=>NextResponse.json(data,{status,headers:{"Cache-Control":"no-store"}});
 export async function POST(req){
  const user=await authenticatedUser(req);
@@ -16,6 +17,7 @@ export async function POST(req){
  try{
   const policy=await loadAiPolicy();
   if(!policy.enabled||!policy.emailEnabled)return response({error:"AI email drafting is disabled by your FUGTH administrator."},503);
+  if(!gatewayReadiness().configured)return response({error:"FUGTH GGUF server secret is not configured in Vercel yet."},503);
   const db=firebaseAdmin().firestore(),userDoc=await db.doc("users/"+user.uid).get(),profile=userDoc.data()||{};
   const manualDoc=await db.doc("founderAccountGrants/"+user.uid).get();
   const entitled=isFounder(user)||hasAccess({...profile,founderAccess:manualDoc.data()},"growth")||
