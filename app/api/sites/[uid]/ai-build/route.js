@@ -29,13 +29,13 @@ async function access(req,uid){
   return {error:json({error:"You can preview Site Maker, but saving an AI-built draft requires a website package."},403)};
  return {user,db,profile,current:d.exists?d.data():l.exists?l.data():null};
 }
-function factsFrom(profile,base){
+function factsFrom(profile,base,hasReviewedSite=false){
  const f=siteFactsFromProfile(profile);
  return {
   name:bounded(profile.businessName||base.name,80),
   industry:detectIndustry(profile.businessType||f.industry||base.industry),
-  services:Array.isArray(f.services)&&f.services.length?f.services.slice(0,6).map(x=>bounded(x,80)):Array.isArray(base.services)?base.services.slice(0,6):[],
-  about:bounded(f.about||profile.businessDescription||base.aboutDetail,700),
+  services:Array.isArray(f.services)&&f.services.length?f.services.slice(0,6).map(x=>bounded(x,80)):hasReviewedSite&&Array.isArray(base.services)?base.services.slice(0,6):[],
+  about:bounded(f.about||profile.businessDescription||(hasReviewedSite?base.aboutDetail:""),700),
   phone:bounded(profile.phone||base.phone,32),
   email:bounded(profile.contactEmail||profile.notificationEmail||base.contactEmail,120),
   area:bounded(profile.serviceArea||base.serviceArea,100),
@@ -112,13 +112,13 @@ async function runStep(job){
   }
   if(output.source!=="gguf"){
    const starter=siteFields(buildStarterSite(job.uid,info.name,info.industry));
-   draft[step]=step==="headline"?starter.headline:(info.about||starter.description);
+   draft[step]=step==="headline"?"Welcome to "+info.name:(info.about||"Explore "+info.name+" and contact the team to confirm services and availability.");
    output={source:"verified_fallback",summary:"Used deterministic FUGTH template copy, not an unverified AI claim.",field:step,value:draft[step]};
   }
  }else if(step==="validate"){
   // Validation is deterministic and always last. Never ask a model to certify itself.
   const validated=siteFields({...draft,name:info.name,industry:info.industry,
-   services:info.services.length?info.services:draft.services,
+   services:info.services.length?info.services:["Contact our team for service details"],
    phone:info.phone,contactEmail:info.email,serviceArea:info.area,businessHours:info.hours,
    showChatbot:true,aiAgentMode:"facts-only",aiAgentModel:"0.5b"});
   draft={...validated,ownerId:job.uid,visibility:"preview"};
@@ -140,7 +140,7 @@ export async function POST(req,{params}){
   const goal=bounded(body?.goal,450);
   if(goal.length<10)return json({error:"Describe the website you want in at least ten characters."},400);
   const current=draftFromExisting(uid,a.profile,a.current);
-  const facts=factsFrom(a.profile,current);
+  const facts=factsFrom(a.profile,current,Boolean(a.current));
   const model=["0.5b","1.5b"].includes(body.model)?body.model:"0.5b";
   const now=new Date().toISOString();
   const job={id:randomUUID(),uid,goal,facts,model,stepIndex:0,status:"planning",
