@@ -21,7 +21,7 @@ function initialSite(p,u){
  const options={phone:clean(p.phone,32),contactEmail:clean(p.email,120),serviceArea:clean(p.city||p.serviceArea,90)};
  const source=trade?demoTemplate(trade,name,options):buildStarterSite(u,name,industry,options);
  const common=siteFields({...source,industry:trade?source.industry:industry,name,
-  aiAgentModel:"auto",showChatbot:true,aiAgentMode:"local"});
+  aiAgentModel:"auto",showChatbot:true,aiAgentMode:"facts-only"});
  return {...common,ownerId:u,previewMode:true};
 }
 async function getProspect(db,u,id){
