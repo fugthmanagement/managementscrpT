@@ -12,13 +12,13 @@ const btn="rounded-xl border border-[#c4dbe7] bg-white px-4 py-3 text-xs font-bl
 const PRESETS=[
  {id:"preview",label:"Reveal an independent website concept",needsLink:true,
   text:"Hi {{contact}}, this is Pierre with FUGTH Management. I put together an independent sample website concept for {{business}}: {{link}}. I'd love your thoughts. If you like it, reply and we can discuss the next steps."},
- {id:"better",label:"A nicer look for an existing website",needsSite:true,
+ {id:"better",label:"A nicer look for an existing website",needsSite:true,needsLink:true,
   text:"Hi {{contact}}, Pierre from FUGTH Management here. I checked out {{business}} online and had an idea for a fresh, more polished look. I'd be happy to show you a sample: {{link}}. Interested in seeing it?"},
- {id:"claim",label:"Preview, claim request & account sign-up",needsLink:true,
+ {id:"claim",label:"Preview, claim request & account sign-up",needsLink:true,needsDemo:true,
   text:"Hi {{contact}}, I made an independent preview concept for {{business}}: {{link}}. If you like the direction, you can make a FUGTH account and request to claim this preview after ownership verification: {{claim}}. Want a quick walkthrough?"},
  {id:"booking",label:"No-account consultation booking",
   text:"Hi {{contact}}, it's Pierre with FUGTH Management. If you'd like to talk about website options for {{business}}, you can request a time without making an account: {{booking}}. I'll confirm after checking my calendar."},
- {id:"followup",label:"Follow-up after a real conversation",
+ {id:"followup",label:"Follow-up after a real conversation",needsConversation:true,
   text:"Hi {{contact}}, it's Pierre from FUGTH Management. Following up on our conversation about {{business}}. If you're still interested, here's the website concept: {{link}}. Would a short chat help?"},
  {id:"referral",label:"Genuine referral (only when verified)",needsLink:true,needsReferral:true,
   text:"Hi {{contact}}, this is Pierre from FUGTH Management. {{referrer}} recommended I reach out about {{business}}. I put together an independent website concept: {{link}}. Would you like to take a look?"},
@@ -58,7 +58,7 @@ export default function FounderTextDesk({user,initialProspectId=""}){
  const [chosenDemo,setChosenDemo]=useState(""),[preset,setPreset]=useState("preview"),[editor,setEditor]=useState(PRESETS[0].text);
  const [consentSource,setConsentSource]=useState(""),[approved,setApproved]=useState(false);
  const [saving,setSaving]=useState(false),[info,setInfo]=useState(""),[showLinkPicker,setShowLinkPicker]=useState(false);
- const [referrer,setReferrer]=useState(""),[verifiedReferral,setVerifiedReferral]=useState(false);
+ const [referrer,setReferrer]=useState(""),[verifiedReferral,setVerifiedReferral]=useState(false),[verifiedConversation,setVerifiedConversation]=useState(false);
  const [showGguf,setShowGguf]=useState(false);
  useEffect(()=>{if(initialProspectId)setProspectId(initialProspectId)},[initialProspectId]);
  useEffect(()=>{if(!db||!user?.uid)return;
@@ -117,9 +117,11 @@ export default function FounderTextDesk({user,initialProspectId=""}){
  const needsLink=Boolean(selectedPreset.needsLink);
  const referralAllowed=!selectedPreset.needsReferral||(verifiedReferral&&referrer.trim().length>=2);
  const currentWebsiteAllowed=!selectedPreset.needsSite||Boolean(prospect?.website);
+ const demoAllowed=!selectedPreset.needsDemo||Boolean(demoIdForLink);
+ const conversationAllowed=!selectedPreset.needsConversation||verifiedConversation;
  const canPrepare=Boolean(prospect&&!suppressed&&validPhone&&optedIn&&composed.length>=10&&(!needsLink||link));
- useEffect(()=>{setChosenDemo("");setConsentSource(trimmed(prospect?.consentSource));setApproved(false);setInfo("");setVerifiedReferral(false);},[prospectId]);
- function changePreset(value){setPreset(value);setEditor(PRESETS.find(x=>x.id===value)?.text||"");setVerifiedReferral(false);setInfo("");}
+ useEffect(()=>{setChosenDemo("");setConsentSource(trimmed(prospect?.consentSource));setApproved(false);setInfo("");setVerifiedReferral(false);setVerifiedConversation(false);},[prospectId]);
+ function changePreset(value){setPreset(value);setEditor(PRESETS.find(x=>x.id===value)?.text||"");setVerifiedReferral(false);setVerifiedConversation(false);setInfo("");}
  function chooseDemo(value){
   setChosenDemo(value);setInfo("");
  }
@@ -234,6 +236,8 @@ export default function FounderTextDesk({user,initialProspectId=""}){
      <textarea rows={6} maxLength={1300} className={field+" min-h-[170px]"} value={editor} onChange={e=>setEditor(e.target.value)}/>
     </label>
     <p className="mt-2 text-[11px] text-[#7a94a5]">Available: {"{{contact}}"}, {"{{business}}"}, {"{{link}}"}, {"{{booking}}"}, {"{{claim}}"}, {"{{referrer}}"}.</p>
+    {selectedPreset.needsDemo&&!demoIdForLink&&<p className="mt-3 rounded-lg bg-amber-50 p-3 text-xs text-amber-900">This claim preset requires a saved FUGTH demo preview. Select a demo (not a different published company's live site).</p>}
+    {selectedPreset.needsConversation&&<label className="mt-3 flex items-center gap-2 text-xs font-bold"><input type="checkbox" checked={verifiedConversation} onChange={e=>setVerifiedConversation(e.target.checked)}/> I confirm a prior conversation actually occurred.</label>}
     {selectedPreset.needsSite&&!prospect?.website&&<p className="mt-3 rounded-lg bg-amber-50 p-3 text-xs text-amber-900">This preset references their existing website. No business website is saved for this prospect. Choose another preset.</p>}
     {selectedPreset.needsReferral&&<div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
      <label className="block text-xs font-bold">Who actually referred you?<input className={field} value={referrer} onChange={e=>setReferrer(e.target.value)} placeholder="Real person's name"/></label>
