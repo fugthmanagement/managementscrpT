@@ -58,6 +58,19 @@ export async function POST(req){
  try{
   const db=firebaseAdmin().firestore();
   const prospectRef=db.doc("users/"+actor.uid+"/campaigns/"+prospectId);
+  // Image discovery is optional. A blocked Drive tag lookup must NEVER prevent
+  // a prospect from getting a basic website. Do it outside the transaction.
+  let suggestedMedia=[];
+  if(action==="ensure"){
+   try{
+    const lookup=await prospectRef.get(),p=lookup.data();
+    if(lookup.exists&&p?.businessName){
+     const photos=await db.collection("users/"+actor.uid+"/siteImages")
+      .where("folder","==",String(p.businessName).trim().slice(0,48)).limit(24).get();
+     suggestedMedia=photos.docs.map(doc=>({id:doc.id,...doc.data()}));
+    }
+   }catch(e){console.warn("FUGTH_OPTIONAL_MEDIA_LOOKUP",{code:String(e?.code||"unavailable")})}
+  }
   const result=await db.runTransaction(async tx=>{
    const snap=await tx.get(prospectRef);
    if(!snap.exists||snap.data()?.type!=="cold_call_prospect")throw Object.assign(Error("Prospect not found."),{status:404});
@@ -72,9 +85,7 @@ export async function POST(req){
    // If a founder organized licensed images in THIS prospect's Drive folder,
    // fill their preview media slots when creating the site once, never overwrite later edits.
    if(!prior.exists&&action==="ensure"){
-    const media=await tx.get(db.collection("users/"+actor.uid+"/siteImages")
-     .where("folder","==",String(p.businessName||"").trim().slice(0,48)).limit(24));
-    const matched=matchProspectPhotos(p,media.docs.map(doc=>({id:doc.id,...doc.data()})));
+    const matched=matchProspectPhotos(p,suggestedMedia);
     if(matched.heroImageId){
      starter.heroImageId=matched.heroImageId;
      starter.galleryImageIds=matched.galleryImageIds.length?matched.galleryImageIds:starter.galleryImageIds;
@@ -95,11 +106,16 @@ export async function POST(req){
     site,revision,updatedAt:now,
     ...(prior.exists?{}:{createdAt:now,expiresAt:null,revoked:false}),
    };
+   if(action==="ensure"&&prior.exists&&(current?.revoked===true||
+      current?.expiresAt&&Date.parse(current.expiresAt)<=Date.now())){
+    // Founder reopening a previously expired/revoked link explicitly restores it.
+    record.revoked=false;record.expiresAt=null;
+   }
    tx.set(ref,record,{merge:true});
    tx.set(prospectRef,{websitePreviewUrl:urlFor(id),assignedPreviewId:id,
     assignedPreviewName:site.name,assignedPreviewExpiresAt:"",
     updatedAt:now},{merge:true});
-   return {id,url:urlFor(id),site,revision,saved:true,action};
+   return {id,url:urlFor(id),site,revision,saved:true,action,reused:prior.exists};
   });
   return out(result,action==="ensure"?200:200);
  }catch(e){return out({error:e.status?e.message:"Could not save this prospect's website. Check Firestore access."},e.status||503)}
