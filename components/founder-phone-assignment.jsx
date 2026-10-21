@@ -50,9 +50,8 @@ export default function FounderPhoneAssignment({uid,onAssigned}){
    const data=await res.json().catch(()=>({}));
    if(!res.ok)throw Error(data.error||"The new-number request needs review in Vapi.");
    setNewNumberResult(data);
-   setMessage("Created and assigned "+data.number+". Check Vapi activation and place a real test call before advertising this number.");
    setConfirmPhrase("");setBillingAcknowledged(false);
-   await load();onAssigned?.();
+   await load();setMessage("Created and assigned "+data.number+". Check Vapi activation and place a real test call before advertising this number.");onAssigned?.();
   }catch(error){setMessage(error.message||"Provisioning failed. Review provider inventory before retrying.");}
   finally{setSaving(false);}
  }
