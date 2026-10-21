@@ -108,5 +108,5 @@ export async function POST(req){
   return output({...result,note:action==="record_email"?
    "Marked as manually sent. FUGTH has not verified Gmail delivery. This does not authorize automated bulk email.":
    "Prospect history and next-step status saved."});
- }catch(e){return output({error:e.status?e.message:"Could not save prospect outreach history."},e.status||503)}
+ }catch(e){return output({error:e.status?e.message:"Could not save prospect outreach history.",code:e.status?"invalid_action":"server_firestore_unavailable"},e.status||503)}
 }
