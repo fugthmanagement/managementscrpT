@@ -30,7 +30,7 @@ export async function GET(req){
   // an empty day can hide a broken Firebase Admin configuration.
   const db=firebaseAdmin().firestore();
   if(!slots.length)return json({date:day,timezone:FOUNDER_TIMEZONE,slots:[],
-   minNoticeMinutes:MIN_NOTICE_MINUTES,availability:"closed",...founderNoSlotsReason(day)});
+   minNoticeMinutes:MIN_NOTICE_MINUTES,slotMinutes:30,availability:"closed",...founderNoSlotsReason(day)});
 
   const refs=slots.map(s=>db.doc("founderCalendarSlots/"+s.id));
   const docs=await db.getAll(...refs);
@@ -39,9 +39,9 @@ export async function GET(req){
    reason:docs[i].exists?(docs[i].data()?.status==="blocked"?"blocked":"booked"):null
   }));
   return json({date:day,timezone:FOUNDER_TIMEZONE,slots:visible,
-   minNoticeMinutes:MIN_NOTICE_MINUTES,availability:visible.some(x=>x.available)?"available":"full",
+   minNoticeMinutes:MIN_NOTICE_MINUTES,slotMinutes:30,timezone:FOUNDER_TIMEZONE,availability:visible.some(x=>x.available)?"available":"full",
    message:visible.some(x=>x.available)?"Choose a time that works for you.":
-    "This date is fully booked. Choose another weekday."});
+    "This date is fully booked. Choose another date."});
  }catch(e){
   const issue=firestoreDemoFailure(e);
   console.warn("FUGTH_GUEST_AVAILABILITY_FAILURE",{code:issue.code});
@@ -62,7 +62,7 @@ export async function POST(req){
   phone=clean(body.phone,32),notes=clean(body.notes,400),siteId=clean(body.siteId,70);
  const slot=founderSlotDetails(body.startTime);
  if(name.length<2||!mail(email)||!validPhone(phone)||!slot||body.consent!==true)
-  return json({error:"Enter valid contact details and select an available weekday time at least one hour ahead."},400);
+  return json({error:"Enter valid contact details and select an available 30-minute slot at least 30 minutes ahead."},400);
  if(/https?:\/\//i.test(notes))return json({error:"Please describe your request without external links."},400);
  try{
  const db=firebaseAdmin().firestore(),day=new Date().toISOString().slice(0,10);

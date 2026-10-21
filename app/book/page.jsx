@@ -11,15 +11,24 @@ const dateEastern=(value=new Date())=>{
  }).formatToParts(value).map(x=>[x.type,x.value]));
  return [parts.year,parts.month,parts.day].join("-");
 };
-const nextWeekday=(date)=>{
+const nextDay=date=>{
  const d=new Date(String(date)+"T12:00:00Z");
  if(!Number.isFinite(d.getTime()))return date;
- for(let i=0;i<7;i++){
-  d.setUTCDate(d.getUTCDate()+1);
-  if(d.getUTCDay()>0&&d.getUTCDay()<6)return d.toISOString().slice(0,10);
- }
- return date;
+ d.setUTCDate(d.getUTCDate()+1);
+ return d.toISOString().slice(0,10);
 };
+const etHour=startTime=>{
+ const p=new Intl.DateTimeFormat("en-US",{
+  timeZone:"America/New_York",hour:"numeric",hourCycle:"h23"
+ }).formatToParts(new Date(startTime));
+ return Number(p.find(x=>x.type==="hour")?.value||0);
+};
+const groups=[
+ {name:"Overnight",detail:"12:00 AM – 6:00 AM",from:0,to:6},
+ {name:"Morning",detail:"6:00 AM – 12:00 PM",from:6,to:12},
+ {name:"Afternoon",detail:"12:00 PM – 6:00 PM",from:12,to:18},
+ {name:"Evening",detail:"6:00 PM – 12:00 AM",from:18,to:24}
+];
 export default function BookFounder(){
  const [form,setForm]=useState({name:"",business:"",email:"",phone:"",date:"",startTime:"",notes:"",
   consent:false,companyWebsite:""});
@@ -29,7 +38,7 @@ export default function BookFounder(){
   [availabilityCode,setAvailabilityCode]=useState(""),
   [availabilityMessage,setAvailabilityMessage]=useState("");
  const change=(key,value)=>{setForm(x=>({...x,[key]:value}));setMessage("")};
- useEffect(()=>{setForm(x=>x.date?x:{...x,date:nextWeekday(dateEastern())})},[]);
+ useEffect(()=>{setForm(x=>x.date?x:{...x,date:dateEastern()})},[]);
  useEffect(()=>{
   if(!form.date){setSlots([]);return}
   let cancelled=false;
@@ -85,7 +94,7 @@ export default function BookFounder(){
    <header className="bg-[#102c40] p-7 text-white sm:p-10">
     <p className="text-[10px] font-black uppercase tracking-[.25em] text-[#b1dff7]">FUGTH MANAGEMENT / APPOINTMENTS</p>
     <h1 className="mt-4 text-3xl font-black tracking-tight sm:text-4xl">Book a conversation, no account needed.</h1>
-    <p className="mt-4 text-sm leading-7 text-[#c4dbe9]">Choose an available time to discuss your website, AI receptionist or sales operations. Booked times are disabled automatically. Confirmed meetings are saved to the private FUGTH calendar.</p>
+    <p className="mt-4 text-sm leading-7 text-[#c4dbe9]">Book any day, day or night. Pick a 30-minute time slot at least 30 minutes from now. Open slots are checked against our private FUGTH Firestore calendar, and booked times are unavailable.</p>
    </header>
    {confirmed?<div className="space-y-4 p-8 sm:p-10">
     <h2 className="text-2xl font-black text-[#226a50]">✓ Appointment confirmed</h2>
@@ -108,19 +117,26 @@ export default function BookFounder(){
       <div className="flex flex-wrap gap-3">
        <button type="button" onClick={refresh} disabled={loading} className="text-xs font-bold text-[#2b799b] underline">{loading?"Checking…":"Refresh times"}</button>
        <button type="button" className="text-xs font-bold text-[#2b799b] underline"
-        onClick={()=>{setForm(x=>({...x,date:nextWeekday(x.date),startTime:""}));setMessage("")}}>Next weekday →</button>
+        onClick={()=>{setForm(x=>({...x,date:nextDay(x.date),startTime:""}));setMessage("")}}>Next day →</button>
       </div>
      </div>
-     <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-      {slots.map(s=><button type="button" key={s.startTime} disabled={!s.available||loading}
-        aria-pressed={form.startTime===s.startTime}
-        onClick={()=>change("startTime",s.startTime)}
-        className={"rounded-xl border p-3 text-xs font-black transition "+
-        (!s.available?"cursor-not-allowed border-[#edf0f2] bg-[#f0f2f4] text-[#adb5bc] line-through":
-         form.startTime===s.startTime?"border-[#1c698e] bg-[#d5f0ff] text-[#164767]":"border-[#c6deec] bg-white text-[#315d75] hover:bg-[#e8f7ff]")}>
-        {s.label.replace(" ET","")}{!s.available&&<span className="block text-[10px]">{s.reason==="blocked"?"Unavailable":"Booked"}</span>}
-       </button>)}
-     </div>
+     {groups.map(g=>{
+       const section=slots.filter(s=>{const h=etHour(s.startTime);return h>=g.from&&h<g.to});
+       return section.length?<section key={g.name} className="mt-5">
+        <p className="mb-3 text-xs font-bold text-[#28546f]">{g.name} <span className="font-normal text-[#7896a6]">· {g.detail} Eastern</span></p>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+         {section.map(s=><button type="button" key={s.startTime} disabled={!s.available||loading}
+          aria-pressed={form.startTime===s.startTime}
+          onClick={()=>change("startTime",s.startTime)}
+          className={"rounded-xl border p-3 text-xs font-black transition "+
+          (!s.available?"cursor-not-allowed border-[#edf0f2] bg-[#f0f2f4] text-[#adb5bc] line-through":
+           form.startTime===s.startTime?"border-[#1c698e] bg-[#d5f0ff] text-[#164767]":"border-[#c6deec] bg-white text-[#315d75] hover:bg-[#e8f7ff]")}>
+          {s.label}
+          {!s.available&&<span className="block text-[10px]">{s.reason==="blocked"?"Unavailable":"Booked"}</span>}
+         </button>)}
+        </div>
+       </section>:null
+     })}
      {loading&&<p className="mt-3 text-xs text-[#52768d]">Checking the FUGTH appointment calendar…</p>}
      {!loading&&availabilityError&&<div role="alert" className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-xs leading-6 text-amber-900">
       <strong>Appointment calendar temporarily unavailable.</strong>
@@ -130,7 +146,7 @@ export default function BookFounder(){
      </div>}
      {!loading&&!availabilityError&&!slots.length&&<p className="mt-3 text-xs text-[#b47735]">{availabilityMessage||"No openings remain at this time. Try the next weekday."}</p>}
      {!loading&&!availabilityError&&slots.length>0&&slots.every(x=>!x.available)&&
-      <p className="mt-3 text-xs text-[#b47735]">This date is fully booked or blocked. Try the next weekday.</p>}
+      <p className="mt-3 text-xs text-[#b47735]">This date is fully booked or blocked. Try another date.</p>}
     </fieldset>}
     <label className="text-xs font-bold sm:col-span-2">What would you like to discuss? (optional)
      <textarea className={input} maxLength={400} rows={3} value={form.notes} onChange={e=>change("notes",e.target.value)} placeholder="Your website, appointment system, AI receptionist…"/>

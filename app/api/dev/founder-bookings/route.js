@@ -52,7 +52,7 @@ export async function POST(req){
  }
  if(action==="block"){
   const slot=founderSlotDetails(body.startTime);
-  if(!slot)return out({error:"Choose an open weekday appointment time at least 1 hour ahead."},400);
+  if(!slot)return out({error:"Choose an available appointment slot at least 30 minutes ahead, any day or night."},400);
   const ref=db.doc("founderCalendarSlots/"+slot.id);
   try{
    await db.runTransaction(async tx=>{
@@ -65,7 +65,7 @@ export async function POST(req){
  }
  if(action==="unblock"){
   const id=String(body.slotId||"");
-  if(!/^\d{8}_\d{4}$/.test(id))return out({error:"Invalid slot."},400);
+  if(!/^\d{8}_\d{4}b?$/.test(id))return out({error:"Invalid slot."},400);
   const ref=db.doc("founderCalendarSlots/"+id);
   try{
    await db.runTransaction(async tx=>{
