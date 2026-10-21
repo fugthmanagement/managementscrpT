@@ -18,7 +18,7 @@ export async function POST(req){
  if(!["sync_opted_in","create_campaign"].includes(body?.action)||!ids.length||ids.length>50||ids.some(x=>!/^[A-Za-z0-9_-]{8,128}$/.test(x)))
   return respond({error:"Choose 1 to 50 valid saved prospects."},400);
  if(creating){
-  if(!["concept","improvement","appointment","custom"].includes(body.preset))
+  if(!["intro","concept","improvement","appointment","custom"].includes(body.preset))
    return respond({error:"Use a truthful general-purpose email preset for group campaigns."},400);
   if(body.preset==="custom"&&ids.length>1)
    return respond({error:"A GGUF or custom email written for one business cannot be sent unchanged to multiple different businesses."},400);
