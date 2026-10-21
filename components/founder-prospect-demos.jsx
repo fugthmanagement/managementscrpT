@@ -16,7 +16,7 @@ const initial = {
   assignedUid: "",
   prospectId: "",
 };
-export default function FounderProspectDemos() {
+export default function FounderProspectDemos({user}) {
   const [prospects,setProspects]=useState([]);
   const [form, setForm] = useState(initial),
     [rows, setRows] = useState([]),
@@ -54,10 +54,10 @@ export default function FounderProspectDemos() {
     refresh();
   }, []);
   useEffect(()=>{
-    if(!db||!auth.currentUser?.uid)return;
-    return onSnapshot(query(collection(db,"users",auth.currentUser.uid,"campaigns"),orderBy("createdAt","desc"),limit(800)),
+    if(!db||!user?.uid)return;
+    return onSnapshot(query(collection(db,"users",user.uid,"campaigns"),orderBy("createdAt","desc"),limit(800)),
       snap=>setProspects(snap.docs.map(d=>({id:d.id,...d.data()})).filter(d=>d.type==="cold_call_prospect")));
-  },[]);
+  },[user?.uid]);
   function selectProspect(id){
     const chosen=prospects.find(p=>p.id===id);
     setForm(current=>({...current,prospectId:id,
