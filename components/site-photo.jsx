@@ -2,8 +2,10 @@
 import {useEffect,useState} from "react";
 import {getSiteImage,getIndustryPhotos} from "../lib/site-images";
 import {auth} from "../lib/firebase";
-export default function SitePhoto({imageId,ownerUid,industry="general",slot="hero",className="",style,priority=false,sourcePhotoUrl="",sourcePhotoCredit=""}){
- const custom=/^fugth-upload-[a-f0-9]{32}$/.test(String(imageId||""))&&/^[A-Za-z0-9_-]{8,128}$/.test(String(ownerUid||""));
+export default function SitePhoto({imageId,ownerUid,industry="general",slot="hero",className="",style,priority=false,sourcePhotoUrl="",sourcePhotoCredit="",demoId=""}){
+ const hasOwner=/^[A-Za-z0-9_-]{8,128}$/.test(String(ownerUid||""));
+ const hasDemo=/^[a-f0-9]{24}$/.test(String(demoId||""));
+ const custom=/^fugth-upload-[a-f0-9]{32}$/.test(String(imageId||""))&&(hasOwner||hasDemo);
  const preferred=getSiteImage(custom?null:imageId,industry);
  const fallback=[preferred,...getIndustryPhotos(industry).filter(x=>x.id!==preferred.id)];
  const [step,setStep]=useState(0),[privatePhoto,setPrivatePhoto]=useState("");
@@ -16,16 +18,22 @@ export default function SitePhoto({imageId,ownerUid,industry="general",slot="her
   (async()=>{
    try{
     const token=await auth?.currentUser?.getIdToken().catch(()=>null);
-    const response=await fetch("/api/sites/images/"+encodeURIComponent(ownerUid)+"/"+encodeURIComponent(imageId),{
-     headers:token?{Authorization:"Bearer "+token}:{},cache:"no-store"
-    });
-    if(!response.ok)throw Error("Photo unavailable");
+    const sources=[
+     ...(hasDemo?["/api/demo/photo/"+encodeURIComponent(demoId)+"/"+encodeURIComponent(imageId)]:[]),
+     ...(hasOwner?["/api/sites/images/"+encodeURIComponent(ownerUid)+"/"+encodeURIComponent(imageId)]:[])
+    ];
+    let response=null;
+    for(const uri of sources){
+     const r=await fetch(uri,{headers:token?{Authorization:"Bearer "+token}:{},cache:"no-store"});
+     if(r.ok){response=r;break}
+    }
+    if(!response)throw Error("Photo unavailable");
     objectUrl=URL.createObjectURL(await response.blob());
     if(active)setPrivatePhoto(objectUrl);else URL.revokeObjectURL(objectUrl);
    }catch{if(active)setPrivatePhoto("");}
   })();
   return()=>{active=false;if(objectUrl)URL.revokeObjectURL(objectUrl);};
- },[custom,imageId,ownerUid]);
+ },[custom,imageId,ownerUid,demoId,hasDemo,hasOwner]);
  const photo=fallback[step]||null,showCustom=custom&&Boolean(privatePhoto);
  const showSource=Boolean(sourcePhotoUrl)&&/^https:\/\//i.test(sourcePhotoUrl)&&!sourceFailed&&!showCustom;
  return <figure className={`relative overflow-hidden bg-zinc-200 ${className}`} style={style} data-fugth-media-slot={slot}>
