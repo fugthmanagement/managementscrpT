@@ -35,7 +35,7 @@ function normalize(item){
   notes:clean(value(item,["notes","description"]),900),
   source:"Imported prospect list",type:"cold_call_prospect",status:"new",callCount:0,favorite:false};
 }
-export default function FounderProspectImport({user}){
+export default function FounderProspectImport({user,onText}){
  const [rows,setRows]=useState([]),[search,setSearch]=useState(""),[category,setCategory]=useState("all"),
   [website,setWebsite]=useState("all"),[minRating,setMinRating]=useState("0"),[status,setStatus]=useState("all"),
   [busy,setBusy]=useState(false),[message,setMessage]=useState("");
