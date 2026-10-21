@@ -199,6 +199,7 @@ export default function FugthWorkspace() {
   const [user, setUser] = useState(null),
     [ready, setReady] = useState(false);
   const [prospectSiteMakerId,setProspectSiteMakerId]=useState("");
+  const [lastSalesTab,setLastSalesTab]=useState("guide");
   const [page, setPage] = useState("home"),
     [menuOpen, setMenuOpen] = useState(false);
   const [founder, setFounder] = useState(false),
@@ -390,6 +391,7 @@ export default function FugthWorkspace() {
   };
   function openProspectSiteMaker(prospect){
     if(!prospect?.id)return;
+    if(["guide","training","leads","sms","email","outreach","demos"].includes(prospect.originTab))setLastSalesTab(prospect.originTab);
     changePage("website");
     setProspectSiteMakerId(prospect.id);
   }
@@ -1114,7 +1116,7 @@ export default function FugthWorkspace() {
             )}
             {page === "sales" && founder && (
               <div>
-                <FounderSalesDesk user={user} onOpenMarketing={()=>changePage("marketing")} onOpenSiteMaker={openProspectSiteMaker}/>
+                <FounderSalesDesk user={user} onOpenMarketing={()=>changePage("marketing")} onOpenSiteMaker={openProspectSiteMaker} initialTab={lastSalesTab}/>
               </div>
             )}
             {page === "sales" && !founder && (
