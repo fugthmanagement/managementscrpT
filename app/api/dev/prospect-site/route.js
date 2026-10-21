@@ -4,6 +4,7 @@ import {authenticatedUser,isFounder,firebaseAdmin} from "../../../../lib/server/
 import {buildStarterSite,detectIndustry,getIndustryThemes,siteFields} from "../../../../lib/site-presets";
 import {demoTemplate} from "../../../../lib/demo-template";
 import {matchProspectPhotos} from "../../../../lib/prospect-photo-matching";
+import {firestoreDemoFailure} from "../../../../lib/server/prospect-demos-directory";
 export const runtime="nodejs";export const dynamic="force-dynamic";export const maxDuration=60;
 const out=(v,s=200)=>NextResponse.json(v,{status:s,headers:{"Cache-Control":"private, no-store"}});
 const valid=x=>/^[A-Za-z0-9_-]{8,128}$/.test(String(x||""));
@@ -44,7 +45,11 @@ export async function GET(req){
   return out({saved:true,id:assigned,site:demo.site,revision:demo.revision||1,
    url:urlFor(assigned),prospect:{id,businessName:p.businessName,industry:p.industry},
    expiresAt:demo.expiresAt||null});
- }catch(e){return out({error:e.message||"Could not open this prospect's website."},e.status||503)}
+ }catch(e){
+  const issue=firestoreDemoFailure(e);
+  console.error("FUGTH_PROSPECT_SITE_FIRESTORE",{code:issue.code});
+  return out({error:e.status?e.message:issue.error,code:issue.code,hint:issue.hint},e.status||503);
+ }
 }
 export async function POST(req){
  const actor=await founder(req);if(!actor)return out({error:"Founder account required."},403);
@@ -118,5 +123,9 @@ export async function POST(req){
    return {id,url:urlFor(id),site,revision,saved:true,action,reused:prior.exists};
   });
   return out(result,action==="ensure"?200:200);
- }catch(e){return out({error:e.status?e.message:"Could not save this prospect's website. Check Firestore access."},e.status||503)}
+ }catch(e){
+  const issue=firestoreDemoFailure(e);
+  console.error("FUGTH_PROSPECT_SITE_FIRESTORE",{code:issue.code});
+  return out({error:e.status?e.message:issue.error,code:issue.code,hint:issue.hint},e.status||503);
+ }
 }
