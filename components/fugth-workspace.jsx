@@ -262,7 +262,7 @@ export default function FugthWorkspace() {
       setUser(current || null);
       setReady(true);
       if (!current) {
-        window.location.replace("/login");
+        setCapabilitiesReady(true);
         return;
       }
       try {
@@ -541,12 +541,24 @@ export default function FugthWorkspace() {
       setBusy("");
     }
   }
-  if (!ready || !user)
-    return (
-      <main className="fugth-workspace grid min-h-screen place-items-center bg-[#f0f9ff] text-sm text-[#234e6a]">
-        Opening your FUGTH workspace…
-      </main>
-    );
+  if (!ready)
+    return <main className="grid min-h-screen place-items-center bg-[#f0f9ff] text-sm text-[#234e6a]">Opening FUGTH…</main>;
+  if (!user)
+    return <main className="min-h-screen bg-[#f2f9fe] px-5 py-12 text-[#163c55] sm:py-20">
+      <div className="mx-auto max-w-3xl overflow-hidden rounded-[28px] border border-[#d5e7f0] bg-white shadow-[0_18px_50px_rgba(18,68,100,.1)]">
+        <header className="bg-[#102e43] p-8 text-white sm:p-12">
+          <p className="text-[10px] font-black uppercase tracking-[.2em] text-[#a0d5f1]">FUGTH MANAGEMENT / GUEST DASHBOARD</p>
+          <h1 className="mt-4 text-4xl font-black">Welcome to FUGTH.</h1>
+          <p className="mt-3 text-sm leading-7 text-[#c8e2f0]">Explore the business platform, book a founder consultation, or sign in to manage your website, calls and leads.</p>
+        </header>
+        <div className="grid gap-3 p-7 sm:grid-cols-2 sm:p-10">
+          <Link href="/book" className="rounded-2xl bg-[#1e5877] px-5 py-6 text-center text-sm font-black text-white">Book a consultation without an account ↗</Link>
+          <Link href="/login" className="rounded-2xl border border-[#b7d4e5] px-5 py-6 text-center text-sm font-black">Log in to my business</Link>
+          <Link href="/login?signup=1" className="rounded-2xl border border-[#b7d4e5] px-5 py-6 text-center text-sm font-black sm:col-span-2">Create a FUGTH business account with Google or email →</Link>
+          <p className="text-xs leading-5 text-[#668ca3] sm:col-span-2">Guest booking requests require FUGTH approval before they appear as confirmed Google Calendar events.</p>
+        </div>
+      </div>
+    </main>;
   const business =
     workspace.businessName && workspace.businessName !== "Fugth Management OS"
       ? workspace.businessName
