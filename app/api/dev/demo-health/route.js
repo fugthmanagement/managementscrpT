@@ -1,6 +1,7 @@
 import {NextResponse} from "next/server";
 import {authenticatedUser,isFounder,firebaseAdmin} from "../../../../lib/server/auth";
 import {firestoreDemoFailure} from "../../../../lib/server/prospect-demos-directory";
+import {resolveFirebaseProjectId,serviceAccountProjectFromEmail} from "../../../../lib/server/firebase-project";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
 export const maxDuration=30;
@@ -9,7 +10,8 @@ function serverCredentials(){
  const json=String(process.env.FIREBASE_SERVICE_ACCOUNT||"").trim();
  const email=String(process.env.FIREBASE_CLIENT_EMAIL||"").trim();
  const key=String(process.env.FIREBASE_PRIVATE_KEY||"").trim();
- const expected=String(process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID||"").trim();
+ const expected=resolveFirebaseProjectId(process.env);
+ const projectSource=process.env.FIREBASE_PROJECT_ID||process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID||process.env.GOOGLE_CLOUD_PROJECT||process.env.GCLOUD_PROJECT?"environment":"FUGTH default";
  let actual=null,format="missing",parseOk=true;
  if(json){
   format="service_account_json";
@@ -18,9 +20,10 @@ function serverCredentials(){
  }else if(email||key){
   format="separate_env";
   parseOk=Boolean(email&&key);
+  actual=serviceAccountProjectFromEmail(email);
  }
  // No credential values, raw provider exceptions or secrets in the diagnostic.
- return {format,projectId:expected||null,serviceProjectId:actual||null,
+ return {format,projectId:expected||null,projectSource,serviceProjectId:actual||null,
   complete:Boolean(format!=="missing"&&parseOk),projectMatches:!actual||!expected||expected===actual};
 }
 async function probe(uid,write=false){
