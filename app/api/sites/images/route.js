@@ -88,7 +88,7 @@ export async function POST(req){
   const parent=await ensureDriveFolder(user.uid,folder,drive.token);
   const metadata={name,mimeType:type,
    ...(parent?{parents:[parent]}:{}),
-   appProperties:{fugthImageId:id,fugthOwnerUid:user.uid,folder:folder.slice(0,90)}};
+   appProperties:{fugthImageId:id,fugthOwnerUid:user.uid,folder:folder.toLowerCase().replace(/[^a-z0-9]+/g,"-").slice(0,50)}};
   const multipart=Buffer.concat([
    Buffer.from("--"+boundary+"\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n"+
     JSON.stringify(metadata)+"\r\n--"+boundary+"\r\nContent-Type: "+type+"\r\n\r\n"),
