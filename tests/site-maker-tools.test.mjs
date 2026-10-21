@@ -13,7 +13,7 @@ test("ordinary founder color instruction yields existing button control",()=>{
 test("black and white design request sets only four safe preset color slots",()=>{
  const list=deterministicSitePlan("Give it a black and white theme",site);
  assert.ok(list.some(x=>x.field==="headerColor"&&x.value==="#171717"));
- assert.ok(list.some(x=>x.field==="mainColor"&&x.value==="#ffffff"));
+ assert.equal(applySiteActions(site,list).mainColor,"#ffffff"); // White is already set: no-op edits are omitted.
  assert.ok(list.every(x=>["headerColor","mainColor","accentColor","template"].includes(x.field)));
 });
 test("tools refuse arbitrary code or fabricated claims",()=>{
