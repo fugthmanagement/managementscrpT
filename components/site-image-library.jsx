@@ -127,7 +127,13 @@ export default function SiteImageLibrary({uid,onPick,industry="",folderHint=""})
     </div>
     <p className="mt-2 text-[11px] text-[#758f9d]">{photo.folder||"General photos"} · {(photo.tags||[]).join(", ")||"No tags"}</p>
     <div className="mt-3 flex flex-wrap gap-1">{[["hero","Hero"],["gallery1","Gallery 1"],["gallery2","Gallery 2"]].map(([slot,label])=>
-     <button key={slot} type="button" onClick={()=>onPick?.(slot,photo.id)} className={btn}>{label}</button>)}
+     <button key={slot} type="button" onClick={()=>{
+      const safeFolder=(photo.folder||"General photos").toLowerCase();
+      const sameBusiness=!folderHint||safeFolder===folderHint.toLowerCase();
+      const shared=["general photos","shared licensed images","licensed stock","shared media"].includes(safeFolder);
+      if(!sameBusiness&&!shared&&!window.confirm("This photo is filed under a different business folder: "+photo.folder+". Confirm you are licensed to reuse it in this business's website."))return;
+      onPick?.(slot,photo.id);
+     }} className={btn}>{label}</button>)}
      <button type="button" className={btn} onClick={()=>editPhoto(photo)}>Edit labels</button></div>
     {editId===photo.id&&<div className="mt-3 space-y-2 rounded-xl bg-[#eaf6fc] p-3">
      {["label","folder","tags","industry"].map(key=><label key={key} className="block text-[11px] font-bold">{key}<input value={edit[key]||""} onChange={e=>setEdit(old=>({...old,[key]:e.target.value}))} className={field}/></label>)}
