@@ -2,6 +2,7 @@
 import {useEffect,useMemo,useState} from "react";
 import {auth} from "../lib/firebase";
 import {saveProspectClientFallback} from "../lib/client/prospect-outreach-fallback";
+import {canRecordPastText} from "../lib/prospect-outreach-eligibility";
 const VOICE="https://voice.google.com/u/0/messages";
 const TEXTNOW="https://www.textnow.com/";
 const btn="rounded-xl border border-[#cbdfea] bg-white px-3 py-2.5 text-xs font-bold text-[#28516a] disabled:opacity-40";
@@ -26,10 +27,10 @@ export default function FounderTextDispatch({prospect,composed,canPrepare,phone,
   if(r.ok){setLogs(j.items||[]);setStats({...j.counts,partial:j.partial});}
  };
  useEffect(()=>{fetchHistory().catch(()=>{});},[]);
- useEffect(()=>{setDraftId(freshId());setLastLogged("");setSentConfirmed(false);setNotice("");},[prospect?.id,composed,provider]);
+ useEffect(()=>{setDraftId(freshId());setLastLogged("");setSentConfirmed(false);setNotice("");},[prospect?.id,provider]);
  const current=providers.find(x=>x.id===provider)||providers[0];
- const currentNumber=String(phone||"");
- const canLog=Boolean(prospect?.id&&currentNumber.replace(/\D/g,"").length>=10&&String(composed||"").trim().length>=10);
+ const currentNumber=String(phone||prospect?.phone||"");
+ const canLog=canRecordPastText(prospect,currentNumber);
  const validPhone=currentNumber.replace(/\D/g,"");
  const linkToOpen=()=>{
   if(provider==="whatsapp")return "https://wa.me/"+validPhone+"?text="+encodeURIComponent(composed);
@@ -72,13 +73,20 @@ export default function FounderTextDispatch({prospect,composed,canPrepare,phone,
   catch(e){setNotice("Nothing was sent or marked sent.")}
  }
  async function markSent(){
-  if(!canLog||!sentConfirmed||lastLogged===draftId)return;
+  if(!canLog||lastLogged===draftId)return;
+  // Manually recording an SMS ALREADY SENT is not gated on permission to send
+  // future marketing messages, an available preview URL, or AI availability.
+  // A confirmation dialog prevents a stray tap from inventing a contact.
+  if(!sentConfirmed&&!window.confirm(
+   "Confirm that you actually sent a text to "+(prospect?.businessName||"this prospect")+
+   " using "+current.label+". This only records your report; delivery is not verified."
+  ))return;
   setSaving(true);setNotice("");
   try{
    const token=await auth.currentUser?.getIdToken();if(!token)throw Error("Sign in again.");
    const r=await fetch("/api/dev/text-history",{method:"POST",headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json"},
     body:JSON.stringify({action:"log",draftId,prospectId:prospect.id,provider,template:preset,
-      previewUrl:link||"",message:composed,status:"sent_manual"}),cache:"no-store"});
+      previewUrl:link||"",message:String(composed||"").trim().slice(0,1300)||"Past text manually reported; exact text unavailable.",status:"sent_manual"}),cache:"no-store"});
    const j=await r.json().catch(()=>({}));
    if(!r.ok){
     if(r.status===503&&j.code==="server_firestore_unavailable"){
@@ -129,9 +137,12 @@ export default function FounderTextDispatch({prospect,composed,canPrepare,phone,
    <div className="flex flex-wrap justify-between gap-3"><strong className="text-sm">Did you actually send it?</strong><span className="text-[11px] text-[#718c9a]">Manual tracking — no provider sync</span></div>
    <label className="mt-3 flex items-start gap-3 text-xs leading-6">
     <input type="checkbox" className="mt-1" checked={sentConfirmed} onChange={e=>setSentConfirmed(e.target.checked)}/>
-    I already sent this message myself to the selected recipient using {current.label.split(" (")[0]}. I understand FUGTH cannot confirm carrier delivery.
+    I already sent this message myself to the selected recipient using {current.label.split(" (")[0]}. Checking this avoids the confirmation prompt. FUGTH cannot confirm carrier delivery.
    </label>
-   <button disabled={!canLog||!sentConfirmed||saving||lastLogged===draftId} className="mt-3 rounded-xl bg-[#1d6653] px-4 py-3 text-xs font-black text-white disabled:opacity-40" onClick={markSent}>{lastLogged===draftId?"✓ Recorded as sent":"✓ Yes, I sent this text"}</button>
+   <button type="button" disabled={!canLog||saving||lastLogged===draftId}
+    className="mt-3 rounded-xl bg-[#1d6653] px-4 py-3 text-xs font-black text-white disabled:opacity-40" onClick={markSent}>{lastLogged===draftId?"✓ Recorded as sent":"✓ Yes, I sent this text"}</button>
+   {!canLog&&<p className="mt-2 text-xs text-amber-800">Select a saved prospect with a phone number to record past contact. An assigned preview and SMS marketing opt-in are not required to log an actual past text.</p>}
+   {lastLogged===draftId&&<button type="button" className="mt-3 ml-2 rounded-lg border px-3 py-2 text-xs font-bold" onClick={()=>{setDraftId(freshId());setLastLogged("");setSentConfirmed(false);}}>Record another text (only if actually sent)</button>}
   </div>
   {!canPrepare&&canLog&&<p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-900">Messaging-app actions remain limited until the prospect has a valid preview and verified SMS permission. You can still log a text you already sent, without falsely recording consent or carrier delivery.</p>}
   <div className="grid grid-cols-3 gap-2">{[

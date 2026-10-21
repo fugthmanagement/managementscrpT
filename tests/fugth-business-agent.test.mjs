@@ -21,8 +21,11 @@ test("independent sample design services are not a verified claim",async()=>{
   industry:"contractor",description:"We are the best in the universe.",
   services:["Fake premium roof service"],showServices:true},
   question:"What services do you offer?",mode:"facts"});
- assert.doesNotMatch(x.reply,/Fake premium roof service|best in the universe/i);
- assert.equal(x.mode,"unverified");
+ // The chatbot may describe what the SAMPLE page visibly displays, but
+ // cannot promote that text to an approved business service.
+ assert.match(x.reply,/Fake premium roof service/);
+ assert.match(x.reply,/independent website concept|examples|confirm/i);
+ assert.equal(x.mode,"illustrative_preview");
 });
 test("known hours use deterministic approved facts without model generation",async()=>{
  const x=await runFugthBusinessAgent({site:{name:"Verified Repair",businessHours:"Monday-Friday 9AM-6PM",

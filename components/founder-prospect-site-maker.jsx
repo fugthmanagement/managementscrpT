@@ -12,6 +12,7 @@ export default function FounderProspectSiteMaker({user,prospectId,onBack}){
  const [site,setSite]=useState(null),[prospect,setProspect]=useState(null),
   [revision,setRevision]=useState(null),[previewId,setPreviewId]=useState(""),[previewUrl,setPreviewUrl]=useState(""),
   [busy,setBusy]=useState("open"),[notice,setNotice]=useState(""),[tab,setTab]=useState("design");
+ const [previewStatus,setPreviewStatus]=useState("checking"),[previewError,setPreviewError]=useState("");
  const request=useCallback(async(body)=>{
   const token=await auth.currentUser?.getIdToken();
   if(!token)throw Error("Sign in as founder before editing this saved business.");
@@ -22,6 +23,18 @@ export default function FounderProspectSiteMaker({user,prospectId,onBack}){
   if(!r.ok)throw Error(j.error||"Could not load this business's saved website.");
   return j;
  },[prospectId]);
+ const verifyPreview=useCallback(async id=>{
+  if(!/^[a-f0-9]{24}$/.test(String(id||"")))return false;
+  setPreviewStatus("checking");setPreviewError("");
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15000);
+  try{
+   const res=await fetch("/api/demo/"+id,{cache:"no-store",signal:controller.signal});
+   const data=await res.json().catch(()=>({}));
+   if(!res.ok||!data.site||!data.site.name)throw Error(data.error||"Saved preview did not load");
+   setPreviewStatus("ready");return true;
+  }catch(e){setPreviewStatus("failed");setPreviewError(e.message||"Preview is temporarily unavailable");return false;
+  }finally{clearTimeout(timer)}
+ },[]);
  const load=useCallback(async()=>{
   setBusy("open");setNotice("");
   try{
@@ -29,8 +42,9 @@ export default function FounderProspectSiteMaker({user,prospectId,onBack}){
    setSite({...result.site,demoId:result.id});
    setProspect({id:prospectId,businessName:result.site.name,industry:result.site.industry});
    setRevision(result.revision);setPreviewId(result.id);setPreviewUrl(result.url);
+   await verifyPreview(result.id);
   }catch(e){setNotice(e.message)}finally{setBusy("")}
- },[prospectId,request]);
+ },[prospectId,request,verifyPreview]);
  useEffect(()=>{if(prospectId)load()},[prospectId,load]);
  const patch=v=>{setSite(current=>({...current,...v}));setNotice("Unsaved preview edits. Click Save to update this prospect's existing link.");};
  function changeTemplate(theme){
@@ -42,6 +56,7 @@ export default function FounderProspectSiteMaker({user,prospectId,onBack}){
   try{
    const j=await request({action:"save",site,revision});
    setSite({...j.site,demoId:j.id});setRevision(j.revision);
+   await verifyPreview(j.id);
    setNotice("✓ Saved. "+j.site.name+" keeps its same preview link; you do not need to create another site.");
   }catch(e){setNotice(e.message)}finally{setBusy("")}
  }
@@ -71,8 +86,15 @@ export default function FounderProspectSiteMaker({user,prospectId,onBack}){
    {previewUrl&&<div className="mt-5 rounded-xl border border-white/15 bg-white/10 p-4">
     <p className="text-[10px] font-bold uppercase text-[#a6dcf6]">Saved personal preview link · {site?.industry||"business"} · revision {revision}</p>
     <p className="mt-2 break-all font-mono text-xs">{previewUrl}</p>
+    <p role="status" className={"mt-3 text-xs font-bold "+(previewStatus==="ready"?"text-emerald-200":previewStatus==="failed"?"text-amber-200":"text-[#bbd7e7]")}>
+     {previewStatus==="ready"?"✓ Saved business link verified from public preview API":
+      previewStatus==="checking"?"Checking the visitor-facing website…":
+      "Preview has NOT passed its public-link check: "+previewError}
+    </p>
+    <p className="mt-2 text-xs text-[#c5dce8]">This is a sample design that the business can review and request changes to before claiming or publishing it.</p>
     <div className="mt-3 flex flex-wrap gap-2">
-     <button onClick={copyLink} className="rounded-lg bg-white px-4 py-2.5 text-xs font-black text-[#163b53]">Copy link</button>
+     <button type="button" disabled={previewStatus!=="ready"} onClick={copyLink} className="rounded-lg bg-white px-4 py-2.5 text-xs font-black text-[#163b53] disabled:opacity-50">Copy verified link</button>
+     <button type="button" onClick={()=>verifyPreview(previewId)} className="rounded-lg border border-white/40 px-4 py-2.5 text-xs font-black">Recheck link</button>
      <a href={previewUrl} target="_blank" rel="noopener noreferrer" className="rounded-lg border border-white/35 px-4 py-2.5 text-xs font-black">Open client preview ↗</a>
     </div>
    </div>}

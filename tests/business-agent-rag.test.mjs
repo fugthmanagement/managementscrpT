@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {factChunks,classifyBusinessQuestion,retrieveBusinessFacts,safeBusinessAnswer,validateGroundedAnswer} from "../lib/business-agent-rag.js";
+import {factChunks,classifyBusinessQuestion,retrieveBusinessFacts,safeBusinessAnswer,validateGroundedAnswer,previewConceptAnswer} from "../lib/business-agent-rag.js";
 
 const plumbing={name:"Harbor Plumbing",industry:"contractor",services:["Water heater installation","Drain cleaning","Leak detection"],businessHours:"Mon-Fri 9am–5pm",serviceArea:"Miami",phone:"+13055550123",contactEmail:"hello@harbor.example",faqItems:[{question:"Are you open on weekends?",answer:"No, our listed hours are Monday through Friday."}]};
 const dental={name:"Coast Dental",industry:"dental",services:["Dental cleaning","Consultations"],businessHours:"Tue-Sat 8am-3pm",serviceArea:"Boca Raton",phone:"+15615550344"};
@@ -49,4 +49,24 @@ test("generated answers with invented prices or weak evidence are rejected",()=>
  const facts=factChunks(plumbing).filter(f=>f.type==="services");
  assert.equal(validateGroundedAnswer("Water heaters cost $395.",facts,plumbing,"Contact us.").valid,false);
  assert.equal(validateGroundedAnswer("The moon is made of cheese.",facts,plumbing,"Contact us.").valid,false);
+});
+
+test("saved independent preview answers what its sample site actually lists, without claiming owner verification",()=>{
+ const concept={...plumbing,previewMode:true};
+ const services=previewConceptAnswer("What services do you offer?",concept);
+ assert.match(services,/Water heater installation|Drain cleaning/);
+ assert.match(services,/concept|example/i);
+ assert.match(services,/confirm/i);
+ const info=previewConceptAnswer("Info",concept);
+ assert.match(info,/Harbor Plumbing/);
+ assert.match(info,/example|concept|confirm/i);
+ assert.match(previewConceptAnswer("Business name and info u know",concept),/Harbor Plumbing/);
+ assert.match(previewConceptAnswer("What they do",concept),/Drain cleaning|Leak detection|Water heater installation/);
+});
+test("sample assistant still declines unrelated and unsupported service claims",()=>{
+ const site={...plumbing,previewMode:true};
+ assert.match(previewConceptAnswer("Explain the French Revolution",site),/only answer/i);
+ const unsupported=previewConceptAnswer("Do you offer refrigerator replacement?",site);
+ assert.doesNotMatch(unsupported,/We offer refrigerator replacement/i);
+ assert.match(unsupported,/can't confirm/i);
 });

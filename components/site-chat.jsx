@@ -1,14 +1,12 @@
 "use client";
 import {useEffect,useRef,useState} from "react";
-import {factChunks,classifyBusinessQuestion,retrieveBusinessFacts,safeBusinessAnswer} from "../lib/business-agent-rag";
+import {factChunks,classifyBusinessQuestion,retrieveBusinessFacts,safeBusinessAnswer,previewConceptAnswer} from "../lib/business-agent-rag";
 function TypedMessage({text}){const [visible,setVisible]=useState("");useEffect(()=>{setVisible("");let i=0;const handle=setInterval(()=>{i=Math.min(String(text).length,i+2);setVisible(String(text).slice(0,i));if(i>=String(text).length)clearInterval(handle);},18);return()=>clearInterval(handle);},[text]);return <>{visible}<span aria-hidden="true" className="animate-pulse">▏</span></>;}
 const questions=["What services do you offer?","Can I request an appointment?","What are your hours?","Can I get pricing?"];
 function previewAnswer(question,site,isPreview=false){
- const safeSite=isPreview?{...site,services:[],showServices:false,showFaq:false,faqItems:[],
-  description:"",aboutDetail:"",businessHours:""}:site;
- const facts=factChunks(safeSite);
- const gate=classifyBusinessQuestion(question,safeSite,facts);
- return safeBusinessAnswer(question,safeSite,gate,retrieveBusinessFacts(question,safeSite,facts,gate));
+ if(isPreview)return previewConceptAnswer(question,site);
+ const facts=factChunks(site),gate=classifyBusinessQuestion(question,site,facts);
+ return safeBusinessAnswer(question,site,gate,retrieveBusinessFacts(question,site,facts,gate));
 }
 export default function SiteChat({site,preview=false,demoId=""}){
  const [open,setOpen]=useState(Boolean(preview));
@@ -142,7 +140,7 @@ export default function SiteChat({site,preview=false,demoId=""}){
  }
  return <div className={preview?"relative mx-auto my-12 w-full max-w-[800px] border-y border-zinc-200 bg-white px-4 py-7 sm:rounded-[24px] sm:border sm:px-8":"fixed bottom-4 right-4 z-[60] w-[min(380px,calc(100vw-2rem))] sm:bottom-6 sm:right-6"} data-fugth-chat="business-assistant">
   {open&&<section aria-label="Business website chat" className={preview?"flex min-h-[420px] flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-[0_10px_32px_rgba(0,0,0,.06)]":"mb-3 flex max-h-[min(580px,75vh)] flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-[0_16px_70px_rgba(0,0,0,.18)]"}>
-   <header className="flex items-center justify-between bg-zinc-950 px-5 py-4 text-white"><div><p className="text-sm font-semibold">Ask {site.name}</p><p className="mt-1 text-[11px] text-[#c0e1f2]">{preview?"Independent website preview · facts verified against its supplied content":"Business-only assistance · no invented details"}</p></div>{!preview&&<button type="button" onClick={()=>setOpen(false)} className="rounded-lg border border-white/20 px-3 py-2 text-sm" aria-label="Close chat">×</button>}</header>
+   <header className="flex items-center justify-between bg-zinc-950 px-5 py-4 text-white"><div><p className="text-sm font-semibold">Ask {site.name}</p><p className="mt-1 text-[11px] text-[#c0e1f2]">{preview?"Independent website concept · sample details pending owner approval":"Business-only assistance · no invented details"}</p></div>{!preview&&<button type="button" onClick={()=>setOpen(false)} className="rounded-lg border border-white/20 px-3 py-2 text-sm" aria-label="Close chat">×</button>}</header>
    <div className="flex flex-wrap gap-2 border-b border-zinc-200 bg-white px-4 py-3" role="tablist" aria-label="Chat answer mode">
     <button type="button" role="tab" aria-selected={chatMode==="facts"} disabled={busy}
      onClick={()=>{setChatMode("facts");setProgress("");}}
