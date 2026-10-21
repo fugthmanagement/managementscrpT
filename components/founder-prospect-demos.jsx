@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
-import { auth } from "../lib/firebase";
+import { auth, db } from "../lib/firebase";
+import {collection,limit,onSnapshot,orderBy,query} from "firebase/firestore";
 const kinds = [
   ["electrician", "⚡ Electrician"],
   ["mechanic", "🔧 Mechanic"],
@@ -13,8 +14,10 @@ const initial = {
   email: "",
   hours: "72",
   assignedUid: "",
+  prospectId: "",
 };
 export default function FounderProspectDemos() {
+  const [prospects,setProspects]=useState([]);
   const [form, setForm] = useState(initial),
     [rows, setRows] = useState([]),
     [error, setError] = useState(""),
@@ -50,6 +53,17 @@ export default function FounderProspectDemos() {
   useEffect(() => {
     refresh();
   }, []);
+  useEffect(()=>{
+    if(!db||!auth.currentUser?.uid)return;
+    return onSnapshot(query(collection(db,"users",auth.currentUser.uid,"campaigns"),orderBy("createdAt","desc"),limit(800)),
+      snap=>setProspects(snap.docs.map(d=>({id:d.id,...d.data()})).filter(d=>d.type==="cold_call_prospect")));
+  },[]);
+  function selectProspect(id){
+    const chosen=prospects.find(p=>p.id===id);
+    setForm(current=>({...current,prospectId:id,
+      ...(chosen?{name:chosen.businessName||"",phone:chosen.phone||"",email:chosen.email||""}:{})}));
+  }
+
   async function save(e) {
     e.preventDefault();
     setBusy(true);
@@ -107,6 +121,13 @@ export default function FounderProspectDemos() {
             </select>
           </label>
           <label className="text-sm font-bold">
+            Link this new website to a saved prospect (optional)
+            <select className="mt-2 w-full rounded-xl border p-3" value={form.prospectId} onChange={e=>selectProspect(e.target.value)}>
+              <option value="">Not linked — create a standalone preview</option>
+              {prospects.map(p=><option key={p.id} value={p.id}>{p.businessName} · {p.phone||"No phone"}</option>)}
+            </select>
+          </label>
+          <label className="text-sm font-bold">
             Business name
             <input
               required
@@ -155,6 +176,7 @@ export default function FounderProspectDemos() {
               placeholder="Firebase customer UID"
             />
           </label>
+          {form.prospectId&&<p className="text-xs leading-5 text-[#668271] sm:col-span-2">This preview will automatically appear as the assigned website in the selected prospect's Text workbench. The business name must match the prospect.</p>}
           <button
             disabled={busy}
             className="rounded-xl bg-[#255447] px-6 py-4 font-bold text-white sm:col-span-2"
