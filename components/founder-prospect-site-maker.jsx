@@ -20,7 +20,11 @@ export default function FounderProspectSiteMaker({user,prospectId,onBack}){
    headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json"},
    body:JSON.stringify({...body,prospectId})});
   const j=await r.json().catch(()=>({}));
-  if(!r.ok)throw Error(j.error||"Could not load this business's saved website.");
+  if(!r.ok){
+   const issue=[j.code?("Error "+j.code):"",j.error||"Could not load this business's saved website.",j.hint||""]
+    .filter(Boolean).join(" — ");
+   throw Error(issue);
+  }
   return j;
  },[prospectId]);
  const verifyPreview=useCallback(async id=>{
@@ -99,7 +103,12 @@ export default function FounderProspectSiteMaker({user,prospectId,onBack}){
     </div>
    </div>}
   </header>
-  {notice&&<p role="status" className="rounded-xl border border-[#c5dfec] bg-[#f1faff] p-4 text-xs leading-6">{notice}</p>}
+  {notice&&<div role="status" className="rounded-xl border border-[#c5dfec] bg-[#f1faff] p-4 text-xs leading-6">
+   <p>{notice}</p>
+   {!site&&<p className="mt-3">The prospect's website has not been confirmed saved. Fix the Firebase connection first; don't send a potentially broken preview link.</p>}
+   {!site&&<a href="/dashboard?open=sales&tab=demos" className="mt-3 inline-block rounded-xl border border-[#a3d2e7] bg-white px-4 py-3 text-xs font-black text-[#175471]">Open Firebase connection test in Demo Builder ↗</a>}
+   {!site&&<button type="button" onClick={load} className="mt-3 ml-2 rounded-xl border bg-white px-4 py-3 text-xs font-bold">Retry loading prospect website</button>}
+  </div>}
   {busy==="open"&&<div className="rounded-2xl bg-white p-8 text-sm">Loading or creating this prospect's saved website…</div>}
   {site&&<div className="space-y-5">
    <nav role="tablist" aria-label="Prospect Site Maker tools" className="flex flex-wrap gap-2 rounded-2xl bg-white p-3">
