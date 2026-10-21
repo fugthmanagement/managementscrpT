@@ -31,12 +31,12 @@ async function generate(task,context,message,modelName,maxTokens){
  if(!text)throw Object.assign(Error("Empty model response."),{status:503});
  return {text,model:j.model||allowedModel(modelName),queueMs:j.queue_ms||0,inferenceMs:j.inference_ms||0};
 }
-async function prospect(db,uid,id){
+async function prospect(db,uid,id,channel="sms"){
  if(!/^[A-Za-z0-9_-]{8,128}$/.test(String(id||"")))throw Object.assign(Error("Select a saved prospect."),{status:400});
  const doc=await db.doc("users/"+uid+"/campaigns/"+id).get();
  if(!doc.exists||doc.data()?.type!=="cold_call_prospect")throw Object.assign(Error("Prospect not found."),{status:404});
  const p=doc.data();
- if(p.doNotCall||p.smsOptOut||p.status==="do_not_call")throw Object.assign(Error("This prospect is suppressed from outreach."),{status:403});
+ if(p.doNotCall||p.unsubscribed||p.status==="do_not_call"||(channel==="sms"&&p.smsOptOut))throw Object.assign(Error("This prospect is suppressed from outreach."),{status:403});
  return p;
 }
 async function quota(db,uid){
@@ -67,9 +67,9 @@ export async function POST(req){
   await db.doc("systemSettings/fugthAi").set({coldCallModel:body.model,updatedAt:new Date().toISOString(),updatedBy:u.uid},{merge:true});
   return json({saved:true,defaultModel:body.model});
  }
- if(!["audit","draft"].includes(action))return json({error:"Unknown GGUF tool."},400);
+ if(!["audit","draft","email"].includes(action))return json({error:"Unknown GGUF tool."},400);
  try{
-  const p=await prospect(db,u.uid,body.prospectId);
+  const p=await prospect(db,u.uid,body.prospectId,action==="email"?"email":"sms");
   await quota(db,u.uid);
   const auditRef=db.doc("ggufSiteAudits/"+u.uid+"_"+body.prospectId);
   if(action==="audit"){
@@ -101,15 +101,32 @@ export async function POST(req){
    recent?"Website summary requiring human review: "+recent.summary:"",
    style==="referral"?"Actual referrer: "+referrer:"No verified referral, do NOT claim one",
    "Do not claim the owner asked for a preview unless verified. Do not pretend this is their official site.",
-   "An appointment request is NOT a confirmed booking."
+   "A FUGTH appointment can be booked directly on the self-service booking page. No Google sync or approval is required."
   ].filter(Boolean).join("\n").slice(0,3000);
   const instructions={
    preview:"Write one short respectful text offering an independent sample website and asking for feedback.",
    upgrade:"Write one short text proposing a potential site improvement ONLY if backed by source review. Otherwise offer general help without criticism.",
    follow_up:"Write a short opt-in follow-up, without inventing what was discussed.",
    referral:"Write a short truthful message including the verified referrer, without inventing a connection.",
-   booking:"Offer the no-account appointment request link, clearly requiring approval."
+   booking:"Offer the no-account self-service link where the visitor can book an available time instantly."
   };
+  if(action==="email"){
+   const presetSubject={
+    preview:"A website concept for "+String(p.businessName||"your business").slice(0,65),
+    upgrade:"A possible improvement for "+String(p.businessName||"your website").slice(0,65),
+    follow_up:"Following up about "+String(p.businessName||"your business").slice(0,65),
+    referral:"A quick introduction via "+referrer,
+    booking:"An easy way to schedule a FUGTH conversation"
+   }[style];
+   const result=await generate("email",details,instructions[style]+
+    " Write a polite personalized B2B email BODY with greeting, two short paragraphs, one simple call-to-action, and signature Pierre | FUGTH Management. Approximately 90-140 words. Avoid claiming the business approved the website, fake referrals, fake meetings, price promises, and unsupported criticisms. No subject line, headings, markdown or invented facts. Acknowledge the independent website preview.",
+    body.model,180);
+   const draft=result.text.slice(0,1150);
+   if(draft.length<50)return json({error:"GGUF generated an incomplete email. Use a preset or retry."},422);
+   return json({subject:presetSubject.slice(0,140),draft,model:result.model,
+    reviewRequired:true,deliveryStatus:"not_sent",websiteEvidenceUsed:Boolean(recent),
+    metrics:{queueMs:result.queueMs,inferenceMs:result.inferenceMs}});
+  }
   const result=await generate("cold_call",details,instructions[style]+
     " One message only, 200-440 characters, simple question, no markdown, no invented promises.",
     body.model,170);
