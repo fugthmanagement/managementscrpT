@@ -94,6 +94,26 @@ export default function FounderEmailOutreach({user,initialProspectId="",onOpenMa
     j.optedOut+" suppressed and "+j.missingEmail+" missing addresses skipped. Nothing was sent. Open Marketing to create a campaign.");
   }catch(e){setMessage(e.message)}finally{setBusy(false)}
  }
+ async function createTargetedCampaign(){
+  if(!consented.length)return setMessage("Select consented prospects before preparing a campaign.");
+  if(!["concept","improvement","appointment","custom"].includes(preset))
+   return setMessage("Use the general website, improvement, appointment, or one-recipient custom preset for a targeted campaign. Referral/follow-up copy needs individual verification.");
+  if(preset==="custom"&&consented.length>1)
+   return setMessage("Custom or GGUF-written email is personalized to one business. Select only that business for a custom campaign.");
+  if(mailingAddress.trim().length<10)return setMessage("Add your real mailing address before preparing a commercial email campaign.");
+  if(!window.confirm("Create a DRAFT for the "+consented.length+" selected opted-in business emails? NO messages will be sent until you approve the campaign in Marketing."))return;
+  setBusy(true);setMessage("");
+  try{
+   const token=await auth.currentUser?.getIdToken();
+   const r=await fetch("/api/dev/prospect-email-sync",{method:"POST",
+    headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json"},
+    body:JSON.stringify({action:"create_campaign",prospectIds:consented.slice(0,50).map(p=>p.id),preset,
+     subject,message:body,mailingAddress:mailingAddress.trim()})});
+   const j=await r.json().catch(()=>({}));if(!r.ok)throw Error(j.error||"Could not prepare selected campaign.");
+   setMessage("Targeted email campaign saved: "+j.synced+" verified opted-in recipients. "+
+    "Nothing sent yet. Open Marketing to review and explicitly send the next 10 through Gmail.");
+  }catch(e){setMessage(e.message)}finally{setBusy(false)}
+ }
  return <section className="space-y-5 text-[#20455c]">
   <header className="rounded-[26px] bg-[#142e42] p-6 text-white sm:p-8">
    <p className="text-[10px] font-black uppercase tracking-[.18em] text-[#a4dcf8]">FUGTH / EMAIL OUTREACH</p>
@@ -164,12 +184,13 @@ export default function FounderEmailOutreach({user,initialProspectId="",onOpenMa
   <section className="rounded-[24px] border border-[#d0e3ef] bg-white p-5">
    <p className="text-[10px] font-black uppercase tracking-[.17em] text-[#709cb5]">3 / EXISTING EMAIL API & MARKETING DELIVERY</p>
    <h4 className="mt-2 text-xl font-black">Send reviewed, opted-in email batches through Gmail</h4>
-   <p className="mt-2 text-xs leading-6 text-[#6e8c9e]">Your existing FUGTH backend already supports Google Gmail OAuth sending, with a maximum 10 deliveries per batch and 50 per day, plus unsubscribe handling. This section does NOT automatically send scraped contact lists.</p>
+   <p className="mt-2 text-xs leading-6 text-[#6e8c9e]">Your existing FUGTH backend supports Gmail OAuth sending, capped at 10 per batch and 50 daily, with unsubscribe handling. Create a campaign draft limited to exactly the selected opted-in businesses, then explicitly approve sends under Marketing.</p>
    <div className="mt-4 flex flex-wrap gap-2">
-    <button disabled={!consented.length||busy} className="rounded-xl bg-[#1c6252] px-4 py-3 text-xs font-black text-white disabled:opacity-40" onClick={syncToMarketing}>{busy?"Checking…":"Add verified opt-in selections to Marketing CRM"}</button>
-    {onOpenMarketing&&<button className={btn} onClick={onOpenMarketing}>Open Marketing email campaigns ↗</button>}
+    <button disabled={!consented.length||busy} className="rounded-xl bg-[#1c6252] px-4 py-3 text-xs font-black text-white disabled:opacity-40" onClick={createTargetedCampaign}>{busy?"Preparing…":"Create targeted Gmail campaign draft ("+consented.length+")"}</button>
+    <button disabled={!consented.length||busy} className={btn} onClick={syncToMarketing}>Copy opted-in contacts to CRM</button>
+    {onOpenMarketing&&<button className={btn} onClick={onOpenMarketing}>Review & send in Marketing ↗</button>}
    </div>
-   <p className="mt-3 text-[11px] leading-6 text-[#859caa]">No Gmail connected? Open Settings → Connections and authorize Gmail sending separately. A real permission source is required for bulk campaigns; imported emails are not automatically opted in. Always honor opt-outs and include your valid postal address.</p>
+   <p className="mt-3 text-[11px] leading-6 text-[#859caa]">No Gmail connected? Open Marketing and authorize the separate Gmail sending scope. Imported addresses do not imply permission to bulk email. Only explicitly selected, documented opt-in contacts are eligible, and every campaign requires manual send confirmation and your real postal address.</p>
   </section>
   <section className="rounded-[24px] border border-[#d4e6ef] bg-white p-4">
    <button className="w-full rounded-xl bg-[#e8f6fc] px-4 py-3 text-left text-xs font-black text-[#1f617e]" onClick={()=>setShowGguf(x=>!x)}>{showGguf?"Hide":"Open"} GGUF AI email writer & website audit ↗</button>
