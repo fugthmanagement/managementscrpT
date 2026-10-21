@@ -166,17 +166,28 @@ export default function SiteStudio({user,workspace={},targetUid=null,locked=fals
      </select>
     </label>
     <label className="text-xs font-bold text-[#47758e]">Assigned language model
-     <select value={site.aiAgentModel||"1.5b"} onChange={e=>change({aiAgentModel:e.target.value})} disabled={site.aiAgentMode!=="local"} className="mt-2 w-full rounded-xl border border-[#c8deea] bg-white px-4 py-3 text-sm font-bold text-[#214b61] disabled:bg-[#f1f6f9] disabled:opacity-60">
+     <select value={site.aiAgentModel||"auto"} onChange={e=>change({aiAgentModel:e.target.value})} disabled={site.aiAgentMode==="off"} className="mt-2 w-full rounded-xl border border-[#c8deea] bg-white px-4 py-3 text-sm font-bold text-[#214b61] disabled:bg-[#f1f6f9] disabled:opacity-60">
+      <option value="auto">Automatic · based on approved business data</option>
       <option value="0.5b">0.5B · quick and lightweight</option>
       <option value="1.5b">1.5B · better conversation</option>
      </select>
     </label>
     <div className="rounded-xl bg-[#edf8ff] p-4 text-xs leading-6 text-[#4a7b97] sm:col-span-2">
-     <strong className="text-[#1a5473]">Local runtime:</strong>{" "}{agentHealth?agentHealth.configured?"A private inference endpoint is configured. Each answer still has to pass business-only retrieval and grounding checks.":"No reachable GGUF configuration has been confirmed for this workspace. A published website will answer using verified site facts until the server is connected.":"Checking your site's inference settings…"}
+     <strong className="text-[#1a5473]">Local runtime:</strong>{" "}{agentHealth?agentHealth.configured?"MEPLIFEOS is configured on the server. AI Live Support still verifies grounding before showing each answer.":"MEPLIFEOS needs a founder connection. Quick answers remain available while AI Live Support is offline.":"Checking your site's inference settings…"}
      {agentHealth?.missing?.length>0&&<p className="mt-2 text-[11px] font-semibold">Server settings to check: {agentHealth.missing.join(", ")}</p>}
      {locked&&<p className="mt-2 font-bold">Free preview: model choices are local only; publishing requires a qualifying website plan.</p>}
     </div>
-    <p className="text-[11px] leading-6 text-[#6d8ea2] sm:col-span-2">A business assistant cannot provide unrelated history, general knowledge, guessed prices or unverified claims. Booking requests still require confirmation; this model cannot book appointments by itself. A GGUF uploaded to Hugging Face must also run in a reachable inference server for real-time chat.</p>
+    <div className="rounded-xl border border-[#d4e8f2] bg-white p-4 sm:col-span-2">
+     <strong className="text-xs text-[#23536c]">Agent knowledge base · founder/owner-approved facts</strong>
+     <p className="mt-2 text-[11px] leading-5 text-[#69869a]">Add only facts this business has approved (service details, FAQ answers, policies). These become searchable RAG snippets. Never include passwords, private customer data, or guesses.</p>
+     <div className="mt-3 grid gap-2">{(site.agentFacts||[]).map((fact,index)=><div key={index} className="flex items-start gap-2">
+      <textarea rows={2} maxLength={220} value={fact} onChange={e=>change({agentFacts:(site.agentFacts||[]).map((x,i)=>i===index?e.target.value:x)})} className="min-w-0 flex-1 rounded-xl border border-[#c9e1ed] p-3 text-xs" placeholder="Approved fact"/>
+      <button type="button" className="rounded-xl border p-3 text-xs" onClick={()=>change({agentFacts:(site.agentFacts||[]).filter((_,i)=>i!==index)})}>Remove</button>
+     </div>)}</div>
+     <button type="button" disabled={(site.agentFacts||[]).length>=10} onClick={()=>change({agentFacts:[...(site.agentFacts||[]),""]})} className="mt-3 rounded-xl bg-[#e6f5fd] px-4 py-2 text-xs font-bold text-[#236587] disabled:opacity-40">+ Add approved RAG fact</button>
+     <p className="mt-3 text-[11px] text-[#718f9f]">Automatic model assignment weighs the number and length of approved facts, services and FAQs. You can override it for this site using 0.5B or 1.5B above.</p>
+    </div>
+    <p className="text-[11px] leading-6 text-[#6d8ea2] sm:col-span-2">A business assistant cannot provide unrelated history, general knowledge, guessed prices or unverified claims. Booking requests still require confirmation; this model cannot book appointments by itself. The founder connects MEPLIFEOS once; website visitors never need a secret.</p>
    </div>
   </section>
   <details className="rounded-2xl border border-[#d1e6f3] bg-[#f8fcff] p-5"><summary className="cursor-pointer text-sm font-black text-[#164760]">Your photo library · Choose hero and gallery images</summary><div className="mt-5"><SiteImageLibrary uid={uid} onPick={choosePhoto}/></div></details>
