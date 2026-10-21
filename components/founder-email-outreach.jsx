@@ -4,6 +4,7 @@ import {collection,limit,onSnapshot,orderBy,query} from "firebase/firestore";
 import {auth,db} from "../lib/firebase";
 import FounderGgufWriter from "./founder-gguf-writer";
 import FounderProspectFollowUp from "./founder-prospect-followup";
+import ProspectPreviewHealth from "./prospect-preview-health";
 const cls="mt-2 w-full rounded-xl border border-[#c9dfeb] bg-white px-3 py-3 text-sm text-[#20455c]";
 const btn="rounded-xl border border-[#c4dbe7] bg-white px-3 py-2.5 text-xs font-black text-[#215874] disabled:opacity-40";
 const validEmail=x=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(x||"").trim());
@@ -174,6 +175,7 @@ export default function FounderEmailOutreach({user,initialProspectId="",onOpenMa
     {current?<div className="mt-3 rounded-xl bg-[#f0f8fe] p-3 text-xs">
      <strong>{current.businessName}</strong><p className="mt-1 break-all text-[#5b8198]">{current.email||"Missing email"} · Preview: {linkedSite||"not assigned"}</p>
      {onOpenSiteMaker&&<button type="button" className="mt-3 rounded-xl bg-[#1b5b80] px-4 py-3 text-xs font-black text-white" onClick={()=>onOpenSiteMaker(current)}>✦ Customize {current.businessName}'s saved website ↗</button>}
+     <ProspectPreviewHealth url={linkedSite} compact={true}/>
     </div>:<p className="mt-3 text-xs text-[#7394a4]">Select a prospect from the list to fill the recipient automatically.</p>}
     <label className="mt-4 block text-xs font-black">Preset email<select className={cls} value={preset} onChange={e=>choosePreset(e.target.value)}>
      {presetCatalog.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}
