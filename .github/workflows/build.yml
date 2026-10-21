@@ -40,6 +40,8 @@ jobs:
         run: node --experimental-default-type=module --test tests/manual-sms-history.test.mjs
       - name: Test Firebase Admin project identity recovery
         run: node --experimental-default-type=module --test tests/firebase-project.test.mjs
+      - name: Test Firebase Admin service-account secret format and safe diagnostics
+        run: node --experimental-default-type=module --test tests/firebase-admin-credentials.test.mjs
       - name: Build FUGTH website
         env:
           NEXT_TELEMETRY_DISABLED: "1"
