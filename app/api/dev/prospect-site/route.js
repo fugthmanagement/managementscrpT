@@ -3,6 +3,7 @@ import {NextResponse} from "next/server";
 import {authenticatedUser,isFounder,firebaseAdmin} from "../../../../lib/server/auth";
 import {buildStarterSite,detectIndustry,getIndustryThemes,siteFields} from "../../../../lib/site-presets";
 import {demoTemplate} from "../../../../lib/demo-template";
+import {matchProspectPhotos} from "../../../../lib/prospect-photo-matching";
 export const runtime="nodejs";export const dynamic="force-dynamic";export const maxDuration=60;
 const out=(v,s=200)=>NextResponse.json(v,{status:s,headers:{"Cache-Control":"private, no-store"}});
 const valid=x=>/^[A-Za-z0-9_-]{8,128}$/.test(String(x||""));
@@ -68,6 +69,17 @@ export async function POST(req){
    if(prior.exists&&(prior.data()?.founderId!==actor.uid||prior.data()?.prospectId!==prospectId))
     throw Object.assign(Error("This preview ID is owned by a different business."),{status:409});
    const id=ref.id,now=new Date().toISOString(),current=prior.data(),starter=initialSite(p,actor.uid);
+   // If a founder organized licensed images in THIS prospect's Drive folder,
+   // fill their preview media slots when creating the site once, never overwrite later edits.
+   if(!prior.exists&&action==="ensure"){
+    const media=await tx.get(db.collection("users/"+actor.uid+"/siteImages")
+     .where("folder","==",String(p.businessName||"").trim().slice(0,48)).limit(24));
+    const matched=matchProspectPhotos(p,media.docs.map(doc=>({id:doc.id,...doc.data()})));
+    if(matched.heroImageId){
+     starter.heroImageId=matched.heroImageId;
+     starter.galleryImageIds=matched.galleryImageIds.length?matched.galleryImageIds:starter.galleryImageIds;
+    }
+   }
    if(action==="save"&&!prior.exists)throw Object.assign(Error("Open the site before saving changes."),{status:409});
    if(action==="save"&&Number(body.revision)!==Number(current?.revision||1))
     throw Object.assign(Error("Another edit was saved. Refresh this business preview before overwriting it."),{status:409});
