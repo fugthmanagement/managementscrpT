@@ -3,10 +3,12 @@ import {useEffect,useRef,useState} from "react";
 import {factChunks,classifyBusinessQuestion,retrieveBusinessFacts,safeBusinessAnswer} from "../lib/business-agent-rag";
 function TypedMessage({text}){const [visible,setVisible]=useState("");useEffect(()=>{setVisible("");let i=0;const handle=setInterval(()=>{i=Math.min(String(text).length,i+2);setVisible(String(text).slice(0,i));if(i>=String(text).length)clearInterval(handle);},18);return()=>clearInterval(handle);},[text]);return <>{visible}<span aria-hidden="true" className="animate-pulse">▏</span></>;}
 const questions=["What services do you offer?","Can I request an appointment?","What are your hours?","Can I get pricing?"];
-function previewAnswer(question,site){
- const facts=factChunks(site);
- const gate=classifyBusinessQuestion(question,site,facts);
- return safeBusinessAnswer(question,site,gate,retrieveBusinessFacts(question,site,facts,gate));
+function previewAnswer(question,site,isPreview=false){
+ const safeSite=isPreview?{...site,services:[],showServices:false,showFaq:false,faqItems:[],
+  description:"",aboutDetail:"",businessHours:""}:site;
+ const facts=factChunks(safeSite);
+ const gate=classifyBusinessQuestion(question,safeSite,facts);
+ return safeBusinessAnswer(question,safeSite,gate,retrieveBusinessFacts(question,safeSite,facts,gate));
 }
 export default function SiteChat({site,preview=false,demoId=""}){
  const [open,setOpen]=useState(Boolean(preview));
@@ -63,7 +65,7 @@ export default function SiteChat({site,preview=false,demoId=""}){
   setMessages(old=>[...old.slice(-14),{from:"visitor",text:question,id:"ask"+id},
    {from:"bot",text:"I'm checking the published business information…",id:pendingId,pending:true}]);
   setBusy(true);
-  let answer=previewAnswer(question,site);
+  let answer=previewAnswer(question,site,preview);
   let detail="";let mode="verified_facts";
   const source=/^[a-f0-9]{24}$/.test(String(demoId||""))?{type:"demo",id:demoId}:
    /^[-_a-zA-Z0-9]{8,128}$/.test(String(site.ownerId||""))?
