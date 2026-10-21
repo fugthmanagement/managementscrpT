@@ -107,8 +107,33 @@ export async function POST(req){
    });
    const answer=await result.json().catch(()=>({}));
    if(!result.ok)throw Error("Gmail rejected this delivery, HTTP "+result.status+".");
-   await sentRef.set({status:"sent",gmailId:answer.id||"",sentAt:new Date().toISOString()},{merge:true});
+   const sentAt=new Date().toISOString();
+   await sentRef.set({status:"sent",gmailId:answer.id||"",sentAt},{merge:true});
    sent++;
+   // Keep the original cold-call prospect list updated when this specifically
+   // selected contact was actually accepted by Gmail. Do not treat a copy/
+   // composer-open action as delivery or update unrelated prospects.
+   if(campaign.targetedProspects===true&&recipient.source==="verified_founder_prospect"&&
+      /^[A-Za-z0-9_-]{8,128}$/.test(String(recipient.sourceProspectId||""))){
+    try{
+     const pid=recipient.sourceProspectId;
+     const prospectRef=db.doc("users/"+uid+"/campaigns/"+pid);
+     await prospectRef.update({
+      emailSentCount:firebaseAdmin().firestore.FieldValue.increment(1),
+      emailLastSentAt:sentAt,emailLastProvider:"gmail_api",
+      emailLastSentSubject:subject,lastOutreachAt:sentAt,
+      outreachStage:"contacted",updatedAt:sentAt
+     });
+     await db.doc("users/"+uid+"/outreachActivity/mail_"+body.campaignId+"_"+item.id).set({
+      founderUid:uid,prospectId:pid,businessName:safe(recipient.businessName).slice(0,120),
+      channel:"email",type:"email_provider_sent",status:"gmail_accepted",
+      provider:"gmail_api",subject:subject.slice(0,160),
+      verifiedDelivery:false,gmailId:answer.id||"",createdAt:sentAt
+     },{merge:true});
+    }catch(error){
+     console.warn("FUGTH_PROSPECT_EMAIL_HISTORY",{code:String(error?.code||"write_failed")});
+    }
+   }
   }catch(e){
    failed++;
    try{await sentRef.set({status:"failed",lastError:String(e.message||"Delivery failed.").slice(0,160),updatedAt:new Date().toISOString()},{merge:true});}catch{}
