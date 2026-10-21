@@ -30,7 +30,7 @@ const expand=(source,p,values)=>String(source||"").replace(/\{\{(contact|busines
  claim:values.claim||"[choose a claimable demo]",referrer:values.referrer||"[genuine referrer]",address:values.address
 })[key]).slice(0,5500);
 async function copy(s){if(!navigator.clipboard?.writeText)throw Error("Clipboard unavailable. Select and copy manually.");await navigator.clipboard.writeText(s)}
-export default function FounderEmailOutreach({user,initialProspectId="",onOpenMarketing}){
+export default function FounderEmailOutreach({user,initialProspectId="",onOpenMarketing,onOpenSiteMaker}){
  const [all,setAll]=useState([]),[search,setSearch]=useState(""),[selected,setSelected]=useState([]),
   [activeId,setActiveId]=useState(initialProspectId),[preset,setPreset]=useState("concept"),
   [subject,setSubject]=useState(presetCatalog[0].subject),[body,setBody]=useState(presetCatalog[0].body),
@@ -147,6 +147,7 @@ export default function FounderEmailOutreach({user,initialProspectId="",onOpenMa
     <p className="text-[10px] font-black uppercase text-[#709cb5]">2 / MESSAGE BUILDER</p>
     {current?<div className="mt-3 rounded-xl bg-[#f0f8fe] p-3 text-xs">
      <strong>{current.businessName}</strong><p className="mt-1 break-all text-[#5b8198]">{current.email||"Missing email"} · Preview: {linkedSite||"not assigned"}</p>
+     {onOpenSiteMaker&&<button type="button" className="mt-3 rounded-xl bg-[#1b5b80] px-4 py-3 text-xs font-black text-white" onClick={()=>onOpenSiteMaker(current)}>✦ Customize {current.businessName}'s saved website ↗</button>}
     </div>:<p className="mt-3 text-xs text-[#7394a4]">Select a prospect from the list to fill the recipient automatically.</p>}
     <label className="mt-4 block text-xs font-black">Preset email<select className={cls} value={preset} onChange={e=>choosePreset(e.target.value)}>
      {presetCatalog.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}
