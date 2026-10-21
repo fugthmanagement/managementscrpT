@@ -47,6 +47,7 @@ export async function POST(req){
    if(seenEmails.has(email)){report.skipped++;continue}
    seenEmails.add(email);
    if(creating&&body.preset==="improvement"&&!/^https:\/\/[^ ]+/i.test(String(p.website||""))){report.skipped++;continue}
+   if(creating&&String(body.message||"").includes("{{site}}")&&!/^https:\/\/[^ ]+/i.test(String(p.websitePreviewUrl||""))){report.skipped++;continue}
    const now=new Date().toISOString();
    eligibleIds.push(dest[i].id);
    batch.set(dest[i],{
@@ -70,7 +71,7 @@ export async function POST(req){
     name:"Founder selected: "+clean(body.subject,85),type:"marketing_campaign",channel:"email",
     audience:"Selected consented prospects",status:"draft",targetedProspects:true,
     recipientIds:eligibleIds,recipientCount:eligibleIds.length,
-    subject:clean(body.subject,140),message:raw+"\\n\\nFUGTH Chat LLC\\n"+address,
+    subject:clean(body.subject,140),message:raw+"\n\nFUGTH Chat LLC\n"+address,
     updatedAt:new Date().toISOString(),createdAt:new Date().toISOString(),
     source:"founder_email_outreach",createdBy:uid
    });
