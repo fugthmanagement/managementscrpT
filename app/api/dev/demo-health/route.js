@@ -1,43 +1,44 @@
 import {NextResponse} from "next/server";
 import {authenticatedUser,isFounder,firebaseAdmin} from "../../../../lib/server/auth";
 import {firestoreDemoFailure} from "../../../../lib/server/prospect-demos-directory";
-import {resolveFirebaseProjectId,serviceAccountProjectFromEmail} from "../../../../lib/server/firebase-project";
+import {resolveFirebaseAdminCredentials} from "../../../../lib/server/firebase-admin-credentials";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
 export const maxDuration=30;
 const response=(data,status=200)=>NextResponse.json(data,{status,headers:{"Cache-Control":"private, no-store"}});
 function serverCredentials(){
- const json=String(process.env.FIREBASE_SERVICE_ACCOUNT||"").trim();
- const email=String(process.env.FIREBASE_CLIENT_EMAIL||"").trim();
- const key=String(process.env.FIREBASE_PRIVATE_KEY||"").trim();
- const expected=resolveFirebaseProjectId(process.env);
- const projectSource=process.env.FIREBASE_PROJECT_ID||process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID||process.env.GOOGLE_CLOUD_PROJECT||process.env.GCLOUD_PROJECT?"environment":"FUGTH default";
- let actual=null,format="missing",parseOk=true;
- if(json){
-  format="service_account_json";
-  try{const value=JSON.parse(json);actual=String(value.project_id||value.projectId||"");parseOk=Boolean(actual&&value.client_email&&value.private_key);}
-  catch{parseOk=false;}
- }else if(email||key){
-  format="separate_env";
-  parseOk=Boolean(email&&key);
-  actual=serviceAccountProjectFromEmail(email);
- }
- // No credential values, raw provider exceptions or secrets in the diagnostic.
- return {format,projectId:expected||null,projectSource,serviceProjectId:actual||null,
-  complete:Boolean(format!=="missing"&&parseOk),projectMatches:!actual||!expected||expected===actual};
+ const preflight=resolveFirebaseAdminCredentials(process.env);
+ return {
+  ...preflight.report,
+  complete:preflight.ok,
+  projectMatches:preflight.report.code!=="firebase_project_mismatch",
+  format:preflight.report.format||"missing"
+ };
 }
 async function probe(uid,write=false){
  const checks={},cfg=serverCredentials();
- if(!cfg.complete)return {ok:false,checks,cfg,code:"missing_firebase_admin_credentials",
-  message:"Vercel lacks a complete Firebase Admin service account for Production.",
-  next:"Set FIREBASE_SERVICE_ACCOUNT or both FIREBASE_CLIENT_EMAIL and FIREBASE_PRIVATE_KEY on Vercel Production, then redeploy."};
- if(!cfg.projectMatches)return {ok:false,checks,cfg,code:"firebase_project_mismatch",
-  message:"The configured Firebase service account belongs to another Firebase project.",
-  next:"Use the service account from the same Firebase project as NEXT_PUBLIC_FIREBASE_PROJECT_ID."};
+ if(!cfg.complete)return {
+  ok:false,checks,cfg,code:cfg.code||"firebase_credentials_invalid",
+  message:cfg.message||"Firebase Admin credentials are invalid.",
+  next:cfg.hint||"Update the Firebase Admin service-account credentials in Vercel Production."
+ };
  let db;
  try{db=firebaseAdmin().firestore();checks.initialize="ok"}
- catch(e){const issue=firestoreDemoFailure(e);return {ok:false,checks,cfg,code:"firebase_initialize_failed",
-  message:"Firebase Admin could not initialize.",next:issue.hint}};
+ catch(e){
+  const issue=firestoreDemoFailure(e);
+  const reason=String(e?.code||"").toLowerCase();
+  const keyFailure=reason.includes("invalid-credential")||reason.includes("invalid-private-key")||
+   reason.includes("private_key");
+  return {ok:false,checks,cfg,
+   code:keyFailure?"firebase_private_key_invalid":"firebase_initialize_failed",
+   message:keyFailure?
+    "Firebase Admin rejected the service-account private key.":
+    "Firebase Admin could not initialize even though the local credential checks passed.",
+   next:keyFailure?
+    "Replace FIREBASE_PRIVATE_KEY with the complete private_key from the matching Firebase service-account JSON in Vercel Production, then redeploy. Do not paste it in chat.":
+    issue.hint
+  };
+ };
  try{await db.doc("users/"+uid).get();checks.ownerRead="ok";}
  catch(e){const issue=firestoreDemoFailure(e);return {ok:false,checks,cfg,code:issue.code,
   message:"The server cannot read a founder account document.",next:issue.hint}}
