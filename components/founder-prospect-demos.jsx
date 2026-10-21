@@ -19,6 +19,8 @@ const initial = {
 };
 export default function FounderProspectDemos({user,onOpenSiteMaker}) {
   const [prospects,setProspects]=useState([]);
+  const [health,setHealth]=useState(null),[healthBusy,setHealthBusy]=useState(false);
+  const [lastPreview,setLastPreview]=useState(null);
   const [listStatus,setListStatus]=useState("loading"),[listError,setListError]=useState(""),[listHint,setListHint]=useState(""),[listWarning,setListWarning]=useState("");
   const [form, setForm] = useState(initial),
     [rows, setRows] = useState([]),
@@ -78,9 +80,45 @@ export default function FounderProspectDemos({user,onOpenSiteMaker}) {
   function selectProspect(id){
     const chosen=prospects.find(p=>p.id===id);
     setForm(current=>({...current,prospectId:id,
-      ...(chosen?{name:chosen.businessName||"",phone:chosen.phone||"",email:chosen.email||""}:{})}));
+      ...(chosen?{name:chosen.businessName||"",phone:chosen.phone||"",email:chosen.email||"",
+        kind:/electric/i.test(chosen.industry||chosen.businessType||"")?"electrician":
+         /plumb/i.test(chosen.industry||chosen.businessType||"")?"plumber":
+         /auto|mechanic/i.test(chosen.industry||chosen.businessType||"")?"mechanic":current.kind,
+        hours:"0"}:{hours:"72"})}));
   }
 
+  async function diagnose(write=false){
+    setHealthBusy(true);
+    try {
+      const token=await auth.currentUser?.getIdToken();
+      if(!token)throw Error("Sign in to the founder account again.");
+      const res=await fetch("/api/dev/demo-health",{
+       method:write?"POST":"GET",cache:"no-store",
+       headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json"},
+       body:write?JSON.stringify({action:"verify_write"}):undefined
+      });
+      const result=await res.json().catch(()=>({}));
+      // A failed diagnostic is the RESULT. Do not throw and hide its safe
+      // project, credential and Firestore checks when HTTP status is 503.
+      setHealth(result?.code?result:{ok:false,code:"diagnostic_unavailable",
+       message:result.error||"Could not run Firebase server diagnostics."});
+    }catch(e){
+      setHealth({ok:false,code:"diagnostic_network_failure",message:e.message,
+       next:"Check connectivity to your FUGTH backend."});
+    }finally{setHealthBusy(false)}
+  }
+  useEffect(()=>{diagnose()},[]);
+  async function checkPublicPreview(id){
+    try{
+      const controller=new AbortController();
+      const timer=setTimeout(()=>controller.abort(),14000);
+      const res=await fetch("/api/demo/"+encodeURIComponent(id),{cache:"no-store",signal:controller.signal});
+      clearTimeout(timer);
+      const body=await res.json().catch(()=>({}));
+      return {ok:res.ok&&Boolean(body.site),
+       detail:res.ok?"Public preview API verified.":body.error||"Public preview API failed."};
+    }catch{return {ok:false,detail:"Public preview could not be loaded right now."}}
+  }
   async function save(e) {
     e.preventDefault();
     setBusy(true);
@@ -90,7 +128,14 @@ export default function FounderProspectDemos({user,onOpenSiteMaker}) {
         method: "POST",
         body: JSON.stringify(form),
       });
-      setMessage("Saved preview: " + data.url);
+      const verification=await checkPublicPreview(data.id);
+      setLastPreview({id:data.id,url:absolute(data.id),verified:verification.ok,reused:data.reused});
+      if(data.record)setRows(old=>{
+        const without=old.filter(x=>x.id!==data.id);
+        return [{id:data.id,...data.record},...without];
+      });
+      setMessage((data.reused?"Reopened the existing website: ":"Saved website: ")+absolute(data.id)+
+       (verification.ok?" · Link verified from the public preview API.":" · PREVIEW NOT VERIFIED: "+verification.detail));
       await refresh();
     } catch (e) {
       setError(e.message);
@@ -122,6 +167,23 @@ export default function FounderProspectDemos({user,onOpenSiteMaker}) {
           engine. Each link is a saved Firebase snapshot, with an independent
           expiration and optional customer-account assignment.
         </p>
+        <section className="mt-6 rounded-2xl border border-[#b4d2e1] bg-[#f0f9ff] p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+           <div><strong className="text-sm">Firebase preview connection test</strong>
+            <p className="mt-1 text-xs text-[#52778a]">Tests the Vercel server's actual Firestore connection—not the website build.</p>
+           </div>
+           <div className="flex flex-wrap gap-2">
+            <button type="button" disabled={healthBusy} onClick={()=>diagnose(false)} className="rounded-lg border border-[#b2d4e2] bg-white px-3 py-2 text-xs font-black">{healthBusy?"Checking…":"Test connection"}</button>
+            <button type="button" disabled={healthBusy} onClick={()=>diagnose(true)} className="rounded-lg border border-[#b2d4e2] bg-white px-3 py-2 text-xs font-black">Test read + write</button>
+           </div>
+          </div>
+          {health&&<div role="status" className="mt-4 rounded-xl bg-white p-3 text-xs leading-6">
+            <p className={"font-black "+(health.ok?"text-emerald-700":"text-rose-800")}>{health.ok?"✓ Firebase connection verified":"Connection needs attention"} · {health.code||"unknown"}</p>
+            <p className="mt-1">{health.message}</p>
+            {health.next&&<p className="mt-2 text-[#5c7d8c]">{health.next}</p>}
+            {health.cfg?.projectId&&<p className="mt-2 font-mono text-[11px]">Firebase project: {health.cfg.projectId} · Server credentials: {health.cfg.format||"unknown"}</p>}
+          </div>}
+        </section>
         <form onSubmit={save} className="mt-7 grid gap-4 sm:grid-cols-2">
           <label className="text-sm font-bold">
             Industry
@@ -194,7 +256,7 @@ export default function FounderProspectDemos({user,onOpenSiteMaker}) {
             />
           </label>
           {form.prospectId&&onOpenSiteMaker&&<button type="button" onClick={()=>{const p=prospects.find(x=>x.id===form.prospectId);if(p)onOpenSiteMaker(p)}} className="rounded-xl border border-[#b7d9e8] bg-[#edfaff] px-4 py-3 text-xs font-black text-[#205a77]">✦ Open selected business in the full Site Maker ↗</button>}
-                    {form.prospectId&&<p className="text-xs leading-5 text-[#668271] sm:col-span-2">This preview will automatically appear as the assigned website in the selected prospect's Text workbench. The business name must match the prospect.</p>}
+                    {form.prospectId&&<p className="text-xs leading-5 text-[#668271] sm:col-span-2">This preview will reuse its existing URL if one is already assigned. Use 0 hours for a link that does not expire. This preview will automatically appear as the assigned website in the selected prospect's Text workbench. The business name must match the prospect.</p>}
           <button
             disabled={busy}
             className="rounded-xl bg-[#255447] px-6 py-4 font-bold text-white sm:col-span-2"
@@ -208,6 +270,15 @@ export default function FounderProspectDemos({user,onOpenSiteMaker}) {
          {listHint&&<p className="mt-2 text-xs leading-6">{listHint}</p>}
          <p className="mt-2 text-xs font-semibold">This does not mean any of your Firestore previews were deleted. The form can still create a new preview when Firestore writes are working.</p>
          <button type="button" className="mt-3 rounded-lg border border-amber-400 bg-white px-4 py-2 text-xs font-bold" onClick={refresh}>Retry saved preview list</button>
+        </div>}
+        {lastPreview&&<div className={"mt-4 rounded-xl border p-4 text-sm "+(lastPreview.verified?"border-emerald-200 bg-emerald-50":"border-amber-300 bg-amber-50")}>
+          <strong>{lastPreview.verified?"✓ Public preview is reachable":"Saved, but public preview requires attention"}</strong>
+          <p className="mt-2 break-all font-mono text-xs">{lastPreview.url}</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+           <a href={lastPreview.url} target="_blank" rel="noopener noreferrer" className="rounded-lg border bg-white px-4 py-2 text-xs font-bold">Open website ↗</a>
+           <button type="button" onClick={()=>navigator.clipboard?.writeText(lastPreview.url)} className="rounded-lg border bg-white px-4 py-2 text-xs font-bold">Copy link</button>
+           <button type="button" onClick={async()=>{const r=await checkPublicPreview(lastPreview.id);setLastPreview(x=>({...x,verified:r.ok}));setMessage(r.detail)}} className="rounded-lg border bg-white px-4 py-2 text-xs font-bold">Recheck preview</button>
+          </div>
         </div>}
         {error && (
           <p role="alert" className="mt-4 text-sm text-red-700">

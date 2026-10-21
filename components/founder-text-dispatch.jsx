@@ -1,6 +1,7 @@
 "use client";
 import {useEffect,useMemo,useState} from "react";
 import {auth} from "../lib/firebase";
+import {saveProspectClientFallback} from "../lib/client/prospect-outreach-fallback";
 const VOICE="https://voice.google.com/u/0/messages";
 const TEXTNOW="https://www.textnow.com/";
 const btn="rounded-xl border border-[#cbdfea] bg-white px-3 py-2.5 text-xs font-bold text-[#28516a] disabled:opacity-40";
@@ -78,7 +79,17 @@ export default function FounderTextDispatch({prospect,composed,canPrepare,phone,
    const r=await fetch("/api/dev/text-history",{method:"POST",headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json"},
     body:JSON.stringify({action:"log",draftId,prospectId:prospect.id,provider,template:preset,
       previewUrl:link||"",message:composed,status:"sent_manual"}),cache:"no-store"});
-   const j=await r.json().catch(()=>({}));if(!r.ok)throw Error(j.error||"Could not record this text.");
+   const j=await r.json().catch(()=>({}));
+   if(!r.ok){
+    if(r.status===503&&j.code==="server_firestore_unavailable"){
+     const saved=await saveProspectClientFallback({prospectId:prospect.id,eventId:draftId,
+      kind:"record_sms",channel:provider,subject:preset});
+     setLastLogged(draftId);setSentConfirmed(false);
+     setNotice(saved.note||"Recorded this past text directly in your signed-in Firestore prospect. Carrier delivery not verified.");
+     return;
+    }
+    throw Error(j.error||"Could not record this text.");
+   }
    setLastLogged(draftId);setSentConfirmed(false);
    setNotice(j.note||"Recorded as sent based on your confirmation (not carrier-verified).");
    await fetchHistory();

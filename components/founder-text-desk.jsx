@@ -5,6 +5,8 @@ import {auth,db} from "../lib/firebase";
 import FounderTextDispatch from "./founder-text-dispatch";
 import FounderGgufWriter from "./founder-gguf-writer";
 import FounderBookingCalendar from "./founder-booking-calendar";
+import ProspectPreviewHealth from "./prospect-preview-health";
+import FounderProspectFollowUp from "./founder-prospect-followup";
 
 const ROOT="https://www.fugthmanagement.space";
 const VOICE="https://voice.google.com/u/0/messages";
@@ -246,6 +248,7 @@ export default function FounderTextDesk({user,initialProspectId="",onOpenSiteMak
       {demosError&&<p className="mt-2 text-[11px] text-amber-800">{demosError}</p>}
       {siteError&&<p className="mt-2 text-[11px] text-amber-800">{siteError}</p>}
      </div>}
+     {prospect&&<ProspectPreviewHealth url={link} compact={true}/>}
      {prospect&&onOpenSiteMaker&&<button type="button" className="mt-3 rounded-xl border border-[#aad2e7] bg-[#e9f7ff] px-4 py-3 text-xs font-black text-[#246785]" onClick={()=>onOpenSiteMaker(prospect)}>{link?"Customize the assigned site in Site Maker ↗":"Create this prospect's saved preview ↗"}</button>}
      {link&&<a href={link} target="_blank" rel="noopener noreferrer" className="mt-3 inline-block break-all text-xs font-bold text-[#287fa7] underline">Preview selected website ↗</a>}
     </div>
@@ -281,6 +284,7 @@ export default function FounderTextDesk({user,initialProspectId="",onOpenSiteMak
      </>}
     </div>
     <FounderTextDispatch prospect={prospect} composed={composed} canPrepare={canPrepare} phone={validPhone} preset={preset} link={link}/>
+    <FounderProspectFollowUp key={prospect?.id||"none"} prospect={prospect} channel="sms" subject=""/>
     {info&&<p role="status" className="mt-3 rounded-lg bg-[#edf7fc] p-3 text-xs leading-6">{info}</p>}
    </section>
   </div>

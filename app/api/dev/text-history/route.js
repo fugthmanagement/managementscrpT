@@ -84,5 +84,5 @@ export async function POST(req){
    consentDocumented:consentVerified,
    note:"Manually recorded as sent. Carrier delivery has not been verified. "+
     (!consentVerified?"No marketing-SMS consent evidence is recorded. Obtain permission before additional promotional messages.":"")});
- }catch(e){return output({error:"Could not record this message in your private history."},503)}
+ }catch(e){return output({error:"Could not record this message in your private history.",code:"server_firestore_unavailable"},503)}
 }
