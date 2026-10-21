@@ -119,7 +119,7 @@ export default function FounderTextDesk({user,initialProspectId=""}){
  const currentWebsiteAllowed=!selectedPreset.needsSite||Boolean(prospect?.website);
  const demoAllowed=!selectedPreset.needsDemo||Boolean(demoIdForLink);
  const conversationAllowed=!selectedPreset.needsConversation||verifiedConversation;
- const canPrepare=Boolean(prospect&&!suppressed&&validPhone&&optedIn&&composed.length>=10&&(!needsLink||link));
+ const canPrepare=Boolean(prospect&&!suppressed&&validPhone&&optedIn&&composed.length>=10&&(!needsLink||link)&&referralAllowed&&currentWebsiteAllowed&&demoAllowed&&conversationAllowed);
  useEffect(()=>{setChosenDemo("");setConsentSource(trimmed(prospect?.consentSource));setApproved(false);setInfo("");setVerifiedReferral(false);setVerifiedConversation(false);},[prospectId]);
  function changePreset(value){setPreset(value);setEditor(PRESETS.find(x=>x.id===value)?.text||"");setVerifiedReferral(false);setVerifiedConversation(false);setInfo("");}
  function chooseDemo(value){
