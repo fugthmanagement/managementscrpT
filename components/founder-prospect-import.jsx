@@ -113,7 +113,7 @@ export default function FounderProspectImport({user,onText}){
      <p className="mt-1 text-xs text-[#857967]">{p.industry||"Business"} · {p.city||"Area unavailable"} · {p.rating!=null?Number(p.rating).toFixed(1)+" ★ ("+(p.reviewCount||0)+" reviews)":"Unrated"} · {p.website?"Has website":"No website listed"}</p>
      <p className="mt-1 text-xs">{p.phone} · {p.status||"new"}</p></div>
     <div className="flex flex-wrap gap-2">
-     {!(p.doNotCall||p.status==="do_not_call")?<><a className="rounded-lg bg-[#463c2e] px-3 py-2 text-xs font-semibold text-white" href={"tel:"+normalizePhone(p.phone)}>Call</a><button type="button" onClick={()=>googleVoice(p.phone)} className="rounded-lg border border-[#d5c7b3] px-3 py-2 text-xs font-semibold">Google Voice</button></>:<span className="rounded-lg bg-[#fff0e9] px-3 py-2 text-xs font-semibold text-[#a4533e]">Do not call</span>}
+     {!(p.doNotCall||p.status==="do_not_call")?<><a className="rounded-lg bg-[#463c2e] px-3 py-2 text-xs font-semibold text-white" href={"tel:"+normalizePhone(p.phone)}>Call</a><button type="button" onClick={()=>googleVoice(p.phone)} className="rounded-lg border border-[#d5c7b3] px-3 py-2 text-xs font-semibold">Google Voice</button><button type="button" onClick={()=>onText?.(p)} className="rounded-lg border border-[#bad9e7] bg-[#eff9fd] px-3 py-2 text-xs font-black text-[#235875]">Text</button></>:<span className="rounded-lg bg-[#fff0e9] px-3 py-2 text-xs font-semibold text-[#a4533e]">Do not call</span>}
      {p.website&&<a target="_blank" rel="noopener noreferrer" className="rounded-lg border border-[#d5c7b3] px-3 py-2 text-xs font-semibold" href={p.website}>Site ↗</a>}
     </div>
    </article>)}
