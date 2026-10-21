@@ -24,7 +24,7 @@ test("weekends, out-of-hours, past and misaligned slots are rejected",()=>{
  assert.equal(founderDaySlots("2027-01-10",now).length,0);
  assert.equal(founderSlotDetails("2027-01-11T15:15:00.000Z",{now}),null);
  assert.equal(founderSlotDetails("2027-01-11T23:00:00.000Z",{now}),null);
- assert.equal(founderSlotDetails("2027-01-08T14:00:00.000Z",{now}),null);
+ assert.equal(founderSlotDetails("2027-01-08T14:00:00.000Z",{now:Date.parse("2027-01-08T13:30:00.000Z")}),null);
  assert.equal(founderSlotDetails("2027-03-11T14:00:00.000Z",{now}),null);
 });
 test("spring daylight-saving switch preserves local 9AM and no malformed dates",()=>{
