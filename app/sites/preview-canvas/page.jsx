@@ -12,7 +12,8 @@ export default function PreviewCanvas(){
    const raw=event.data.site;
    if(JSON.stringify(raw).length>16000)return;
    const fields=siteFields(raw);
-   setDraft({site:{...fields,ownerId:/^[a-zA-Z0-9_-]{8,128}$/.test(raw.ownerId||"")?raw.ownerId:undefined},page:["home","services","about","contact"].includes(event.data.page)?event.data.page:"home"});
+   setDraft({site:{...fields,ownerId:/^[a-zA-Z0-9_-]{8,128}$/.test(raw.ownerId||"")?raw.ownerId:undefined,
+    demoId:/^[a-f0-9]{24}$/.test(raw.demoId||"")?raw.demoId:""},page:["home","services","about","contact"].includes(event.data.page)?event.data.page:"home"});
   };
   window.addEventListener("message",receive);
   window.parent?.postMessage({type:"fugth:preview-ready"},window.location.origin);

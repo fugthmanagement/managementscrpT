@@ -17,7 +17,7 @@ const initial = {
   assignedUid: "",
   prospectId: "",
 };
-export default function FounderProspectDemos({user}) {
+export default function FounderProspectDemos({user,onOpenSiteMaker}) {
   const [prospects,setProspects]=useState([]);
   const [form, setForm] = useState(initial),
     [rows, setRows] = useState([]),
@@ -177,7 +177,8 @@ export default function FounderProspectDemos({user}) {
               placeholder="Firebase customer UID"
             />
           </label>
-          {form.prospectId&&<p className="text-xs leading-5 text-[#668271] sm:col-span-2">This preview will automatically appear as the assigned website in the selected prospect's Text workbench. The business name must match the prospect.</p>}
+          {form.prospectId&&onOpenSiteMaker&&<button type="button" onClick={()=>{const p=prospects.find(x=>x.id===form.prospectId);if(p)onOpenSiteMaker(p)}} className="rounded-xl border border-[#b7d9e8] bg-[#edfaff] px-4 py-3 text-xs font-black text-[#205a77]">✦ Open selected business in the full Site Maker ↗</button>}
+                    {form.prospectId&&<p className="text-xs leading-5 text-[#668271] sm:col-span-2">This preview will automatically appear as the assigned website in the selected prospect's Text workbench. The business name must match the prospect.</p>}
           <button
             disabled={busy}
             className="rounded-xl bg-[#255447] px-6 py-4 font-bold text-white sm:col-span-2"
@@ -237,6 +238,7 @@ export default function FounderProspectDemos({user}) {
                   ? " · Assigned: " + r.assignedUid
                   : " · Unassigned"}
               </p>
+              {r.prospectId&&onOpenSiteMaker&&<button type="button" onClick={()=>{const p=prospects.find(x=>x.id===r.prospectId);if(p)onOpenSiteMaker(p)}} className="mt-3 rounded-xl border border-[#b7d9e8] bg-[#edfaff] px-4 py-3 text-xs font-black text-[#205a77]">Customize saved design in Site Maker ↗</button>}
               <FounderDemoAgentSettings key={"ai-"+r.id} demo={r} onSaved={refresh}/>
               <div className="mt-4 flex flex-wrap gap-2">
                 <button

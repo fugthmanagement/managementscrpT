@@ -37,7 +37,7 @@ function normalize(item){
   notes:clean(value(item,["notes","description"]),900),
   source:"Imported prospect list",type:"cold_call_prospect",status:"new",callCount:0,favorite:false};
 }
-export default function FounderProspectImport({user,onText}){
+export default function FounderProspectImport({user,onText,onOpenSiteMaker}){
  const [rows,setRows]=useState([]),[search,setSearch]=useState(""),[category,setCategory]=useState("all"),
   [website,setWebsite]=useState("all"),[minRating,setMinRating]=useState("0"),[status,setStatus]=useState("all"),
   [busy,setBusy]=useState(false),[message,setMessage]=useState("");
@@ -113,9 +113,10 @@ export default function FounderProspectImport({user,onText}){
    {shown.map(p=><article key={p.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
     <div className="min-w-0 flex-1"><p className="text-sm font-semibold">{p.businessName}</p>
      <p className="mt-1 text-xs text-[#857967]">{p.industry||"Business"} · {p.city||"Area unavailable"} · {p.rating!=null?Number(p.rating).toFixed(1)+" ★ ("+(p.reviewCount||0)+" reviews)":"Unrated"} · {p.website?"Has website":"No website listed"}</p>
-     <p className="mt-1 text-xs">{p.phone} · {p.status||"new"}</p></div>
+     <p className="mt-1 text-xs">{p.phone} · {p.status||"new"} {Number(p.smsSentCount||0)>0?" · ✓ Texted "+p.smsSentCount+"x":" · ○ Not texted"}</p></div>
     <div className="flex flex-wrap gap-2">
      {!(p.doNotCall||p.status==="do_not_call")?<><a className="rounded-lg bg-[#463c2e] px-3 py-2 text-xs font-semibold text-white" href={"tel:"+normalizePhone(p.phone)}>Call</a><button type="button" onClick={()=>googleVoice(p.phone)} className="rounded-lg border border-[#d5c7b3] px-3 py-2 text-xs font-semibold">Google Voice</button><button type="button" onClick={()=>onText?.(p)} className="rounded-lg border border-[#bad9e7] bg-[#eff9fd] px-3 py-2 text-xs font-black text-[#235875]">Text</button></>:<span className="rounded-lg bg-[#fff0e9] px-3 py-2 text-xs font-semibold text-[#a4533e]">Do not call</span>}
+     {onOpenSiteMaker&&<button type="button" onClick={()=>onOpenSiteMaker(p)} className="rounded-lg border border-[#a9c9df] bg-[#eaf8ff] px-3 py-2 text-xs font-black text-[#1d5978]">✦ Site Maker ↗</button>}
      {p.website&&<a target="_blank" rel="noopener noreferrer" className="rounded-lg border border-[#d5c7b3] px-3 py-2 text-xs font-semibold" href={p.website}>Site ↗</a>}
     </div>
    </article>)}

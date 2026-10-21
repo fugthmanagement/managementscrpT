@@ -12,13 +12,13 @@ const field="mt-2 w-full rounded-xl border border-[#c9dfeb] bg-white px-3 py-3 t
 const btn="rounded-xl border border-[#c4dbe7] bg-white px-4 py-3 text-xs font-black text-[#215874] disabled:opacity-40";
 const PRESETS=[
  {id:"preview",label:"Reveal an independent website concept",needsLink:true,
-  text:"Hi {{contact}}, this is Pierre with FUGTH Management. I put together an independent sample website concept for {{business}}: {{link}}. I'd love your thoughts. If you like it, reply and we can discuss the next steps."},
+  text:"Hi {{contact}}, this is Pierre with FUGTH Management. I put together an independent sample website concept for {{business}}: {{link}}. I'd love your thoughts! It's an early design, and we'll improve the layout, photos and content with your feedback if you want to claim it. Interested?"},
  {id:"better",label:"A nicer look for an existing website",needsSite:true,needsLink:true,
   text:"Hi {{contact}}, Pierre from FUGTH Management here. I checked out {{business}} online and had an idea for a fresh, more polished look. I'd be happy to show you a sample: {{link}}. Interested in seeing it?"},
  {id:"claim",label:"Preview, claim request & account sign-up",needsLink:true,needsDemo:true,
-  text:"Hi {{contact}}, I made an independent preview concept for {{business}}: {{link}}. If you like the direction, you can make a FUGTH account and request to claim this preview after ownership verification: {{claim}}. Want a quick walkthrough?"},
+  text:"Hi {{contact}}, I made an independent preview concept for {{business}}: {{link}}. If you like the design, make a FUGTH account and request to claim it after ownership verification: {{claim}}. You can tell me what colors, pictures and changes you want next. Want a walkthrough?"},
  {id:"booking",label:"No-account consultation booking",
-  text:"Hi {{contact}}, it's Pierre with FUGTH Management. If you'd like to talk about website options for {{business}}, you can request a time without making an account: {{booking}}. I'll confirm after checking my calendar."},
+  text:"Hi {{contact}}, it's Pierre with FUGTH Management. If you'd like to talk about website options for {{business}}, you can book an available appointment directly without making an account: {{booking}}. Want to go over your sample website?"},
  {id:"followup",label:"Follow-up after a real conversation",needsConversation:true,
   text:"Hi {{contact}}, it's Pierre from FUGTH Management. Following up on our conversation about {{business}}. If you're still interested, here's the website concept: {{link}}. Would a short chat help?"},
  {id:"referral",label:"Genuine referral (only when verified)",needsLink:true,needsReferral:true,
@@ -52,8 +52,9 @@ async function clipboard(text){
  await navigator.clipboard.writeText(text);
 }
 
-export default function FounderTextDesk({user,initialProspectId=""}){
+export default function FounderTextDesk({user,initialProspectId="",onOpenSiteMaker}){
  const [all,setAll]=useState([]),[demos,setDemos]=useState([]),[demosError,setDemosError]=useState("");
+ const [historicTexted,setHistoricTexted]=useState({});
  const [publishedSites,setPublishedSites]=useState([]),[siteSearch,setSiteSearch]=useState(""),[siteError,setSiteError]=useState("");
  const [prospectId,setProspectId]=useState(initialProspectId),[filter,setFilter]=useState("");
  const [chosenDemo,setChosenDemo]=useState(""),[preset,setPreset]=useState("preview"),[editor,setEditor]=useState(PRESETS[0].text);
@@ -67,6 +68,21 @@ export default function FounderTextDesk({user,initialProspectId=""}){
    snapshot=>setAll(snapshot.docs.map(d=>({id:d.id,...d.data()})).filter(d=>d.type==="cold_call_prospect")),
    err=>setInfo("Could not read prospects: "+(err.message||"Firestore error")));
  },[user?.uid]);
+ useEffect(()=>{
+  let active=true;
+  (async()=>{try{
+   const token=await auth.currentUser?.getIdToken();
+   if(!token)return;
+   const r=await fetch("/api/dev/text-history",{headers:{Authorization:"Bearer "+token},cache:"no-store"});
+   const j=await r.json();
+   if(!r.ok)return;
+   const counts={};
+   (j.items||[]).filter(x=>x.status==="sent_manual").forEach(x=>{counts[x.prospectId]=(counts[x.prospectId]||0)+1});
+   if(active)setHistoricTexted(counts);
+  }catch{}})();
+  return()=>{active=false};
+ },[user?.uid]);
+ const textCount=p=>Math.max(Number(p?.smsSentCount||0),historicTexted[p?.id]||0);
  const refreshDemos=useCallback(async()=>{
   try{
    const token=await auth.currentUser?.getIdToken();if(!token)throw Error("Please sign in again.");
@@ -94,6 +110,7 @@ export default function FounderTextDesk({user,initialProspectId=""}){
 
  const prospect=all.find(p=>p.id===prospectId)||null;
  const matching=useMemo(()=>all.filter(p=>[p.businessName,p.ownerName,p.phone,p.industry].join(" ").toLowerCase().includes(filter.toLowerCase())).slice(0,400),[all,filter]);
+ const notTexted=all.filter(p=>!textCount(p)&&!p.doNotCall&&p.status!=="do_not_call");
  const assignedLink=prospect?validLink(prospect.websitePreviewUrl||prospect.assignedSiteUrl||""):"";
  const assignedId=trimmed(prospect?.assignedPreviewId||prospect?.sitePreviewId);
  const assignedDemo=demos.find(d=>d.id===assignedId);
@@ -192,7 +209,7 @@ export default function FounderTextDesk({user,initialProspectId=""}){
     <label className="mt-4 block text-xs font-black">Prospect
      <select className={field} value={prospectId} onChange={e=>setProspectId(e.target.value)}>
       <option value="">Select a saved prospect</option>
-      {matching.map(p=><option value={p.id} key={p.id}>{p.businessName} · {p.phone||"No number"}</option>)}
+      {matching.map(p=><option value={p.id} key={p.id}>{textCount(p)>0?"✓ TEXTED · ":"○ NOT TEXTED · "}{p.businessName} · {p.phone||"No number"}</option>)}
       {prospect&&!matching.some(p=>p.id===prospectId)&&<option value={prospect.id}>{prospect.businessName} · {prospect.phone}</option>}
      </select>
     </label>
@@ -200,7 +217,11 @@ export default function FounderTextDesk({user,initialProspectId=""}){
      <p className="text-base font-black">{prospect.businessName}</p>
      <p className="mt-1 text-xs text-[#65889c]">{prospect.industry||"Business"} · {prospect.ownerName||"Contact unknown"}</p>
      <p className="mt-3 font-mono text-sm">{prospect.phone||"No number saved"}</p>
-     <button className={"mt-3 "+btn} disabled={!validPhone||suppressed} onClick={copyPhone}>Copy number</button>
+     <div className="mt-3 flex flex-wrap gap-2">
+      <button className={btn} disabled={!validPhone||suppressed} onClick={copyPhone}>Copy number</button>
+      {onOpenSiteMaker&&<button type="button" className="rounded-xl bg-[#195d83] px-4 py-3 text-xs font-black text-white" onClick={()=>onOpenSiteMaker(prospect)}>✦ Open this business in Site Maker ↗</button>}
+     </div>
+     {textCount(prospect)>0&&<p className="mt-3 rounded-lg bg-[#dff4e8] px-3 py-2 text-xs font-bold text-[#176a44]">✓ Already texted {textCount(prospect)} time{textCount(prospect)===1?"":"s"} · last marked {prospect.smsLastSentAt?new Date(prospect.smsLastSentAt).toLocaleString():"in FUGTH"}</p>}
      {suppressed&&<p className="mt-2 rounded-lg bg-rose-50 p-3 text-xs font-bold text-rose-800">Do not contact / opted out — texting is disabled for this prospect.</p>}
     </div>:<p className="mt-4 text-xs text-[#7b97a5]">Choose an existing prospect or add one in Prospects & Calls.</p>}
     <div className="mt-5 border-t border-[#e4edf2] pt-4">
@@ -225,6 +246,7 @@ export default function FounderTextDesk({user,initialProspectId=""}){
       {demosError&&<p className="mt-2 text-[11px] text-amber-800">{demosError}</p>}
       {siteError&&<p className="mt-2 text-[11px] text-amber-800">{siteError}</p>}
      </div>}
+     {prospect&&onOpenSiteMaker&&<button type="button" className="mt-3 rounded-xl border border-[#aad2e7] bg-[#e9f7ff] px-4 py-3 text-xs font-black text-[#246785]" onClick={()=>onOpenSiteMaker(prospect)}>{link?"Customize the assigned site in Site Maker ↗":"Create this prospect's saved preview ↗"}</button>}
      {link&&<a href={link} target="_blank" rel="noopener noreferrer" className="mt-3 inline-block break-all text-xs font-bold text-[#287fa7] underline">Preview selected website ↗</a>}
     </div>
    </section>

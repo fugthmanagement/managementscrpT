@@ -28,6 +28,7 @@ export default function FounderTextDispatch({prospect,composed,canPrepare,phone,
  useEffect(()=>{setDraftId(freshId());setLastLogged("");setSentConfirmed(false);setNotice("");},[prospect?.id,composed,provider]);
  const current=providers.find(x=>x.id===provider)||providers[0];
  const currentNumber=String(phone||"");
+ const canLog=Boolean(prospect?.id&&currentNumber.replace(/\D/g,"").length>=10&&String(composed||"").trim().length>=10);
  const validPhone=currentNumber.replace(/\D/g,"");
  const linkToOpen=()=>{
   if(provider==="whatsapp")return "https://wa.me/"+validPhone+"?text="+encodeURIComponent(composed);
@@ -70,7 +71,7 @@ export default function FounderTextDispatch({prospect,composed,canPrepare,phone,
   catch(e){setNotice("Nothing was sent or marked sent.")}
  }
  async function markSent(){
-  if(!canPrepare||!sentConfirmed||lastLogged===draftId)return;
+  if(!canLog||!sentConfirmed||lastLogged===draftId)return;
   setSaving(true);setNotice("");
   try{
    const token=await auth.currentUser?.getIdToken();if(!token)throw Error("Sign in again.");
@@ -79,7 +80,7 @@ export default function FounderTextDispatch({prospect,composed,canPrepare,phone,
       previewUrl:link||"",message:composed,status:"sent_manual"}),cache:"no-store"});
    const j=await r.json().catch(()=>({}));if(!r.ok)throw Error(j.error||"Could not record this text.");
    setLastLogged(draftId);setSentConfirmed(false);
-   setNotice("Recorded as sent based on your confirmation (not carrier-verified).");
+   setNotice(j.note||"Recorded as sent based on your confirmation (not carrier-verified).");
    await fetchHistory();
   }catch(e){setNotice(e.message)}finally{setSaving(false)}
  }
@@ -105,8 +106,8 @@ export default function FounderTextDispatch({prospect,composed,canPrepare,phone,
    <input className="mt-2 w-full rounded-xl border p-3 text-xs" value={otherUrl} onChange={e=>setOtherUrl(e.target.value)} placeholder="https://messages.example.com"/>
   </label>}
   <div className="flex flex-wrap gap-2">
-   <button disabled={!canPrepare} className={btn} onClick={()=>copyPart(phone,"Number")}>Copy number</button>
-   <button disabled={!canPrepare} className={btn} onClick={()=>copyPart(composed,"Message")}>Copy message</button>
+   <button disabled={!currentNumber} className={btn} onClick={()=>copyPart(phone,"Number")}>Copy number</button>
+   <button disabled={!prospect||!composed} className={btn} onClick={()=>copyPart(composed,"Message")}>Copy message</button>
    <button disabled={!canPrepare} className="rounded-xl bg-[#164b65] px-4 py-3 text-xs font-black text-white disabled:opacity-40" onClick={openWebsite}>Copy text & open {current.label.split(" (")[0]} ↗</button>
    {provider==="textnow"&&<button disabled={!canPrepare} className={btn} onClick={openApp}>Try TextNow app (Android)</button>}
    <button disabled={!canPrepare} className={btn} onClick={share}>Share with Android app…</button>
@@ -117,15 +118,17 @@ export default function FounderTextDispatch({prospect,composed,canPrepare,phone,
    <div className="flex flex-wrap justify-between gap-3"><strong className="text-sm">Did you actually send it?</strong><span className="text-[11px] text-[#718c9a]">Manual tracking — no provider sync</span></div>
    <label className="mt-3 flex items-start gap-3 text-xs leading-6">
     <input type="checkbox" className="mt-1" checked={sentConfirmed} onChange={e=>setSentConfirmed(e.target.checked)}/>
-    I sent this exact message to the selected recipient using {current.label.split(" (")[0]}.
+    I already sent this message myself to the selected recipient using {current.label.split(" (")[0]}. I understand FUGTH cannot confirm carrier delivery.
    </label>
-   <button disabled={!canPrepare||!sentConfirmed||saving||lastLogged===draftId} className="mt-3 rounded-xl bg-[#1d6653] px-4 py-3 text-xs font-black text-white disabled:opacity-40" onClick={markSent}>{lastLogged===draftId?"✓ Recorded":"✓ Mark message sent"}</button>
+   <button disabled={!canLog||!sentConfirmed||saving||lastLogged===draftId} className="mt-3 rounded-xl bg-[#1d6653] px-4 py-3 text-xs font-black text-white disabled:opacity-40" onClick={markSent}>{lastLogged===draftId?"✓ Recorded as sent":"✓ Yes, I sent this text"}</button>
   </div>
+  {!canPrepare&&canLog&&<p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-900">Messaging-app actions remain limited until the prospect has a valid preview and verified SMS permission. You can still log a text you already sent, without falsely recording consent or carrier delivery.</p>}
   <div className="grid grid-cols-3 gap-2">{[
    ["Manually marked sent",stats?.sent??0],["This prospect",related.filter(x=>x.status==="sent_manual").length],
    ["Entries loaded",logs.length]
   ].map(([name,n])=><div key={name} className="rounded-xl bg-white p-3"><p className="text-[10px] leading-4 text-[#7794a5]">{name}</p><p className="mt-1 text-xl font-black">{n}</p></div>)}</div>
   {stats?.partial&&<p className="text-[11px] text-[#8a8490]">History shows the latest 500 records; totals here only reflect those loaded records.</p>}
+  {prospect?.smsSentCount>0&&<p className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs font-bold text-emerald-800">✓ Previously contacted — {prospect.smsSentCount} manually marked text{prospect.smsSentCount===1?"":"s"} · last noted {prospect.smsLastSentAt?new Date(prospect.smsLastSentAt).toLocaleString():"in FUGTH"}.</p>}
   {related.length>0&&<div className="max-h-52 space-y-2 overflow-auto rounded-xl border bg-white p-3"><h5 className="text-xs font-black">Recent messages for this prospect</h5>
    {related.slice(0,12).map(x=><div className="flex items-center justify-between gap-3 border-t py-2 text-[11px]" key={x.id}>
     <div><p className="font-bold">{x.provider} · {x.status==="sent_manual"?"✓ Marked sent":x.status==="not_sent"?"Not sent":"Prepared"}</p>

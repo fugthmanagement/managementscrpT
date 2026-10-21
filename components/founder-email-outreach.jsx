@@ -11,11 +11,11 @@ const suppressed=x=>x.doNotCall||x.status==="do_not_call"||x.unsubscribed||x.ema
 const siteUrl=x=>{try{const u=new URL(String(x||""));return u.protocol==="https:"?u.href:""}catch{return ""}};
 const presetCatalog=[
  {id:"concept",name:"Independent website preview",needsLink:true,subject:"A website concept for {{business}}",
-  body:"Hi {{contact}},\n\nI'm Pierre with FUGTH Management. I put together an independent sample website concept for {{business}} that might give you some ideas for your online presence.\n\nHere's the preview: {{site}}\n\nI'd love to hear what you think. Would you be open to a short conversation?\n\nPierre\nFUGTH Management"},
+  body:"Hi {{contact}},\n\nI'm Pierre with FUGTH Management. I put together an independent sample website concept for {{business}} that might give you some ideas for your online presence.\n\nHere's the preview: {{site}}\n\nIt's an early concept, not a finished website. If the direction interests you, we can improve the design, photos and content based on your preferences. Would you be open to a short conversation?\n\nPierre\nFUGTH Management"},
  {id:"improvement",name:"Respectful website refresh",needsLink:true,subject:"An idea for {{business}}'s website",
   needsExisting:true,body:"Hi {{contact}},\n\nI'm Pierre with FUGTH Management. I came across {{business}}'s online presence and thought there might be an opportunity for a refreshed presentation. I'm not suggesting there is anything wrong with your current site.\n\nI have an independent design concept to share: {{site}}\n\nWould you like to take a look and tell me if it's useful?\n\nPierre\nFUGTH Management"},
  {id:"claim",name:"Preview & website claim",needsDemo:true,needsLink:true,subject:"Your independent {{business}} website preview",
-  body:"Hi {{contact}},\n\nI'm Pierre with FUGTH Management. I prepared an independent sample website concept for {{business}}:\n{{site}}\n\nIf you'd like to work with this design, you can create an account with Google or email and request verified ownership here: {{claim}}. There's no obligation to publish it.\n\nInterested in a walkthrough?\n\nPierre\nFUGTH Management"},
+  body:"Hi {{contact}},\n\nI'm Pierre with FUGTH Management. I prepared an independent sample website concept for {{business}}:\n{{site}}\n\nIf you'd like to work with this design, you can create an account with Google or email and request verified ownership here: {{claim}}. There's no obligation to publish it. We'll ask what you would like changed before finalizing anything.\n\nInterested in a walkthrough?\n\nPierre\nFUGTH Management"},
  {id:"appointment",name:"Book a no-account consultation",subject:"An easy time to talk about {{business}}",
   body:"Hi {{contact}},\n\nI'm Pierre from FUGTH Management. If you'd like to discuss a website concept or your business phone coverage, you can book an available 30-minute conversation without creating an account:\n{{booking}}\n\nIf you have questions first, feel free to reply.\n\nPierre\nFUGTH Management"},
  {id:"follow_up",name:"After a real conversation",needsConversation:true,needsLink:true,subject:"Following up on our {{business}} conversation",
@@ -30,7 +30,7 @@ const expand=(source,p,values)=>String(source||"").replace(/\{\{(contact|busines
  claim:values.claim||"[choose a claimable demo]",referrer:values.referrer||"[genuine referrer]",address:values.address
 })[key]).slice(0,5500);
 async function copy(s){if(!navigator.clipboard?.writeText)throw Error("Clipboard unavailable. Select and copy manually.");await navigator.clipboard.writeText(s)}
-export default function FounderEmailOutreach({user,initialProspectId="",onOpenMarketing}){
+export default function FounderEmailOutreach({user,initialProspectId="",onOpenMarketing,onOpenSiteMaker}){
  const [all,setAll]=useState([]),[search,setSearch]=useState(""),[selected,setSelected]=useState([]),
   [activeId,setActiveId]=useState(initialProspectId),[preset,setPreset]=useState("concept"),
   [subject,setSubject]=useState(presetCatalog[0].subject),[body,setBody]=useState(presetCatalog[0].body),
@@ -147,6 +147,7 @@ export default function FounderEmailOutreach({user,initialProspectId="",onOpenMa
     <p className="text-[10px] font-black uppercase text-[#709cb5]">2 / MESSAGE BUILDER</p>
     {current?<div className="mt-3 rounded-xl bg-[#f0f8fe] p-3 text-xs">
      <strong>{current.businessName}</strong><p className="mt-1 break-all text-[#5b8198]">{current.email||"Missing email"} · Preview: {linkedSite||"not assigned"}</p>
+     {onOpenSiteMaker&&<button type="button" className="mt-3 rounded-xl bg-[#1b5b80] px-4 py-3 text-xs font-black text-white" onClick={()=>onOpenSiteMaker(current)}>✦ Customize {current.businessName}'s saved website ↗</button>}
     </div>:<p className="mt-3 text-xs text-[#7394a4]">Select a prospect from the list to fill the recipient automatically.</p>}
     <label className="mt-4 block text-xs font-black">Preset email<select className={cls} value={preset} onChange={e=>choosePreset(e.target.value)}>
      {presetCatalog.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}

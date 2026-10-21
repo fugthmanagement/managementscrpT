@@ -20,6 +20,7 @@ import {
 } from "firebase/firestore";
 import { auth, db } from "../lib/firebase";
 import SiteStudio from "./site-studio";
+import FounderProspectSiteMaker from "./founder-prospect-site-maker";
 import {SITE_INDUSTRIES} from "../lib/site-presets";
 import {cleanBusinessDescription} from "../lib/business-profile";
 import WorkspaceNavigation from "./workspace-navigation";
@@ -197,6 +198,8 @@ const freshDate = (v) => {
 export default function FugthWorkspace() {
   const [user, setUser] = useState(null),
     [ready, setReady] = useState(false);
+  const [prospectSiteMakerId,setProspectSiteMakerId]=useState("");
+  const [lastSalesTab,setLastSalesTab]=useState("guide");
   const [page, setPage] = useState("home"),
     [menuOpen, setMenuOpen] = useState(false);
   const [founder, setFounder] = useState(false),
@@ -378,6 +381,7 @@ export default function FugthWorkspace() {
     : MENU;
   const isSimulating = founder && previewPlan !== null;
   const changePage = (id) => {
+    if(id==="website")setProspectSiteMakerId("");
     setPage(id);
     setMenuOpen(false);
     setNotice("");
@@ -385,6 +389,12 @@ export default function FugthWorkspace() {
     // Every top-level tab starts at the top, including on mobile.
     if(typeof window!=="undefined"&&window.scrollY>160)window.scrollTo({top:0,behavior:"instant"});
   };
+  function openProspectSiteMaker(prospect){
+    if(!prospect?.id)return;
+    if(["guide","training","leads","sms","email","outreach","demos"].includes(prospect.originTab))setLastSalesTab(prospect.originTab);
+    changePage("website");
+    setProspectSiteMakerId(prospect.id);
+  }
   async function logOut() {
     try {
       await signOut(auth);
@@ -918,21 +928,20 @@ export default function FugthWorkspace() {
             )}
             {page === "website" && (
               <div>
-                <SectionHeading
-                  eyebrow="FUGTH WEBSITE MAKER"
-                  title="Build and manage your professional business website."
-                  description="Preview your website before subscribing. Website management and publishing are available in your site package."
-                />
-                <SiteStudio
-                  user={user}
-                  workspace={workspace}
-                  locked={
-                    !(founder && previewPlan === null) &&
-                    !hasPlan(effectivePlanKey, "starter") &&
+                {founder&&prospectSiteMakerId?
+                 <FounderProspectSiteMaker user={user} prospectId={prospectSiteMakerId}
+                  onBack={()=>{setProspectSiteMakerId("");changePage("sales")}}/>:
+                 <>
+                  <SectionHeading eyebrow="FUGTH WEBSITE MAKER"
+                   title="Build and manage your professional business website."
+                   description="Preview your website before subscribing. Website management and publishing are available in your site package."/>
+                  <SiteStudio user={user} workspace={workspace}
+                   locked={!(founder && previewPlan === null) &&
+                    !hasPlan(effectivePlanKey,"starter") &&
                     effectivePlanKey !== "website" &&
-                    workspace.websitePurchased !== true
-                  }
-                />
+                    workspace.websitePurchased !== true}/>
+                 </>
+                }
               </div>
             )}
             {page === "settings" && (
@@ -1107,7 +1116,7 @@ export default function FugthWorkspace() {
             )}
             {page === "sales" && founder && (
               <div>
-                <FounderSalesDesk user={user} onOpenMarketing={()=>changePage("marketing")}/>
+                <FounderSalesDesk user={user} onOpenMarketing={()=>changePage("marketing")} onOpenSiteMaker={openProspectSiteMaker} initialTab={lastSalesTab}/>
               </div>
             )}
             {page === "sales" && !founder && (
