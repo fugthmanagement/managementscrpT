@@ -110,8 +110,8 @@ export default function FounderEmailOutreach({user,initialProspectId="",onOpenMa
  }
  async function createTargetedCampaign(){
   if(!consented.length)return setMessage("Select consented prospects before preparing a campaign.");
-  if(!["concept","improvement","appointment","custom"].includes(preset))
-   return setMessage("Use the general website, improvement, appointment, or one-recipient custom preset for a targeted campaign. Referral/follow-up copy needs individual verification.");
+  if(!["intro","concept","improvement","appointment","custom"].includes(preset))
+   return setMessage("Use a truthful introduction, website, improvement, appointment, or one-recipient custom preset for a targeted campaign. Referral/follow-up copy needs individual verification.");
   if(preset==="custom"&&consented.length>1)
    return setMessage("Custom or GGUF-written email is personalized to one business. Select only that business for a custom campaign.");
   if(mailingAddress.trim().length<10)return setMessage("Add your real mailing address before preparing a commercial email campaign.");
