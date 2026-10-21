@@ -22,11 +22,13 @@ function parseDelimited(text,separator=","){
 function normalize(item){
  const businessName=clean(value(item,["businessname","business","name","company"]),110);
  const phone=normalizePhone(value(item,["phone","phonenumber","telephone","contactnumber","number"]));
- if(!businessName||!phone)return null;
+ const rawEmail=clean(value(item,["email","emailaddress","businessemail","contactemail","mail","emailid"]),180).toLowerCase();
+ const email=/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail)?rawEmail:"";
+ if(!businessName||(!phone&&!email))return null;
  const rawRating=value(item,["rating","googlerating","stars"]),rating=Number(rawRating);
  const rawReviews=value(item,["reviewcount","reviews","userratingcount"]),reviewCount=Number(rawReviews);
  const website=clean(value(item,["website","websiteurl","site","url"]),300);
- return {businessName,phone,ownerName:clean(value(item,["ownername","owner","contactname"]),110),
+ return {businessName,phone,email,marketingOptIn:false,phoneMarketingOptIn:false,ownerName:clean(value(item,["ownername","owner","contactname"]),110),
   industry:clean(value(item,["industry","category","businesstype","primarytype"]),75)||"Local service",
   city:clean(value(item,["city","location","area","address"]),160),
   website,hasWebsite:Boolean(website),rating:rawRating&&Number.isFinite(rating)?Math.min(5,Math.max(0,rating)):null,
@@ -60,18 +62,18 @@ export default function FounderProspectImport({user,onText}){
    const text=await file.text();const isJson=/\.json$/i.test(file.name);
    const parsed=isJson?JSON.parse(text):parseDelimited(text,/\.tsv$/i.test(file.name)?"\t":",");
    const raw=Array.isArray(parsed)?parsed:Array.isArray(parsed?.prospects)?parsed.prospects:Array.isArray(parsed?.rows)?parsed.rows:[];
-   if(!raw.length)throw Error("No prospect rows found. Include businessName (or Business) and Phone columns.");
-   const existing=new Set(rows.map(x=>normalizePhone(x.phone)).filter(Boolean));
-   const named=new Set(rows.map(x=>String(x.businessName||"").toLowerCase()+"|"+normalizePhone(x.phone)));
+   if(!raw.length)throw Error("No prospect rows found. Include Business Name and Phone and/or Email columns.");
+   const existing=new Set(rows.map(x=>normalizePhone(x.phone)||String(x.email||"").trim().toLowerCase()).filter(Boolean));
+   const named=new Set(rows.map(x=>String(x.businessName||"").toLowerCase()+"|"+(normalizePhone(x.phone)||String(x.email||"").trim().toLowerCase())));
    const entries=[];
    for(const source of raw.slice(0,1500)){
     if(!source||typeof source!=="object"||Array.isArray(source))continue;
     const row=normalize(source);if(!row)continue;
-    const k=row.businessName.toLowerCase()+"|"+row.phone;
-    if(existing.has(row.phone)||named.has(k))continue;
-    existing.add(row.phone);named.add(k);entries.push(row);
+    const identifier=row.phone||row.email,k=row.businessName.toLowerCase()+"|"+identifier;
+    if(existing.has(identifier)||named.has(k))continue;
+    existing.add(identifier);named.add(k);entries.push(row);
    }
-   if(!entries.length)throw Error("No new valid prospects: rows may lack phone numbers or already exist.");
+   if(!entries.length)throw Error("No new valid prospects: rows may lack phone/email details or already exist.");
    if(entries.length>1000)throw Error("Import up to 1,000 new prospects at a time.");
    for(let i=0;i<entries.length;i+=350){
     const batch=writeBatch(db);
