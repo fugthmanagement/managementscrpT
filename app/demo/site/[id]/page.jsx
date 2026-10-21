@@ -15,5 +15,5 @@ export default function SavedDemo({params}){
     <a href={"/claim/"+encodeURIComponent(params.id)} className="rounded-xl bg-[#17495f] px-5 py-3 text-xs font-black text-white">Create account & request claim ↗</a>
     <a href={"/book?site="+encodeURIComponent(params.id)} className="rounded-xl border border-[#9dc9db] bg-white px-5 py-3 text-xs font-black">Book a guest consultation ↗</a>
    </div>
-  </section><SiteRenderer data={translated} preview={true}/><section className="bg-[#fff9e9] p-8 text-center text-sm text-[#665431]"><p>Sample design only. All portfolio imagery is illustrative; no customer testimonials or licensed credentials are claimed. Booking and AI calls require business activation.</p></section></div>;
+  </section><SiteRenderer data={translated} preview={true} demoId={params.id}/><section className="bg-[#fff9e9] p-8 text-center text-sm text-[#665431]"><p>Sample design only. All portfolio imagery is illustrative; no customer testimonials or licensed credentials are claimed. Booking and AI calls require business activation.</p></section></div>;
 }
