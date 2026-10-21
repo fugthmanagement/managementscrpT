@@ -342,6 +342,12 @@ export default function FugthWorkspace() {
       setPage("settings");
       setSettingsSection("connections");
     }
+    else if(q.get("open")==="sales"){
+      setPage("sales");
+      const wanted=q.get("tab");
+      if(["sms","email","leads","demos","outreach","guide"].includes(wanted))
+       setLastSalesTab(wanted);
+    }
   }, []);
   // Pull edits from each business's own Google calendar while the workspace is
   // open. Bookings made inside FUGTH are pushed through the confirmed book API.
