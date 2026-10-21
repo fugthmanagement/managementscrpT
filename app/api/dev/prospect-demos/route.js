@@ -50,5 +50,5 @@ export async function POST(req){
  },{merge:true});
  await batch.commit();
  return NextResponse.json({success:true,id,url:"/demo/site/"+id,record},{status:201});
- }catch(e){console.error("demo create",e?.code);return NextResponse.json({error:"Could not save demo"},{status:503})}
+ }catch(e){const result=firestoreDemoFailure(e);console.error("FUGTH_DEMO_CREATE",{code:result.code});return NextResponse.json({...result,error:"Could not save demo. "+result.error},{status:503})}
 }
