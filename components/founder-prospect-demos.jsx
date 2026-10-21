@@ -90,13 +90,21 @@ export default function FounderProspectDemos({user,onOpenSiteMaker}) {
   async function diagnose(write=false){
     setHealthBusy(true);
     try {
-      const result=await request("/api/dev/demo-health",write?{
-       method:"POST",body:JSON.stringify({action:"verify_write"})
-      }:{});
-      setHealth(result);
+      const token=await auth.currentUser?.getIdToken();
+      if(!token)throw Error("Sign in to the founder account again.");
+      const res=await fetch("/api/dev/demo-health",{
+       method:write?"POST":"GET",cache:"no-store",
+       headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json"},
+       body:write?JSON.stringify({action:"verify_write"}):undefined
+      });
+      const result=await res.json().catch(()=>({}));
+      // A failed diagnostic is the RESULT. Do not throw and hide its safe
+      // project, credential and Firestore checks when HTTP status is 503.
+      setHealth(result?.code?result:{ok:false,code:"diagnostic_unavailable",
+       message:result.error||"Could not run Firebase server diagnostics."});
     }catch(e){
-      setHealth({ok:false,code:e.code||"diagnostic_failed",
-        message:e.message,next:e.hint||"Check the Firebase Admin connection in Vercel Production."});
+      setHealth({ok:false,code:"diagnostic_network_failure",message:e.message,
+       next:"Check connectivity to your FUGTH backend."});
     }finally{setHealthBusy(false)}
   }
   useEffect(()=>{diagnose()},[]);
