@@ -12,13 +12,13 @@ const field="mt-2 w-full rounded-xl border border-[#c9dfeb] bg-white px-3 py-3 t
 const btn="rounded-xl border border-[#c4dbe7] bg-white px-4 py-3 text-xs font-black text-[#215874] disabled:opacity-40";
 const PRESETS=[
  {id:"preview",label:"Reveal an independent website concept",needsLink:true,
-  text:"Hi {{contact}}, this is Pierre with FUGTH Management. I put together an independent sample website concept for {{business}}: {{link}}. I'd love your thoughts. If you like it, reply and we can discuss the next steps."},
+  text:"Hi {{contact}}, this is Pierre with FUGTH Management. I put together an independent sample website concept for {{business}}: {{link}}. I'd love your thoughts! It's an early design, and we'll improve the layout, photos and content with your feedback if you want to claim it. Interested?"},
  {id:"better",label:"A nicer look for an existing website",needsSite:true,needsLink:true,
   text:"Hi {{contact}}, Pierre from FUGTH Management here. I checked out {{business}} online and had an idea for a fresh, more polished look. I'd be happy to show you a sample: {{link}}. Interested in seeing it?"},
  {id:"claim",label:"Preview, claim request & account sign-up",needsLink:true,needsDemo:true,
-  text:"Hi {{contact}}, I made an independent preview concept for {{business}}: {{link}}. If you like the direction, you can make a FUGTH account and request to claim this preview after ownership verification: {{claim}}. Want a quick walkthrough?"},
+  text:"Hi {{contact}}, I made an independent preview concept for {{business}}: {{link}}. If you like the design, make a FUGTH account and request to claim it after ownership verification: {{claim}}. You can tell me what colors, pictures and changes you want next. Want a walkthrough?"},
  {id:"booking",label:"No-account consultation booking",
-  text:"Hi {{contact}}, it's Pierre with FUGTH Management. If you'd like to talk about website options for {{business}}, you can request a time without making an account: {{booking}}. I'll confirm after checking my calendar."},
+  text:"Hi {{contact}}, it's Pierre with FUGTH Management. If you'd like to talk about website options for {{business}}, you can book an available appointment directly without making an account: {{booking}}. Want to go over your sample website?"},
  {id:"followup",label:"Follow-up after a real conversation",needsConversation:true,
   text:"Hi {{contact}}, it's Pierre from FUGTH Management. Following up on our conversation about {{business}}. If you're still interested, here's the website concept: {{link}}. Would a short chat help?"},
  {id:"referral",label:"Genuine referral (only when verified)",needsLink:true,needsReferral:true,
