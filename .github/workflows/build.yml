@@ -26,6 +26,8 @@ jobs:
         run: node --experimental-default-type=module --test tests/call-training.test.mjs
       - name: Test business-only RAG filters and tenant isolation
         run: node --experimental-default-type=module --test tests/business-agent-rag.test.mjs
+      - name: Test Firestore founder calendar time slots
+        run: node --experimental-default-type=module --test tests/founder-calendar.test.mjs
       - name: Build FUGTH website
         env:
           NEXT_TELEMETRY_DISABLED: "1"
