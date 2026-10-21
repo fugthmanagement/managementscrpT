@@ -1,4 +1,4 @@
-import {createHash} from "node:crypto";
+import {stableProspectPreviewId} from "../../../../lib/server/prospect-preview-ids";
 import {NextResponse} from "next/server";
 import {authenticatedUser,isFounder,firebaseAdmin} from "../../../../lib/server/auth";
 import {buildStarterSite,detectIndustry,getIndustryThemes,siteFields} from "../../../../lib/site-presets";
@@ -10,7 +10,7 @@ const valid=x=>/^[A-Za-z0-9_-]{8,128}$/.test(String(x||""));
 const demoId=x=>/^[a-f0-9]{24}$/.test(String(x||""));
 const clean=(v,n=180)=>String(v??"").replace(/[\u0000-\u001f<>]/g," ").trim().slice(0,n);
 const urlFor=id=>"https://www.fugthmanagement.space/demo/site/"+id;
-const stable=(uid,id)=>createHash("sha256").update("fugth-prospect-preview-v1:"+uid+":"+id).digest("hex").slice(0,24);
+const stable=stableProspectPreviewId;
 async function founder(req){const u=await authenticatedUser(req);return u?.uid&&isFounder(u)?u:null}
 function initialSite(p,u){
  const name=clean(p.businessName,80),type=clean([p.industry,p.businessType,p.primaryType,p.category].filter(Boolean).join(" "),160);
