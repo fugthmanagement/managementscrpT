@@ -3,6 +3,7 @@ import {useEffect,useMemo,useState} from "react";
 import {collection,limit,onSnapshot,orderBy,query} from "firebase/firestore";
 import {auth,db} from "../lib/firebase";
 import FounderGgufWriter from "./founder-gguf-writer";
+import FounderProspectFollowUp from "./founder-prospect-followup";
 const cls="mt-2 w-full rounded-xl border border-[#c9dfeb] bg-white px-3 py-3 text-sm text-[#20455c]";
 const btn="rounded-xl border border-[#c4dbe7] bg-white px-3 py-2.5 text-xs font-black text-[#215874] disabled:opacity-40";
 const validEmail=x=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(x||"").trim());
@@ -31,6 +32,7 @@ const expand=(source,p,values)=>String(source||"").replace(/\{\{(contact|busines
 })[key]).slice(0,5500);
 async function copy(s){if(!navigator.clipboard?.writeText)throw Error("Clipboard unavailable. Select and copy manually.");await navigator.clipboard.writeText(s)}
 export default function FounderEmailOutreach({user,initialProspectId="",onOpenMarketing,onOpenSiteMaker}){
+ const [queueFilter,setQueueFilter]=useState("all");
  const [all,setAll]=useState([]),[search,setSearch]=useState(""),[selected,setSelected]=useState([]),
   [activeId,setActiveId]=useState(initialProspectId),[preset,setPreset]=useState("concept"),
   [subject,setSubject]=useState(presetCatalog[0].subject),[body,setBody]=useState(presetCatalog[0].body),
@@ -48,7 +50,14 @@ export default function FounderEmailOutreach({user,initialProspectId="",onOpenMa
   auth.currentUser?.getIdToken().then(token=>fetch("/api/marketing/send",{headers:{Authorization:"Bearer "+token}})
    .then(r=>r.json()).then(setConnection)).catch(()=>{});
  },[]);
- const rows=useMemo(()=>all.filter(x=>[x.businessName,x.ownerName,x.email,x.industry,x.city].join(" ").toLowerCase().includes(search.toLowerCase())).slice(0,700),[all,search]);
+ const rows=useMemo(()=>all.filter(x=>{
+  const matches=[x.businessName,x.ownerName,x.email,x.industry,x.city].join(" ").toLowerCase().includes(search.toLowerCase());
+  const filtered=queueFilter==="all"||queueFilter==="not_emailed"&&Number(x.emailSentCount||0)===0||
+   queueFilter==="contacted"&&Number(x.emailSentCount||0)>0||
+   queueFilter==="followup"&&x.nextFollowUpAt&&Date.parse(x.nextFollowUpAt)<=Date.now()||
+   queueFilter==="interested"&&["interested","needs_info","replied"].includes(x.outreachStage);
+  return matches&&filtered;
+ }).slice(0,700),[all,search,queueFilter]);
  const current=all.find(x=>x.id===activeId)||null;
  const currentIndex=selected.indexOf(activeId);
  const chosen=all.filter(x=>selected.includes(x.id));
@@ -65,6 +74,8 @@ export default function FounderEmailOutreach({user,initialProspectId="",onOpenMa
  const interpolatedBody=expand(body,current,{site:linkedSite,claim:claimLink,referrer,address:mailingAddress});
  const finalBody=interpolatedBody+"\n\n— FUGTH Chat LLC\n"+mailingAddress.trim()+"\nTo stop promotional emails, reply UNSUBSCRIBE.";
  const totalEmail=all.filter(x=>validEmail(x.email)).length;
+ const contactedCount=all.filter(x=>Number(x.emailSentCount||0)>0).length;
+ const dueCount=all.filter(x=>x.nextFollowUpAt&&Date.parse(x.nextFollowUpAt)<=Date.now()&&!suppressed(x)).length;
  function choosePreset(id){const p=presetCatalog.find(x=>x.id===id)||presetCatalog[0];setPreset(id);setSubject(p.subject);setBody(p.body);setVerifiedConversation(false);setVerifiedReferral(false);}
  function toggle(id){setSelected(x=>x.includes(id)?x.filter(t=>t!==id):[...x,id].slice(0,100));setActiveId(id);setMessage("")}
  function selectVisible(){const ids=rows.filter(x=>validEmail(x.email)&&!suppressed(x)).slice(0,100).map(x=>x.id);
@@ -119,20 +130,35 @@ export default function FounderEmailOutreach({user,initialProspectId="",onOpenMa
    <p className="text-[10px] font-black uppercase tracking-[.18em] text-[#a4dcf8]">FUGTH / EMAIL OUTREACH</p>
    <h3 className="mt-3 text-3xl font-black">Business email outreach, ready to personalize.</h3>
    <p className="mt-3 text-xs leading-6 text-[#bbd9e7]">Use your saved prospect emails, select recipients, edit a professional message, copy or open Gmail. Approved contacts can be moved into your existing consent-based sending campaign.</p>
-   <p className="mt-4 text-xs font-bold text-[#a4ddf7]">{totalEmail} prospects with email · {consented.length} selected with verified opt-in · Gmail API: {connection?.connected?"Connected":"Not connected"}</p>
+   <p className="mt-4 text-xs font-bold text-[#a4ddf7]">{totalEmail} prospects with email · {contactedCount} emailed · {dueCount} follow-ups due · {consented.length} selected with verified opt-in · Gmail API: {connection?.connected?"Connected":"Not connected"}</p>
   </header>
   {message&&<p role="status" className="rounded-xl border border-[#cbe2f0] bg-[#eef8fc] p-4 text-xs leading-6">{message}</p>}
   <div className="grid items-start gap-5 lg:grid-cols-[.95fr_1.05fr]">
    <div className="rounded-2xl border border-[#d8e7f0] bg-white p-5">
     <p className="text-[10px] font-black uppercase text-[#709cb5]">1 / SELECT RECIPIENTS FROM FIRESTORE</p>
     <input className={cls} value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search business, contact or email"/>
+    <label className="mt-3 block text-xs font-black">Outreach queue
+      <select className={cls} value={queueFilter} onChange={e=>setQueueFilter(e.target.value)}>
+       <option value="all">All saved prospects</option>
+       <option value="not_emailed">Not emailed yet</option>
+       <option value="contacted">Already emailed</option>
+       <option value="followup">Follow-ups due today or overdue</option>
+       <option value="interested">Interested or replied</option>
+      </select>
+    </label>
+    <button type="button" className={"mt-2 "+btn}
+     onClick={()=>{const next=all.find(p=>validEmail(p.email)&&!suppressed(p)&&Number(p.emailSentCount||0)===0&&p.id!==activeId)
+        ||all.find(p=>validEmail(p.email)&&!suppressed(p)&&Number(p.emailSentCount||0)===0);
+       if(next){setActiveId(next.id);setSelected(x=>x.includes(next.id)?x:[next.id,...x].slice(0,100));setMessage("Selected the next business not marked as emailed.");}
+       else setMessage("All visible eligible businesses have an existing email-sent mark, or no valid address.");
+     }}>Next not emailed →</button>
     <div className="mt-3 flex flex-wrap justify-between gap-2"><button className={btn} onClick={selectVisible}>Select/deselect visible prospects</button><button className={btn} onClick={()=>setSelected([])}>Clear selection</button></div>
     <p className="mt-2 text-[11px] text-[#7390a0]">Showing {rows.length} prospects · {selected.length} selected. Addresses come from your imported or saved prospect records.</p>
     <div className="mt-4 max-h-[430px] space-y-2 overflow-y-auto">
      {rows.map(p=><label key={p.id} className={"flex cursor-pointer items-start gap-3 rounded-xl border p-3 "+(activeId===p.id?"border-[#4695bf] bg-[#f0faff]":"border-[#e1ebf1]")}>
       <input type="checkbox" className="mt-1" checked={selected.includes(p.id)} disabled={!validEmail(p.email)||suppressed(p)} onChange={()=>toggle(p.id)}/>
       <span className="min-w-0 flex-1"><strong className="block text-xs">{p.businessName}</strong><span className="mt-1 block truncate text-[11px] text-[#6c8ea1]">{p.email||"No email collected"}</span>
-      <span className={"mt-1 block text-[10px] "+(suppressed(p)?"text-rose-800":hasConsent(p)?"text-emerald-700":"text-amber-700")}>{suppressed(p)?"Do not contact":hasConsent(p)?"Verified marketing opt-in":"Manual draft only · no bulk marketing opt-in"}</span></span>
+      <span className={"mt-1 block text-[10px] "+(suppressed(p)?"text-rose-800":hasConsent(p)?"text-emerald-700":"text-amber-700")}>{suppressed(p)?"Do not contact":hasConsent(p)?"Verified marketing opt-in":"Manual draft only · no bulk marketing opt-in"}{" · "+(Number(p.emailSentCount||0)>0?"✓ Emailed "+p.emailSentCount+"x":"○ Not emailed")+(p.nextFollowUpAt?" · Follow-up "+new Date(p.nextFollowUpAt).toLocaleDateString():"")}</span></span>
       <button type="button" onClick={e=>{e.preventDefault();setActiveId(p.id)}} className="text-[11px] font-bold text-[#217fac]">Edit ↗</button>
      </label>)}
      {!rows.length&&<p className="py-6 text-center text-xs">No emails found. Import a CSV/JSON with an email column or add an email to an existing prospect.</p>}
@@ -180,6 +206,7 @@ export default function FounderEmailOutreach({user,initialProspectId="",onOpenMa
      <button disabled={!canCompose||!styleAllowed} className="rounded-xl bg-[#1e5977] px-4 py-3 text-xs font-black text-white disabled:opacity-40" onClick={()=>openMail("gmail")}>Open Gmail compose ↗</button>
      <button disabled={!canCompose||!styleAllowed} className={btn} onClick={()=>openMail("mailto")}>Open email app ↗</button>
     </div>
+    <FounderProspectFollowUp key={current?.id||"none"} prospect={current} subject={interpolatedSubject} validDraft={canCompose&&styleAllowed}/>
    </div>
   </div>
   <section className="rounded-[24px] border border-[#d0e3ef] bg-white p-5">
