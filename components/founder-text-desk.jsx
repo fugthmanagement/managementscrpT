@@ -4,6 +4,7 @@ import {collection,doc,limit,onSnapshot,orderBy,query,serverTimestamp,updateDoc}
 import {auth,db} from "../lib/firebase";
 import FounderTextDispatch from "./founder-text-dispatch";
 import FounderGgufWriter from "./founder-gguf-writer";
+import FounderBookingCalendar from "./founder-booking-calendar";
 
 const ROOT="https://www.fugthmanagement.space";
 const VOICE="https://voice.google.com/u/0/messages";
@@ -59,7 +60,7 @@ export default function FounderTextDesk({user,initialProspectId=""}){
  const [consentSource,setConsentSource]=useState(""),[approved,setApproved]=useState(false);
  const [saving,setSaving]=useState(false),[info,setInfo]=useState(""),[showLinkPicker,setShowLinkPicker]=useState(false);
  const [referrer,setReferrer]=useState(""),[verifiedReferral,setVerifiedReferral]=useState(false),[verifiedConversation,setVerifiedConversation]=useState(false);
- const [showGguf,setShowGguf]=useState(false);
+ const [showGguf,setShowGguf]=useState(false),[showCalendar,setShowCalendar]=useState(false);
  useEffect(()=>{if(initialProspectId)setProspectId(initialProspectId)},[initialProspectId]);
  useEffect(()=>{if(!db||!user?.uid)return;
   return onSnapshot(query(collection(db,"users",user.uid,"campaigns"),orderBy("createdAt","desc"),limit(1200)),
@@ -178,9 +179,9 @@ export default function FounderTextDesk({user,initialProspectId=""}){
  }
  return <section className="space-y-5 text-[#234458]">
   <div className="rounded-[26px] bg-[#123147] p-6 text-white sm:p-8">
-   <p className="text-[10px] font-black uppercase tracking-[.2em] text-[#a1dafa]">FUGTH / MANUAL MESSAGE WORKBENCH</p>
+   <p className="text-[10px] font-black uppercase tracking-[.2em] text-[#a1dafa]">FUGTH / SMS OUTREACH / MESSAGE WORKBENCH</p>
    <h3 className="mt-3 text-3xl font-black tracking-[-.05em]">Text a prospect with their website preview.</h3>
-   <p className="mt-3 max-w-3xl text-xs leading-6 text-[#c6dfed]">Select one prospect, choose a saved preview and a preset, edit the message, then copy it into Google Voice. You control the final send. No bulk messages or automated Google Voice interactions.</p>
+   <p className="mt-3 max-w-3xl text-xs leading-6 text-[#c6dfed]">Select a prospect, choose their site and a preset, then copy the message into TextNow, Google Voice, WhatsApp or Samsung SMS. Mark a text sent only after you actually send it.</p>
   </div>
   <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.08fr)]">
    <section className="rounded-2xl border border-[#d5e7f1] bg-white p-5">
@@ -260,6 +261,10 @@ export default function FounderTextDesk({user,initialProspectId=""}){
     <FounderTextDispatch prospect={prospect} composed={composed} canPrepare={canPrepare} phone={validPhone} preset={preset} link={link}/>
     {info&&<p role="status" className="mt-3 rounded-lg bg-[#edf7fc] p-3 text-xs leading-6">{info}</p>}
    </section>
+  </div>
+  <div className="rounded-[22px] border border-[#d4e6ef] bg-white p-4">
+   <button type="button" className="w-full rounded-xl bg-[#e7f5fb] px-5 py-3 text-left text-xs font-black text-[#1d5875]" onClick={()=>setShowCalendar(x=>!x)}>{showCalendar?"Hide":"Open"} my private booking calendar & notifications ↗</button>
+   {showCalendar&&<div className="mt-4"><FounderBookingCalendar user={user} compact/></div>}
   </div>
   <div className="rounded-[22px] border border-[#d4e6ef] bg-white p-4">
     <button type="button" className="w-full rounded-xl bg-[#e7f5fb] px-5 py-3 text-left text-xs font-black text-[#1d5875]" onClick={()=>setShowGguf(x=>!x)}>{showGguf?"Hide":"Open"} GGUF AI text writer & website-review tools ↗</button>
