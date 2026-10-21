@@ -76,7 +76,10 @@ export async function POST(req){
    try{
     const proposal=await modelPlanner({request:instruction,site,model:body.model});
     provider=proposal.provider;
-    actions=validateSiteActions(parsePlan(proposal.text),site);
+    // Small model suggestions must never invent the business's substantive copy.
+    // Founder can explicitly provide exact headline/button wording through deterministic tools.
+    actions=validateSiteActions(parsePlan(proposal.text),site)
+     .filter(a=>!["headline","description","eyebrow","ctaLabel"].includes(a.field));
    }catch{return out({error:"GGUF couldn't form a safe plan right now. Try 'make the buttons purple' or 'use a bold layout'.",reason:"planner_unavailable"},503)}
   }
   if(!actions.length)return out({error:"No safe Site Maker changes were identified. Try a specific design instruction. I won't invent facts or write code."},422);
