@@ -66,7 +66,7 @@ export async function POST(req){
     const existing=old.exists,original=old.data()||{};
     const site=existing?original.site:
      {...demoTemplate(kind,name,{phone:clean(raw.phone||p.phone,32),contactEmail:clean(raw.email||p.email,120)}),
-      ownerId:user.uid,previewMode:true,showChatbot:true,aiAgentMode:"local",aiAgentModel:"auto"};
+      ownerId:user.uid,previewMode:true,showChatbot:true,aiAgentMode:"facts-only",aiAgentModel:"auto"};
     if(!site)throw Error("Selected industry has no site template");
     const entry=existing?{
      ...original,updatedAt:now,expiresAt,revoked:false,
@@ -89,7 +89,7 @@ export async function POST(req){
   }else{
    id=randomBytes(12).toString("hex");
    const site={...demoTemplate(kind,name,{phone:clean(raw.phone,32),contactEmail:clean(raw.email,120)}),
-    ownerId:user.uid,previewMode:true,showChatbot:true,aiAgentMode:"local",aiAgentModel:"auto"};
+    ownerId:user.uid,previewMode:true,showChatbot:true,aiAgentMode:"facts-only",aiAgentModel:"auto"};
    record={founderId:user.uid,kind,name,phone:site.phone,contactEmail:site.contactEmail,
     assignedUid:assignedUid||null,prospectId:null,createdAt:now,updatedAt:now,
     expiresAt,revoked:false,site,revision:1};

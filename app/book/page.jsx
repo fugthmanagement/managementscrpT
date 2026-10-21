@@ -36,14 +36,29 @@ export default function BookFounder(){
   [message,setMessage]=useState(""),[confirmed,setConfirmed]=useState(null),
   [availabilityError,setAvailabilityError]=useState(""),
   [availabilityCode,setAvailabilityCode]=useState(""),
-  [availabilityMessage,setAvailabilityMessage]=useState("");
- const change=(key,value)=>{setForm(x=>({...x,[key]:value}));setMessage("")};
+  [availabilityMessage,setAvailabilityMessage]=useState(""),
+  [verifiedCalendar,setVerifiedCalendar]=useState(false),
+  [emailFallback,setEmailFallback]=useState(false);
+ const change=(key,value)=>{setForm(x=>({...x,[key]:value}));setMessage("");setEmailFallback(false)};
+ const proposedMail=()=>{
+  if(!form.startTime)return "";
+  const subject="FUGTH appointment request — "+displayTime(form.startTime);
+  const body=[
+   "Appointment REQUEST — Not confirmed until FUGTH replies.",
+   "Requested time: "+displayTime(form.startTime),
+   "Name: "+form.name,"Business: "+(form.business||"Not provided"),
+   "Email: "+form.email,"Phone: "+form.phone,
+   "Notes: "+(form.notes||"None"),
+   "Please reply to confirm this time or offer another slot."
+  ].join("\n");
+  return "mailto:fugthchat@gmail.com?subject="+encodeURIComponent(subject)+"&body="+encodeURIComponent(body);
+ };
  useEffect(()=>{setForm(x=>x.date?x:{...x,date:dateEastern()})},[]);
  useEffect(()=>{
   if(!form.date){setSlots([]);return}
   let cancelled=false;
   setLoading(true);setSlots([]);
-  setAvailabilityError("");setAvailabilityCode("");setAvailabilityMessage("");
+  setAvailabilityError("");setAvailabilityCode("");setAvailabilityMessage("");setVerifiedCalendar(false);
   fetch("/api/public/founder-booking?date="+encodeURIComponent(form.date),{cache:"no-store"})
    .then(async r=>{
     const data=await r.json().catch(()=>({}));
@@ -52,7 +67,7 @@ export default function BookFounder(){
     if(!cancelled){
      const found=data.slots||[];
      setSlots(found);
-     setAvailabilityMessage(data.message||"");
+     setAvailabilityMessage(data.message||"");setVerifiedCalendar(data.verified===true);
      setForm(x=>({...x,startTime:found.some(s=>s.available&&s.startTime===x.startTime)?x.startTime:""}));
     }
    }).catch(e=>{if(!cancelled){setAvailabilityError(e.message);setAvailabilityCode(e.code||"calendar_offline")}})
@@ -61,19 +76,19 @@ export default function BookFounder(){
  },[form.date]);
  async function refresh(){
   if(!form.date)return;
-  setLoading(true);setAvailabilityError("");setAvailabilityCode("");setAvailabilityMessage("");
+  setLoading(true);setAvailabilityError("");setAvailabilityCode("");setAvailabilityMessage("");setVerifiedCalendar(false);
   try{
    const r=await fetch("/api/public/founder-booking?date="+encodeURIComponent(form.date),{cache:"no-store"});
    const data=await r.json().catch(()=>({}));
    if(!r.ok){const e=Error(data.error||"Availability not ready.");e.code=data.code||"calendar_offline";throw e}
    const found=data.slots||[];
-   setSlots(found);setAvailabilityMessage(data.message||"");
+   setSlots(found);setAvailabilityMessage(data.message||"");setVerifiedCalendar(data.verified===true);
    setForm(x=>({...x,startTime:found.some(s=>s.available&&s.startTime===x.startTime)?x.startTime:""}));
   }catch(e){setSlots([]);setAvailabilityError(e.message);setAvailabilityCode(e.code||"calendar_offline")}
   finally{setLoading(false)}
  }
  async function submit(event){
-  event.preventDefault();setSending(true);setMessage("");
+  event.preventDefault();setSending(true);setMessage("");setEmailFallback(false);
   try{
    if(!slots.some(s=>s.startTime===form.startTime&&s.available))throw Error("Select an available time.");
    const r=await fetch("/api/public/founder-booking",{method:"POST",cache:"no-store",
@@ -82,7 +97,12 @@ export default function BookFounder(){
      phone:form.phone,notes:form.notes,startTime:form.startTime,consent:form.consent,
      companyWebsite:form.companyWebsite,siteId:publicSiteId()})});
    const result=await r.json().catch(()=>({}));
-   if(!r.ok){if(r.status===409)await refresh();throw Error(result.error||"Could not reserve that time.")}
+   if(!r.ok){
+    if(r.status===409)await refresh();
+    if(r.status>=500)setEmailFallback(true);
+    throw Error((result.error||"Could not reserve that time.")+
+     (r.status>=500?" The backend is unavailable, so use the appointment-request email below instead. Nothing has been reserved.":""));
+   }
    setConfirmed({id:result.bookingId,startTime:result.startTime});
    setMessage(result.message||"Your FUGTH appointment is confirmed.");
   }catch(e){setMessage(e.message||"Couldn't book this appointment.")}
@@ -94,7 +114,7 @@ export default function BookFounder(){
    <header className="bg-[#102c40] p-7 text-white sm:p-10">
     <p className="text-[10px] font-black uppercase tracking-[.25em] text-[#b1dff7]">FUGTH MANAGEMENT / APPOINTMENTS</p>
     <h1 className="mt-4 text-3xl font-black tracking-tight sm:text-4xl">Book a conversation, no account needed.</h1>
-    <p className="mt-4 text-sm leading-7 text-[#c4dbe9]">Book any day, day or night. Pick a 30-minute time slot at least 30 minutes from now. Open slots are checked against our private FUGTH Firestore calendar, and booked times are unavailable.</p>
+    <p className="mt-4 text-sm leading-7 text-[#c4dbe9]">Choose a 30-minute time any day or night, at least 30 minutes ahead. Dates and times load independently; FUGTH checks the Firestore calendar when possible, and confirms a reservation only after it is successfully saved.</p>
    </header>
    {confirmed?<div className="space-y-4 p-8 sm:p-10">
     <h2 className="text-2xl font-black text-[#226a50]">✓ Appointment confirmed</h2>
@@ -113,7 +133,7 @@ export default function BookFounder(){
     </label>
     {form.date&&<fieldset className="sm:col-span-2">
      <div className="flex flex-wrap items-center justify-between gap-2">
-      <legend className="text-xs font-black">Available times · America/New_York</legend>
+      <legend className="text-xs font-black">Choose a preferred time · America/New_York</legend>
       <div className="flex flex-wrap gap-3">
        <button type="button" onClick={refresh} disabled={loading} className="text-xs font-bold text-[#2b799b] underline">{loading?"Checking…":"Refresh times"}</button>
        <button type="button" className="text-xs font-bold text-[#2b799b] underline"
@@ -137,6 +157,11 @@ export default function BookFounder(){
         </div>
        </section>:null
      })}
+     {!loading&&slots.length>0&&!verifiedCalendar&&<div role="status" className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-xs leading-6 text-amber-900">
+      <strong>Calendar connection is offline. Times below are REQUEST OPTIONS—not confirmed availability.</strong>
+      <p className="mt-2">You can choose any listed time. We'll attempt to reserve it in Firestore. If Firestore is unavailable, you can send the request to FUGTH by email. We will not claim a booking exists unless the server confirms it.</p>
+      <p className="mt-2 text-[11px]">{availabilityMessage}</p>
+     </div>}
      {loading&&<p className="mt-3 text-xs text-[#52768d]">Checking the FUGTH appointment calendar…</p>}
      {!loading&&availabilityError&&<div role="alert" className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-xs leading-6 text-amber-900">
       <strong>Appointment calendar temporarily unavailable.</strong>
@@ -144,7 +169,7 @@ export default function BookFounder(){
       {availabilityCode&&<p className="mt-2 font-mono text-[10px]">Reference: {availabilityCode}</p>}
       <p className="mt-2">Your appointment has NOT been booked. Please try Refresh times or contact FUGTH to arrange a time.</p>
      </div>}
-     {!loading&&!availabilityError&&!slots.length&&<p className="mt-3 text-xs text-[#b47735]">{availabilityMessage||"No openings remain at this time. Try the next weekday."}</p>}
+     {!loading&&!availabilityError&&!slots.length&&<p className="mt-3 text-xs text-[#b47735]">{availabilityMessage||"No openings remain at this time. Try another date."}</p>}
      {!loading&&!availabilityError&&slots.length>0&&slots.every(x=>!x.available)&&
       <p className="mt-3 text-xs text-[#b47735]">This date is fully booked or blocked. Try another date.</p>}
     </fieldset>}
@@ -157,7 +182,15 @@ export default function BookFounder(){
      I authorize FUGTH to contact me about my appointment. This does not subscribe me to marketing emails or texts.
     </label>
     <p className="text-[11px] leading-5 text-[#718d9e] sm:col-span-2">30-minute appointments · Monday–Friday, 9 AM–5 PM Eastern · At least 24 hours' notice. If someone else books your selected time first, you'll be asked to choose another.</p>
-    <button disabled={sending||loading||Boolean(availabilityError)||!form.startTime||!form.consent} className="rounded-xl bg-[#174a66] px-6 py-4 text-sm font-black text-white disabled:opacity-40 sm:col-span-2">{sending?"Reserving…":"Confirm appointment in FUGTH"}</button>
+    <button disabled={sending||loading||!form.startTime||!form.consent} className="rounded-xl bg-[#174a66] px-6 py-4 text-sm font-black text-white disabled:opacity-40 sm:col-span-2">
+     {sending?"Checking & saving…":verifiedCalendar?"Confirm appointment in FUGTH":"Request this time · verify Firestore"}
+    </button>
+    {emailFallback&&form.startTime&&<div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-xs leading-6 text-amber-900 sm:col-span-2">
+      <strong>No appointment was saved in Firestore.</strong>
+      <p className="mt-2">Send this booking request by email and FUGTH can confirm it directly. The appointment is NOT reserved until confirmed.</p>
+      <a className="mt-3 inline-block rounded-lg bg-[#174a66] px-4 py-3 font-bold text-white"
+       href={proposedMail()}>Email my appointment request ↗</a>
+    </div>}
     {message&&<p role="status" className="rounded-xl bg-amber-50 p-4 text-xs leading-6 text-amber-800 sm:col-span-2">{message}</p>}
     <p className="text-xs text-[#7b99ab] sm:col-span-2"><Link href="/" className="font-bold underline">← Return to FUGTH</Link></p>
    </form>}
