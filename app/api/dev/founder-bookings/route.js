@@ -52,7 +52,7 @@ export async function POST(req){
  }
  if(action==="block"){
   const slot=founderSlotDetails(body.startTime);
-  if(!slot)return out({error:"Choose an open weekday appointment time at least 24 hours ahead."},400);
+  if(!slot)return out({error:"Choose an open weekday appointment time at least 1 hour ahead."},400);
   const ref=db.doc("founderCalendarSlots/"+slot.id);
   try{
    await db.runTransaction(async tx=>{
