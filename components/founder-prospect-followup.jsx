@@ -1,6 +1,7 @@
 "use client";
 import {useEffect,useMemo,useState} from "react";
 import {auth} from "../lib/firebase";
+import {saveProspectClientFallback} from "../lib/client/prospect-outreach-fallback";
 const button="rounded-xl border border-[#c7dce7] bg-white px-4 py-3 text-xs font-black text-[#28556f] disabled:opacity-40";
 const id=()=>typeof crypto!=="undefined"&&crypto.randomUUID?crypto.randomUUID():Date.now().toString(16)+"-"+Math.random().toString(16).slice(2);
 const stages=[
@@ -19,13 +20,18 @@ export default function FounderProspectFollowUp({prospect,subject,validDraft=fal
  const currentCount=Number((isEmail?prospect?.emailSentCount:prospect?.smsSentCount)||0);
  const due=useMemo(()=>prospect?.nextFollowUpAt&&Date.parse(prospect.nextFollowUpAt)<=Date.now(),[prospect?.nextFollowUpAt]);
  async function api(data){
+  const eventId=id();
   const token=await auth.currentUser?.getIdToken();
   if(!token)throw Error("Sign in again to update your prospect list.");
   const response=await fetch("/api/dev/outreach-activity",{method:"POST",cache:"no-store",
    headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json"},
-   body:JSON.stringify({...data,eventId:id(),prospectId:prospect.id,channel})});
+   body:JSON.stringify({...data,eventId,prospectId:prospect.id,channel})});
   const result=await response.json().catch(()=>({}));
-  if(!response.ok)throw Error(result.error||"Could not save outreach history.");
+  if(!response.ok){
+   const err=Error(result.error||"Could not save outreach history.");
+   err.status=response.status;err.code=result.code||"";err.eventId=eventId;
+   throw err;
+  }
   return result;
  }
  async function perform(action,override={}){
@@ -37,7 +43,19 @@ export default function FounderProspectFollowUp({prospect,subject,validDraft=fal
    setNotice(j.note||"Saved to Firestore.");
    setConfirmed(false);
    setHistory(h=>[{type:action,note:note||"",at:new Date().toISOString()},...h].slice(0,10));
-  }catch(e){setNotice(e.message)}finally{setBusy(false)}
+  }catch(e){
+   if(e.status===503&&e.code==="server_firestore_unavailable"){
+    try{
+     const saved=await saveProspectClientFallback({
+      prospectId:prospect.id,eventId:e.eventId,kind:action,channel,stage,
+      followUpAt:followUp?new Date(followUp+"T17:00:00").toISOString():null,
+      subject:subject||""
+     });
+     setNotice(saved.note||"Contact update saved directly to your founder's Firestore prospect.");
+     setConfirmed(false);
+    }catch(fallbackError){setNotice("Server and direct Firestore save both failed: "+fallbackError.message)}
+   }else setNotice(e.message);
+  }finally{setBusy(false)}
  }
  if(!prospect)return null;
  return <section className="mt-5 rounded-2xl border border-[#cde2ee] bg-[#f5fbff] p-5">
