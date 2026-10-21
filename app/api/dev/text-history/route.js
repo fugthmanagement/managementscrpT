@@ -29,8 +29,19 @@ export async function POST(req){
  if(action==="correct"){
   if(!["prepared","sent_manual","not_sent"].includes(body.status))return output({error:"Invalid status."},400);
   try{
-   await db.runTransaction(async tx=>{const old=await tx.get(ref);if(!old.exists||old.data()?.founderUid!==user.uid)throw Error("Not found");
-    tx.set(ref,{status:body.status,updatedAt:new Date().toISOString()}, {merge:true});});
+   await db.runTransaction(async tx=>{
+    const old=await tx.get(ref);
+    if(!old.exists||old.data()?.founderUid!==user.uid)throw Error("Not found");
+    const data=old.data(),pRef=db.doc("users/"+user.uid+"/campaigns/"+data.prospectId);
+    const p=await tx.get(pRef);
+    const delta=(body.status==="sent_manual"?1:0)-(data.status==="sent_manual"?1:0);
+    tx.set(ref,{status:body.status,updatedAt:new Date().toISOString()},{merge:true});
+    if(p.exists&&delta!==0){
+     const count=Math.max(0,Number(p.data()?.smsSentCount||0)+delta);
+     tx.set(pRef,{smsSentCount:count,smsLastSentStatus:body.status==="sent_manual"?"sent_manual":"corrected",
+      ...(count===0?{smsLastSentAt:null}:{}),updatedAt:new Date().toISOString()},{merge:true});
+    }
+   });
    return output({saved:true,status:body.status});
   }catch{return output({error:"This history entry is missing."},404)}
  }
@@ -44,22 +55,34 @@ export async function POST(req){
   const p=await db.doc("users/"+user.uid+"/campaigns/"+prospectId).get();
   if(!p.exists||p.data()?.type!=="cold_call_prospect")return output({error:"Prospect not found."},404);
   const lead=p.data();
-  if(lead.doNotCall===true||lead.status==="do_not_call"||lead.smsOptOut===true)
-   return output({error:"This recipient has opted out or is suppressed."},403);
-  if(lead.phoneMarketingOptIn!==true||String(lead.consentSource||"").trim().length<5)
-   return output({error:"Document the recipient's marketing-text consent before tracking an outreach attempt."},403);
+  // Recording a past send is not permission to send more marketing messages.
+  const consentVerified=lead.phoneMarketingOptIn===true&&String(lead.consentSource||"").trim().length>=5;
+  const wasSuppressed=lead.doNotCall===true||lead.status==="do_not_call"||lead.smsOptOut===true||lead.unsubscribed===true;
   let already=false;
   await db.runTransaction(async tx=>{
    const old=await tx.get(ref);
    if(old.exists){already=true;return;}
+   const prospectRef=db.doc("users/"+user.uid+"/campaigns/"+prospectId),snapshot=await tx.get(prospectRef);
+   if(!snapshot.exists||snapshot.data()?.type!=="cold_call_prospect")throw Error("Prospect missing");
+   const now=new Date().toISOString();
    tx.create(ref,{
     founderUid:user.uid,prospectId,businessName:text(lead.businessName).slice(0,150),
     phone:text(lead.phone).slice(0,35),provider,template:text(body.template).slice(0,55),
-    previewUrl:preview,message,status,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),
-    reportedBy:user.uid,verifiedDelivery:false
+    previewUrl:preview,message,status,createdAt:now,updatedAt:now,
+    reportedBy:user.uid,verifiedDelivery:false,consentDocumentedAtTime:consentVerified,
+    suppressedAtTime:wasSuppressed
    });
+   if(status==="sent_manual"){
+    tx.set(prospectRef,{
+     smsSentCount:Math.max(0,Number(snapshot.data().smsSentCount||0))+1,
+     smsLastSentAt:now,smsLastProvider:provider,smsLastSentStatus:"sent_manual",
+     smsLastPreviewUrl:preview||"",updatedAt:now
+    },{merge:true});
+   }
   });
   return output({saved:true,id:token,alreadyRecorded:already,status,
-   note:"Manually recorded; FUGTH has not received delivery confirmation from the messaging provider."});
+   consentDocumented:consentVerified,
+   note:"Manually recorded as sent. Carrier delivery has not been verified. "+
+    (!consentVerified?"No marketing-SMS consent evidence is recorded. Obtain permission before additional promotional messages.":"")});
  }catch(e){return output({error:"Could not record this message in your private history."},503)}
 }
