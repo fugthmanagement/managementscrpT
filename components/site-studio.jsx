@@ -4,6 +4,7 @@ import Link from "next/link";
 import {auth,db} from "../lib/firebase";
 import {doc,getDoc,setDoc,serverTimestamp} from "firebase/firestore";
 import SiteImageLibrary from "./site-image-library";
+import SiteSocialProofStudio from "./site-social-proof-studio";
 import {buildStarterSite,getIndustry,getIndustryThemes,SITE_THEMES,siteFields} from "../lib/site-presets";
 import SiteStudioBuilder from "./site-studio-builder";
 import {themeNarrative} from "../lib/site-layout-copy";
@@ -155,6 +156,7 @@ export default function SiteStudio({user,workspace={},targetUid=null,locked=fals
   {(error||message)&&<p role="status" className={`rounded-xl border px-4 py-3 text-sm ${error?"border-red-200 bg-red-50 text-red-800":"border-emerald-200 bg-emerald-50 text-emerald-800"}`}>{error||message}</p>}
   <div className="rounded-2xl border border-[#dddddd] bg-[#f5f5f5] p-5 text-[#333333] sm:p-6"><p className="text-xs font-bold uppercase tracking-wider">Preview design · Personalized launch service</p><p className="mt-2 text-sm leading-7">These designs are previews, not your finished custom website. Choose a FUGTH package that includes professional website customization and our team will personalize your site and prepare it for launch within 24 hours after purchase and receipt of your business details. Domain approval or content delays may affect the public launch time.</p><p className="mt-2 text-xs">Your preview helps us understand your style; the final design can be substantially improved.</p></div>
   <SiteStudioBuilder site={site} uid={uid} locked={locked} published={published} busy={busy} onChange={change} onTemplate={chooseTemplate} onSave={action} onPublish={()=>action("publish")} onUnpublish={()=>action("unpublish")}/>
+  <SiteSocialProofStudio site={site} onChange={change} locked={locked}/>
   <section className="overflow-hidden rounded-[24px] border border-[#b9dceb] bg-white shadow-[0_10px_36px_rgba(31,81,110,.06)]">
    <div className="bg-[#143246] p-5 text-white sm:p-7"><p className="text-[10px] font-black uppercase tracking-[.19em] text-[#a9dff7]">FUGTH WEBSITE STUDIO / ASSISTANT</p><h3 className="mt-3 text-2xl font-black tracking-[-.04em]">Your site's own business agent.</h3><p className="mt-2 max-w-2xl text-xs leading-6 text-[#c3d8e5]">Each published website answers only from its published business facts. A relevance filter rejects unrelated questions before any local model runs. Assign your GGUF size here; the model weights and keys never go in the page.</p></div>
    <div className="grid gap-4 p-5 sm:grid-cols-2 sm:p-7">
@@ -166,17 +168,28 @@ export default function SiteStudio({user,workspace={},targetUid=null,locked=fals
      </select>
     </label>
     <label className="text-xs font-bold text-[#47758e]">Assigned language model
-     <select value={site.aiAgentModel||"1.5b"} onChange={e=>change({aiAgentModel:e.target.value})} disabled={site.aiAgentMode!=="local"} className="mt-2 w-full rounded-xl border border-[#c8deea] bg-white px-4 py-3 text-sm font-bold text-[#214b61] disabled:bg-[#f1f6f9] disabled:opacity-60">
+     <select value={site.aiAgentModel||"auto"} onChange={e=>change({aiAgentModel:e.target.value})} disabled={site.aiAgentMode==="off"} className="mt-2 w-full rounded-xl border border-[#c8deea] bg-white px-4 py-3 text-sm font-bold text-[#214b61] disabled:bg-[#f1f6f9] disabled:opacity-60">
+      <option value="auto">Automatic · based on approved business data</option>
       <option value="0.5b">0.5B · quick and lightweight</option>
       <option value="1.5b">1.5B · better conversation</option>
      </select>
     </label>
     <div className="rounded-xl bg-[#edf8ff] p-4 text-xs leading-6 text-[#4a7b97] sm:col-span-2">
-     <strong className="text-[#1a5473]">Local runtime:</strong>{" "}{agentHealth?agentHealth.configured?"A private inference endpoint is configured. Each answer still has to pass business-only retrieval and grounding checks.":"No reachable GGUF configuration has been confirmed for this workspace. A published website will answer using verified site facts until the server is connected.":"Checking your site's inference settings…"}
+     <strong className="text-[#1a5473]">Local runtime:</strong>{" "}{agentHealth?agentHealth.configured?"MEPLIFEOS is configured on the server. AI Live Support still verifies grounding before showing each answer.":"MEPLIFEOS needs a founder connection. Quick answers remain available while AI Live Support is offline.":"Checking your site's inference settings…"}
      {agentHealth?.missing?.length>0&&<p className="mt-2 text-[11px] font-semibold">Server settings to check: {agentHealth.missing.join(", ")}</p>}
      {locked&&<p className="mt-2 font-bold">Free preview: model choices are local only; publishing requires a qualifying website plan.</p>}
     </div>
-    <p className="text-[11px] leading-6 text-[#6d8ea2] sm:col-span-2">A business assistant cannot provide unrelated history, general knowledge, guessed prices or unverified claims. Booking requests still require confirmation; this model cannot book appointments by itself. A GGUF uploaded to Hugging Face must also run in a reachable inference server for real-time chat.</p>
+    <div className="rounded-xl border border-[#d4e8f2] bg-white p-4 sm:col-span-2">
+     <strong className="text-xs text-[#23536c]">Agent knowledge base · founder/owner-approved facts</strong>
+     <p className="mt-2 text-[11px] leading-5 text-[#69869a]">Add only facts this business has approved (service details, FAQ answers, policies). These become searchable RAG snippets. Never include passwords, private customer data, or guesses.</p>
+     <div className="mt-3 grid gap-2">{(site.agentFacts||[]).map((fact,index)=><div key={index} className="flex items-start gap-2">
+      <textarea rows={2} maxLength={220} value={fact} onChange={e=>change({agentFacts:(site.agentFacts||[]).map((x,i)=>i===index?e.target.value:x)})} className="min-w-0 flex-1 rounded-xl border border-[#c9e1ed] p-3 text-xs" placeholder="Approved fact"/>
+      <button type="button" className="rounded-xl border p-3 text-xs" onClick={()=>change({agentFacts:(site.agentFacts||[]).filter((_,i)=>i!==index)})}>Remove</button>
+     </div>)}</div>
+     <button type="button" disabled={(site.agentFacts||[]).length>=10} onClick={()=>change({agentFacts:[...(site.agentFacts||[]),""]})} className="mt-3 rounded-xl bg-[#e6f5fd] px-4 py-2 text-xs font-bold text-[#236587] disabled:opacity-40">+ Add approved RAG fact</button>
+     <p className="mt-3 text-[11px] text-[#718f9f]">Automatic model assignment weighs the number and length of approved facts, services and FAQs. You can override it for this site using 0.5B or 1.5B above.</p>
+    </div>
+    <p className="text-[11px] leading-6 text-[#6d8ea2] sm:col-span-2">A business assistant cannot provide unrelated history, general knowledge, guessed prices or unverified claims. Booking requests still require confirmation; this model cannot book appointments by itself. The founder connects MEPLIFEOS once; website visitors never need a secret.</p>
    </div>
   </section>
   <details className="rounded-2xl border border-[#d1e6f3] bg-[#f8fcff] p-5"><summary className="cursor-pointer text-sm font-black text-[#164760]">Your photo library · Choose hero and gallery images</summary><div className="mt-5"><SiteImageLibrary uid={uid} onPick={choosePhoto}/></div></details>

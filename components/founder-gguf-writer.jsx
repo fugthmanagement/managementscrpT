@@ -2,6 +2,7 @@
 import {useCallback,useEffect,useState} from "react";
 import {collection,limit,onSnapshot,orderBy,query} from "firebase/firestore";
 import {auth,db} from "../lib/firebase";
+import FounderGgufConnection from "./founder-gguf-connection";
 const field="mt-2 w-full rounded-xl border border-[#c6dfed] bg-white px-3 py-3 text-sm text-[#204b65]";
 const btn="rounded-xl border border-[#c9dfea] bg-white px-4 py-3 text-xs font-black text-[#245c77] disabled:opacity-40";
 const sources=[["preview","Reveal a FUGTH website"],["upgrade","Improve existing website"],["follow_up","Follow-up"],["booking","Offer no-account booking"],["referral","Real verified referral"]];
@@ -52,7 +53,7 @@ export default function FounderGgufWriter({user,selectedProspectId="",onDraft,mo
   <div className="space-y-4 p-5 sm:p-7">
    <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-[#f0f8fd] p-4">
     <span className={"h-3 w-3 rounded-full "+dot}/>
-    <strong className="text-xs uppercase">{state?.light==="green"?"Model service ready":state?.light==="orange"?"Starting / busy":"Offline / secret missing"}</strong>
+    <strong className="text-xs uppercase">{state?.light==="green"?"Model service ready":state?.light==="orange"?"Starting / busy":"Gateway unreachable / secret not configured"}</strong>
     <span className="text-[11px] text-[#698ea4]">Models: {(state?.health?.models||[]).join(" + ")||"not loaded"} · Queue: {state?.health?.queue??"—"} / {state?.health?.maxQueue??"—"} · Active: {state?.health?.activeModel||"idle"}</span>
    </div>
    <div className="flex flex-wrap gap-2">
@@ -60,6 +61,7 @@ export default function FounderGgufWriter({user,selectedProspectId="",onDraft,mo
     <button className={btn} disabled={!!busy} onClick={()=>refresh().catch(e=>setNotice(e.message))}>Refresh health</button>
     <a className={btn} target="_blank" rel="noopener noreferrer" href="https://huggingface.co/spaces/fugthchat/MEPLIFEOS">Space logs ↗</a>
    </div>
+   <FounderGgufConnection onChanged={()=>refresh().catch(()=>{})}/>
    <div className="grid gap-3 sm:grid-cols-2">
     <label className="text-xs font-black">Choose a saved prospect
      <select className={field} value={selected} onChange={e=>{setSelected(e.target.value);setAudit(null);setDraft("");}}>

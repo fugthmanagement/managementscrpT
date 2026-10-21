@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { auth, db } from "../lib/firebase";
 import {collection,limit,onSnapshot,orderBy,query} from "firebase/firestore";
+import FounderDemoAgentSettings from "./founder-demo-agent-settings";
 const kinds = [
   ["electrician", "⚡ Electrician"],
   ["mechanic", "🔧 Mechanic"],
@@ -236,6 +237,7 @@ export default function FounderProspectDemos({user}) {
                   ? " · Assigned: " + r.assignedUid
                   : " · Unassigned"}
               </p>
+              <FounderDemoAgentSettings key={"ai-"+r.id} demo={r} onSaved={refresh}/>
               <div className="mt-4 flex flex-wrap gap-2">
                 <button
                   className="rounded-lg bg-[#255447] px-4 py-2 text-xs font-bold text-white"

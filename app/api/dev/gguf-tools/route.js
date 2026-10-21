@@ -4,32 +4,15 @@ import {reviewPublicWebsite} from "../../../../lib/server/gguf-site-audit";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
 export const maxDuration=45;
-const origin="https://fugthchat-meplifeos.hf.space";
+import {gatewayHealth,gatewayChat} from "../../../../lib/server/meplifeos-gateway";
 const json=(v,s=200)=>NextResponse.json(v,{status:s,headers:{"Cache-Control":"private, no-store"}});
-const key=()=>String(process.env.FUGTH_LOCAL_AGENT_API_KEY||"").trim();
 const allowedModel=m=>["0.5b","1.5b"].includes(m)?m:"0.5b";
 const founder=async req=>{const u=await authenticatedUser(req);return u?.uid&&isFounder(u)?u:null};
-async function status(){
- try{
-  const response=await fetch(origin+"/health",{cache:"no-store",signal:AbortSignal.timeout(10500)});
-  if(!response.ok)return {online:false,ready:false,httpStatus:response.status};
-  const h=await response.json();
-  return {online:true,ready:h.ready===true,models:h.loaded_models||[],queue:h.queued||0,
-   maxQueue:h.max_queue_size||0,activeModel:h.active_model||null,
-   completed:h.completed_requests||0,defaultModel:h.default_model||null,errors:h.load_errors||{}};
- }catch{return {online:false,ready:false,reason:"sleeping_or_unreachable"}}
-}
+async function status(){return await gatewayHealth()}
 async function generate(task,context,message,modelName,maxTokens){
- if(!key())throw Object.assign(Error("Set FUGTH_LOCAL_AGENT_API_KEY in Vercel."),{status:503});
- const response=await fetch(origin+"/v1/chat",{method:"POST",cache:"no-store",signal:AbortSignal.timeout(26000),
-  headers:{"Content-Type":"application/json","X-API-Key":key()},
-  body:JSON.stringify({task,model:allowedModel(modelName),business_name:"FUGTH Management",
-   context:String(context).slice(0,3500),message:String(message).slice(0,1150),
-   max_tokens:Math.min(180,maxTokens||140),temperature:0.08})});
- if(!response.ok)throw Object.assign(Error(response.status===429?"The GGUF queue is full. Retry later.":"The model is offline or this task failed."),{status:response.status===429?429:503});
- const j=await response.json();const text=String(j.answer||"").trim().slice(0,1700);
- if(!text)throw Object.assign(Error("Empty model response."),{status:503});
- return {text,model:j.model||allowedModel(modelName),queueMs:j.queue_ms||0,inferenceMs:j.inference_ms||0};
+ const g=await gatewayChat({task,context,message,model:allowedModel(modelName),maxTokens:Math.min(180,maxTokens||145),
+ businessName:"FUGTH Management",timeoutMs:90000});
+ return {text:g.answer,model:g.model,queueMs:g.queueMs,inferenceMs:g.inferenceMs};
 }
 async function prospect(db,uid,id,channel="sms"){
  if(!/^[A-Za-z0-9_-]{8,128}$/.test(String(id||"")))throw Object.assign(Error("Select a saved prospect."),{status:400});
@@ -48,19 +31,25 @@ async function quota(db,uid){
 export async function GET(req){
  const u=await founder(req);if(!u)return json({error:"Founder authentication required."},403);
  try{
-  const db=firebaseAdmin().firestore(),[h,s]=await Promise.all([status(),db.doc("systemSettings/fugthAi").get()]);
-  const cfg=s.data()||{},light=!key()||!h.online?"red":!h.ready||h.queue>=Math.max(1,h.maxQueue)?"orange":"green";
-  return json({health:h,light,configured:Boolean(key()),defaultModel:allowedModel(cfg.coldCallModel||"0.5b"),
-   websiteModel:allowedModel(cfg.websiteModel||"0.5b"),
-   note:"Wake is a public health probe. It cannot unpause a Space paused manually on Hugging Face."});
- }catch{return json({error:"Could not check the GGUF connection."},503)}
+  // Service health must never turn red just because a Firestore preference read failed.
+  const h=await status();let cfg={},settingsWarning=null;
+  try{const snap=await firebaseAdmin().firestore().doc("systemSettings/fugthAi").get();cfg=snap.data()||{}}
+  catch(e){settingsWarning="model_settings_unavailable"}
+  return json({health:{online:h.online,ready:h.ready,models:h.models,queue:h.queue,
+    maxQueue:h.maxQueue,activeModel:h.active,completed:h.completed,source:h.source,
+    configured:h.configured,issue:h.issue,configWarning:h.configWarning},
+    light:h.light,configured:h.configured,secretSource:h.source,
+    defaultModel:allowedModel(cfg.coldCallModel||"0.5b"),
+    websiteModel:allowedModel(cfg.websiteModel||"0.5b"),settingsWarning,
+    note:"Your FUGTH server uses Vercel or an encrypted Firestore key automatically. The Hugging Face developer test console is independent."});
+ }catch{return json({error:"Gateway health could not be read. Check Firebase Admin and Google-encryption settings."},503)}
 }
 export async function POST(req){
  const u=await founder(req);if(!u)return json({error:"Founder authentication required."},403);
  let body;try{const raw=await req.text();if(raw.length>2500)throw Error();body=JSON.parse(raw)}
  catch{return json({error:"Invalid request."},400)}
  const action=String(body.action||"");
- if(action==="wake"){const h=await status();return json({health:h,light:!key()||!h.online?"red":h.ready?"green":"orange"})}
+ if(action==="wake"){const h=await status();return json({health:h,light:h.light})}
  const db=firebaseAdmin().firestore();
  if(action==="config"){
   if(!["0.5b","1.5b"].includes(body.model))return json({error:"Choose a valid model."},400);
