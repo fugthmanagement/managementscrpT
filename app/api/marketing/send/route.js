@@ -51,9 +51,19 @@ export async function POST(req){
  }catch(e){return response({error:e.message||"Reconnect your Google account to send campaigns."},503);}
  let leads;
  try{
-  leads=(await db.collection("users").doc(uid).collection("leads").where("marketingOptIn","==",true).limit(250).get()).docs;
- }catch{return response({error:"Could not load your opted-in recipient list."},503);}
- const eligible=leads.filter(d=>!d.data().unsubscribed&&validEmail(d.data().email));
+  if(campaign.targetedProspects===true){
+   // A selected-audience campaign can NEVER fall back to the whole CRM list.
+   const ids=campaign.recipientIds;
+   if(!Array.isArray(ids)||ids.length<1||ids.length>50||ids.some(id=>!/^outreach_[A-Za-z0-9_-]{8,128}$/.test(id)))
+    return response({error:"The selected email audience is invalid. Recreate the campaign."},409);
+   leads=await db.getAll(...ids.map(id=>db.doc("users/"+uid+"/leads/"+id)));
+  }else{
+   leads=(await db.collection("users").doc(uid).collection("leads").where("marketingOptIn","==",true).limit(250).get()).docs;
+  }
+ }catch{return response({error:"Could not load your selected opted-in recipients."},503);}
+ const eligible=leads.filter(d=>d.exists&&d.data().marketingOptIn===true&&
+  !d.data().unsubscribed&&!d.data().doNotCall&&!d.data().emailOptOut&&validEmail(d.data().email)&&
+  (!campaign.targetedProspects||d.data().source==="verified_founder_prospect"));
  if(!eligible.length)return response({error:"No opted-in email contacts. Add contacts with marketing permission first."},400);
  let sent=0,skipped=0,failed=0;
  for(const item of eligible){
@@ -74,11 +84,22 @@ export async function POST(req){
    });
    if(exhausted)break;
    if(!reserved){skipped++;continue;}
-   const name=String(recipient.contactName||"").trim().split(/\s+/)[0]||"there";
-   const business=String(profileDoc.data().businessName).slice(0,90);
-   const subject=String(campaign.subject).slice(0,140);
-   const message=String(campaign.message).slice(0,6500)
-    .replace(/\{\{first_name\}\}/gi,name).replace(/\{\{business\}\}/gi,business);
+   const safe=x=>String(x||"").replace(/[\r\n<>]/g," ").trim();
+   const name=safe(recipient.contactName).split(/\s+/)[0]||"there";
+   const business=safe(profileDoc.data().businessName).slice(0,90);
+   const targeted=campaign.targetedProspects===true;
+   const replacements={
+    first_name:name,contact:name,business:targeted?safe(recipient.businessName).slice(0,90):business,
+    site:targeted?safe(recipient.websitePreviewUrl).slice(0,500):"",
+    booking:"https://www.fugthmanagement.space/book",
+    claim:targeted&&/^[a-f0-9]{24}$/.test(String(recipient.assignedPreviewId||""))?
+     "https://www.fugthmanagement.space/claim/"+recipient.assignedPreviewId:"",
+    sender_business:business
+   };
+   const expand=t=>String(t||"").replace(/\{\{(first_name|contact|business|site|booking|claim|sender_business)\}\}/gi,
+    (_,field)=>replacements[field.toLowerCase()]||"").slice(0,6500);
+   const subject=expand(campaign.subject).slice(0,140);
+   const message=expand(campaign.message);
    const raw=mimeMessage({to:recipient.email,from,business,subject,text:message,unsubscribe:optoutUrl(uid,item.id)});
    const result=await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send",{
     method:"POST",headers:{Authorization:"Bearer "+googleToken,"Content-Type":"application/json"},

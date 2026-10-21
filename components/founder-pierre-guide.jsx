@@ -13,7 +13,7 @@ function formatForGuide(p){return {
  business:p.businessName||"",contact:p.ownerName||"",phone:p.phone||"",email:p.email||"",type:p.industry||"",
  date:p.guideDate||"",time:p.guideTime||"",stage:p.pierreStage||"New prospect",notes:p.notes||""};
 }
-export default function FounderPierreGuide({user}){
+export default function FounderPierreGuide({user,onText}){
  const iframe=useRef(null),dncDone=useRef(""),[loaded,setLoaded]=useState(false);
  const [prospects,setProspects]=useState([]),[selectedId,setSelectedId]=useState("");
  const [lead,setLead]=useState(blank),[step,setStep]=useState("start"),[path,setPath]=useState([]),[answers,setAnswers]=useState([]);
@@ -132,6 +132,7 @@ export default function FounderPierreGuide({user}){
     <button disabled={Boolean(busy)} className="rounded-xl bg-[#493d30] px-4 py-3 text-xs font-semibold text-white disabled:opacity-50" onClick={()=>save(false)}>Save progress to FUGTH</button>
     <button disabled={Boolean(busy)} className="rounded-xl bg-[#607c61] px-4 py-3 text-xs font-semibold text-white disabled:opacity-50" onClick={()=>save(true)}>Log completed call</button>
     <button disabled={Boolean(busy)||chosen?.doNotCall} className="rounded-xl border border-[#cdb89d] px-4 py-3 text-xs font-semibold disabled:opacity-50" onClick={googleVoice}>Call with Google Voice</button>
+    <button type="button" disabled={Boolean(busy)||!chosen||chosen?.doNotCall||lead.stage==="Do not call"} className="rounded-xl border border-[#cdb89d] bg-[#f4f8ee] px-4 py-3 text-xs font-bold disabled:opacity-50" onClick={()=>onText?.(chosen)}>Text prospect</button>
    </div>
    <div className="mt-4 grid gap-3 sm:grid-cols-3">
     <button disabled={Boolean(busy)} className="rounded-xl border border-[#dbcab4] px-4 py-3 text-xs font-semibold disabled:opacity-50" onClick={()=>compose("email")}>Draft follow-up email</button>

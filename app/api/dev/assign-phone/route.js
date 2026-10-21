@@ -56,6 +56,105 @@ function businessAssistant(profile,uid){
   voice:{provider:"11labs",voiceId:"sara"}
  };
 }
+
+/**
+ * Provision a Vapi-managed inbound-only US number and bind it to a new business assistant.
+ * This is an explicit founder-authorized action; Vapi may charge for extra numbers.
+ * The durable job record prevents accidental repeat provisioning on timeout/retry.
+ */
+async function provisionNewLine(body,actor){
+ const uid=String(body?.uid||"");
+ const areaCode=String(body?.areaCode||"");
+ if(!validUid(uid)||!requestArea(areaCode))
+  return reply({error:"Select a registered business and a valid three-digit US area code."},400);
+ if(body?.billingAcknowledged!==true||body?.confirmation!=="PROVISION")
+  return reply({error:"Confirm that this action can provision a billable Vapi number."},400);
+ if(!key())return reply({error:"Add VOICE_PRIVATE_KEY or VAPI_PRIVATE_KEY to Vercel before provisioning a number."},503);
+ const admin=firebaseAdmin(),db=admin.firestore();
+ const customer=db.doc("users/"+uid);
+ const jobRef=db.doc("fugthPhoneProvisionJobs/"+uid);
+ const startedAt=new Date().toISOString();
+ let acquired=false,assistantId="",numberId="",phoneNumber="",stage="preflight";
+ try{
+  const currentUser=await admin.auth().getUser(uid);
+  if(currentUser.disabled)return reply({error:"This FUGTH account is disabled."},409);
+  const profile=await db.runTransaction(async tx=>{
+   const [p,j]=await Promise.all([tx.get(customer),tx.get(jobRef)]);
+   if(!p.exists)throw Object.assign(Error("This business has not completed its FUGTH profile."),{status:404});
+   const data=p.data()||{};
+   if(data.vapiPhoneNumberId||data.assignedNumberId)
+    throw Object.assign(Error("This business already has an assigned FUGTH number. Use the existing assignment instead."),{status:409});
+   if(j.exists)throw Object.assign(Error("A number-provisioning request already exists for this business. Review its status and Vapi inventory before attempting another purchase."),{status:409});
+   tx.create(jobRef,{uid,areaCode,status:"pending",actorUid:actor.uid,startedAt,stage:"reserved",billingAcknowledged:true});
+   return data;
+  });
+  acquired=true;
+  stage="assistant";
+  const assistant=await provider("/assistant",{method:"POST",body:businessAssistant(profile,uid)});
+  if(!validId(assistant?.id))throw Object.assign(Error("The voice network did not return a usable assistant ID."),{status:502});
+  assistantId=assistant.id;
+  await jobRef.set({assistantId,stage:"assistant_created",updatedAt:new Date().toISOString()},{merge:true});
+  stage="number";
+  const name=("FUGTH "+String(profile.businessName||"Receptionist")).slice(0,40);
+  const created=await provider("/phone-number",{method:"POST",body:{
+   provider:"vapi",name,numberDesiredAreaCode:areaCode,assistantId
+  }});
+  numberId=String(created?.id||"");phoneNumber=String(created?.number||"");
+  // Preserve returned IDs even if the number is pending activation.
+  await jobRef.set({numberId:numberId||null,number:phoneNumber||null,stage:"provider_created",updatedAt:new Date().toISOString()},{merge:true});
+  if(!validId(numberId)||!/^\+?1?\d{10}$/.test(phoneNumber.replace(/[()\s-]/g,"")))
+   throw Object.assign(Error("Vapi returned an incomplete phone number. Review inventory before retrying."),{status:502});
+  if(numberId===String(process.env.VAPI_PHONE_NUMBER_ID||process.env.VAPI_PHONE_NUMBER||""))
+   throw Object.assign(Error("Vapi returned the reserved shared demo line. Manual review required."),{status:409});
+  stage="firestore_assignment";
+  const now=new Date().toISOString();
+  await db.runTransaction(async tx=>{
+   const [p,j,n]=await Promise.all([
+    tx.get(customer),tx.get(jobRef),tx.get(db.doc("fugthPhoneAssignments/"+numberId))
+   ]);
+   if(!p.exists||p.data()?.vapiPhoneNumberId||j.data()?.actorUid!==actor.uid)
+    throw Object.assign(Error("The account or provisioning reservation changed during setup."),{status:409});
+   if(n.exists)throw Object.assign(Error("The provider number is already reserved in FUGTH."),{status:409});
+   tx.create(db.doc("fugthPhoneAssignments/"+numberId),{
+    uid,numberId,number:phoneNumber,assistantId,status:created?.status==="active"?"active":"activating",
+    provider:"vapi",newProvision:true,actorUid:actor.uid,requestedAt:startedAt,updatedAt:now
+   });
+   tx.set(customer,{
+    vapiNumber:phoneNumber,vapiPhoneNumberId:numberId,assignedNumberId:numberId,
+    assignedAssistantId:assistantId,vapiAssistantId:assistantId,
+    vapiLinked:true,vapiLinkedAt:now,voiceProvisionedAt:now,
+    voiceProvider:"vapi",voiceSetupStatus:created?.status==="active"?"test_call_required":"activation_pending"
+   },{merge:true});
+   tx.set(jobRef,{uid,numberId,number:phoneNumber,assistantId,status:"assigned",stage:"complete",updatedAt:now},{merge:true});
+  });
+  return reply({assigned:true,created:true,uid,number:phoneNumber,numberId,assistantId,
+   providerStatus:created?.status||"unknown",
+   message:"Number provisioned and assigned to this account. Activation and a real test call still need verification.",
+   nextSteps:[
+    "Wait until the Vapi phone number shows active.",
+    "Call the assigned number from another phone to test the business-specific greeting and caller intake.",
+    "Confirm the test call and any transcript appear in the correct customer account's Calls tab.",
+    "If forwarding an existing business line, set up forwarding at the carrier only after testing the FUGTH number.",
+    "Vapi-managed numbers are inbound-only and do not provide SMS sending."
+   ]});
+ }catch(error){
+  console.warn("FUGTH new number provision problem",{stage,code:error?.providerCode||error?.code||error?.status||"unknown"});
+  if(acquired){
+   try{await jobRef.set({
+    status:"needs_review",stage,assistantId:assistantId||null,numberId:numberId||null,number:phoneNumber||null,
+    issueCode:String(error?.providerCode||error?.code||"provisioning_failed").slice(0,75),
+    updatedAt:new Date().toISOString()
+   },{merge:true});}catch{}
+  }
+  return reply({error:acquired?
+    "Provisioning needs review. Do not buy another number yet; inspect the Vapi inventory and this account's phone setup.":
+    error?.status===409||error?.status===404?error.message:"Couldn't start provisioning this account.",
+    issueCode:acquired?"PROVISION_REVIEW":"PREFLIGHT",
+    stage,numberCreated:Boolean(numberId),assistantCreated:Boolean(assistantId)},error?.status===409?409:acquired?503:error?.status||503);
+ }
+}
+const requestArea=value=>/^[2-9]\d{2}$/.test(String(value||""));
+
 export async function GET(request){
  const user=await founder(request);
  if(!user)return reply({error:"Verified FUGTH management access required."},403);
@@ -85,6 +184,7 @@ export async function POST(request){
  let body;
  try{const raw=await request.text();if(raw.length>900)throw Error();body=JSON.parse(raw);}
  catch{return reply({error:"Invalid number assignment request."},400);}
+ if(body?.action==="provision")return provisionNewLine(body,actor);
  const uid=body?.uid,numberId=body?.numberId;
  if(!validUid(uid)||!validId(numberId))return reply({error:"Select a business and an available FUGTH number."},400);
  if(!key())return reply({error:"FUGTH voice management isn't connected."},503);

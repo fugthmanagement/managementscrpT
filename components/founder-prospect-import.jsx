@@ -22,11 +22,13 @@ function parseDelimited(text,separator=","){
 function normalize(item){
  const businessName=clean(value(item,["businessname","business","name","company"]),110);
  const phone=normalizePhone(value(item,["phone","phonenumber","telephone","contactnumber","number"]));
- if(!businessName||!phone)return null;
+ const rawEmail=clean(value(item,["email","emailaddress","businessemail","contactemail","mail","emailid"]),180).toLowerCase();
+ const email=/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail)?rawEmail:"";
+ if(!businessName||(!phone&&!email))return null;
  const rawRating=value(item,["rating","googlerating","stars"]),rating=Number(rawRating);
  const rawReviews=value(item,["reviewcount","reviews","userratingcount"]),reviewCount=Number(rawReviews);
  const website=clean(value(item,["website","websiteurl","site","url"]),300);
- return {businessName,phone,ownerName:clean(value(item,["ownername","owner","contactname"]),110),
+ return {businessName,phone,email,marketingOptIn:false,phoneMarketingOptIn:false,ownerName:clean(value(item,["ownername","owner","contactname"]),110),
   industry:clean(value(item,["industry","category","businesstype","primarytype"]),75)||"Local service",
   city:clean(value(item,["city","location","area","address"]),160),
   website,hasWebsite:Boolean(website),rating:rawRating&&Number.isFinite(rating)?Math.min(5,Math.max(0,rating)):null,
@@ -35,7 +37,7 @@ function normalize(item){
   notes:clean(value(item,["notes","description"]),900),
   source:"Imported prospect list",type:"cold_call_prospect",status:"new",callCount:0,favorite:false};
 }
-export default function FounderProspectImport({user}){
+export default function FounderProspectImport({user,onText}){
  const [rows,setRows]=useState([]),[search,setSearch]=useState(""),[category,setCategory]=useState("all"),
   [website,setWebsite]=useState("all"),[minRating,setMinRating]=useState("0"),[status,setStatus]=useState("all"),
   [busy,setBusy]=useState(false),[message,setMessage]=useState("");
@@ -60,18 +62,18 @@ export default function FounderProspectImport({user}){
    const text=await file.text();const isJson=/\.json$/i.test(file.name);
    const parsed=isJson?JSON.parse(text):parseDelimited(text,/\.tsv$/i.test(file.name)?"\t":",");
    const raw=Array.isArray(parsed)?parsed:Array.isArray(parsed?.prospects)?parsed.prospects:Array.isArray(parsed?.rows)?parsed.rows:[];
-   if(!raw.length)throw Error("No prospect rows found. Include businessName (or Business) and Phone columns.");
-   const existing=new Set(rows.map(x=>normalizePhone(x.phone)).filter(Boolean));
-   const named=new Set(rows.map(x=>String(x.businessName||"").toLowerCase()+"|"+normalizePhone(x.phone)));
+   if(!raw.length)throw Error("No prospect rows found. Include Business Name and Phone and/or Email columns.");
+   const existing=new Set(rows.map(x=>normalizePhone(x.phone)||String(x.email||"").trim().toLowerCase()).filter(Boolean));
+   const named=new Set(rows.map(x=>String(x.businessName||"").toLowerCase()+"|"+(normalizePhone(x.phone)||String(x.email||"").trim().toLowerCase())));
    const entries=[];
    for(const source of raw.slice(0,1500)){
     if(!source||typeof source!=="object"||Array.isArray(source))continue;
     const row=normalize(source);if(!row)continue;
-    const k=row.businessName.toLowerCase()+"|"+row.phone;
-    if(existing.has(row.phone)||named.has(k))continue;
-    existing.add(row.phone);named.add(k);entries.push(row);
+    const identifier=row.phone||row.email,k=row.businessName.toLowerCase()+"|"+identifier;
+    if(existing.has(identifier)||named.has(k))continue;
+    existing.add(identifier);named.add(k);entries.push(row);
    }
-   if(!entries.length)throw Error("No new valid prospects: rows may lack phone numbers or already exist.");
+   if(!entries.length)throw Error("No new valid prospects: rows may lack phone/email details or already exist.");
    if(entries.length>1000)throw Error("Import up to 1,000 new prospects at a time.");
    for(let i=0;i<entries.length;i+=350){
     const batch=writeBatch(db);
@@ -113,7 +115,7 @@ export default function FounderProspectImport({user}){
      <p className="mt-1 text-xs text-[#857967]">{p.industry||"Business"} · {p.city||"Area unavailable"} · {p.rating!=null?Number(p.rating).toFixed(1)+" ★ ("+(p.reviewCount||0)+" reviews)":"Unrated"} · {p.website?"Has website":"No website listed"}</p>
      <p className="mt-1 text-xs">{p.phone} · {p.status||"new"}</p></div>
     <div className="flex flex-wrap gap-2">
-     {!(p.doNotCall||p.status==="do_not_call")?<><a className="rounded-lg bg-[#463c2e] px-3 py-2 text-xs font-semibold text-white" href={"tel:"+normalizePhone(p.phone)}>Call</a><button type="button" onClick={()=>googleVoice(p.phone)} className="rounded-lg border border-[#d5c7b3] px-3 py-2 text-xs font-semibold">Google Voice</button></>:<span className="rounded-lg bg-[#fff0e9] px-3 py-2 text-xs font-semibold text-[#a4533e]">Do not call</span>}
+     {!(p.doNotCall||p.status==="do_not_call")?<><a className="rounded-lg bg-[#463c2e] px-3 py-2 text-xs font-semibold text-white" href={"tel:"+normalizePhone(p.phone)}>Call</a><button type="button" onClick={()=>googleVoice(p.phone)} className="rounded-lg border border-[#d5c7b3] px-3 py-2 text-xs font-semibold">Google Voice</button><button type="button" onClick={()=>onText?.(p)} className="rounded-lg border border-[#bad9e7] bg-[#eff9fd] px-3 py-2 text-xs font-black text-[#235875]">Text</button></>:<span className="rounded-lg bg-[#fff0e9] px-3 py-2 text-xs font-semibold text-[#a4533e]">Do not call</span>}
      {p.website&&<a target="_blank" rel="noopener noreferrer" className="rounded-lg border border-[#d5c7b3] px-3 py-2 text-xs font-semibold" href={p.website}>Site ↗</a>}
     </div>
    </article>)}

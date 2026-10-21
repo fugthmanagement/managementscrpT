@@ -37,6 +37,9 @@ import FounderSalesDesk from "./founder-sales-desk";
 import FounderRevenuePlanner from "./founder-revenue-planner";
 import FounderBillingHealth from "./founder-billing-health";
 import FounderVoiceHealth from "./founder-voice-health";
+import FounderBookingCalendar from "./founder-booking-calendar";
+import FounderSiteClaims from "./founder-site-claims";
+import FounderGgufWriter from "./founder-gguf-writer";
 import FounderDemoControls from "./founder-demo-controls";
 import FounderAccountDirectory from "./founder-account-directory";
 import MarketingHub from "./marketing-hub";
@@ -259,7 +262,7 @@ export default function FugthWorkspace() {
       setUser(current || null);
       setReady(true);
       if (!current) {
-        window.location.replace("/login");
+        setCapabilitiesReady(true);
         return;
       }
       try {
@@ -369,6 +372,7 @@ export default function FugthWorkspace() {
         ...MENU,
         { id: "accounts", label: "Accounts", icon: "users" },
         { id: "sales", label: "Cold Calling", icon: "phone" },
+        { id: "gguf", label: "GGUF AI", icon: "admin" },
         { id: "admin", label: "Administration", icon: "admin" },
       ]
     : MENU;
@@ -537,12 +541,24 @@ export default function FugthWorkspace() {
       setBusy("");
     }
   }
-  if (!ready || !user)
-    return (
-      <main className="fugth-workspace grid min-h-screen place-items-center bg-[#f0f9ff] text-sm text-[#234e6a]">
-        Opening your FUGTH workspace…
-      </main>
-    );
+  if (!ready)
+    return <main className="grid min-h-screen place-items-center bg-[#f0f9ff] text-sm text-[#234e6a]">Opening FUGTH…</main>;
+  if (!user)
+    return <main className="min-h-screen bg-[#f2f9fe] px-5 py-12 text-[#163c55] sm:py-20">
+      <div className="mx-auto max-w-3xl overflow-hidden rounded-[28px] border border-[#d5e7f0] bg-white shadow-[0_18px_50px_rgba(18,68,100,.1)]">
+        <header className="bg-[#102e43] p-8 text-white sm:p-12">
+          <p className="text-[10px] font-black uppercase tracking-[.2em] text-[#a0d5f1]">FUGTH MANAGEMENT / GUEST DASHBOARD</p>
+          <h1 className="mt-4 text-4xl font-black">Welcome to FUGTH.</h1>
+          <p className="mt-3 text-sm leading-7 text-[#c8e2f0]">Explore the business platform, book a founder consultation, or sign in to manage your website, calls and leads.</p>
+        </header>
+        <div className="grid gap-3 p-7 sm:grid-cols-2 sm:p-10">
+          <Link href="/book" className="rounded-2xl bg-[#1e5877] px-5 py-6 text-center text-sm font-black text-white">Book a consultation without an account ↗</Link>
+          <Link href="/login" className="rounded-2xl border border-[#b7d4e5] px-5 py-6 text-center text-sm font-black">Log in to my business</Link>
+          <Link href="/login?signup=1" className="rounded-2xl border border-[#b7d4e5] px-5 py-6 text-center text-sm font-black sm:col-span-2">Create a FUGTH business account with Google or email →</Link>
+          <p className="text-xs leading-5 text-[#668ca3] sm:col-span-2">Guest booking requests require FUGTH approval before they appear as confirmed Google Calendar events.</p>
+        </div>
+      </div>
+    </main>;
   const business =
     workspace.businessName && workspace.businessName !== "Fugth Management OS"
       ? workspace.businessName
@@ -1091,7 +1107,7 @@ export default function FugthWorkspace() {
             )}
             {page === "sales" && founder && (
               <div>
-                <FounderSalesDesk user={user} />
+                <FounderSalesDesk user={user} onOpenMarketing={()=>changePage("marketing")}/>
               </div>
             )}
             {page === "sales" && !founder && (
@@ -1099,6 +1115,11 @@ export default function FugthWorkspace() {
                 title="Sales desk is private"
                 description="Sign in with a verified FUGTH management account to access calling and prospecting."
               />
+            )}
+            {page === "gguf" && founder && (
+              <div>
+                <FounderGgufWriter user={user}/>
+              </div>
             )}
             {page === "admin" && founder && (
               <div>
@@ -1118,6 +1139,8 @@ export default function FugthWorkspace() {
                       payments.
                     </p>
                   </div>
+                  <FounderBookingCalendar user={user}/>
+                  <FounderSiteClaims />
                   <FounderAccountDirectory />
                   <FounderRevenuePlanner />
                   <FounderVoiceHealth />

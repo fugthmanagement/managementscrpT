@@ -22,7 +22,7 @@ export default function MarketingDelivery({user,campaigns=[],enabled=false,onDra
  async function connect(){
   setBusy("connect");setNotice("");
   try{
-   const res=await fetch("/api/integrations/google",{method:"POST",headers:await headers()});
+   const res=await fetch("/api/integrations/google",{method:"POST",headers:await headers(),body:JSON.stringify({feature:"gmail"})});
    const data=await res.json().catch(()=>({}));
    if(!res.ok||!data.url)throw Error(data.error||"Google account connection is not ready.");
    window.location.assign(data.url);
@@ -42,7 +42,7 @@ export default function MarketingDelivery({user,campaigns=[],enabled=false,onDra
  }
  async function send(campaign){
   if(!enabled||!status.connected)return;
-  if(!window.confirm("Send up to 10 real emails to contacts with marketing consent from your connected Gmail account?"))return;
+  if(!window.confirm(campaign.targetedProspects===true?"Send to ONLY the "+campaign.recipientCount+" selected, verified opted-in contacts in this campaign? Gmail sends at most 10 per batch.":"Send up to 10 real emails to all eligible opted-in Marketing CRM contacts?"))return;
   setBusy(campaign.id);setNotice("");
   try{
    const res=await fetch("/api/marketing/send",{method:"POST",headers:await headers(),body:JSON.stringify({campaignId:campaign.id})});
@@ -67,7 +67,7 @@ export default function MarketingDelivery({user,campaigns=[],enabled=false,onDra
     <p className="mt-2 text-[10px] text-[#7c96a5]">Uses the business profile and GEMINI_API_KEY if configured. Review accuracy before sending.</p>
    </div>
    <div className="rounded-xl bg-white p-4"><p className="text-xs font-bold">Saved email campaigns</p>
-    <div className="mt-3 max-h-44 space-y-2 overflow-y-auto">{campaigns.filter(x=>x.channel==="email").map(item=><div key={item.id} className="flex items-center justify-between gap-3 border-b border-[#ecf6fc] py-2"><div className="min-w-0"><p className="truncate text-xs font-semibold">{item.name||item.subject}</p><p className="text-[10px] text-[#7c99a9]">{item.status||"Draft"}</p></div><button type="button" onClick={()=>send(item)} disabled={!enabled||!status.connected||busy!==""} className="shrink-0 rounded-lg bg-[#1c4560] px-3 py-2 text-[10px] font-bold text-white disabled:opacity-40">{busy===item.id?"Sending…":"Send next 10"}</button></div>)}{!campaigns.some(x=>x.channel==="email")&&<p className="text-xs text-[#7c99a9]">Save an email campaign below to start sending.</p>}</div>
+    <div className="mt-3 max-h-44 space-y-2 overflow-y-auto">{campaigns.filter(x=>x.channel==="email").map(item=><div key={item.id} className="flex items-center justify-between gap-3 border-b border-[#ecf6fc] py-2"><div className="min-w-0"><p className="truncate text-xs font-semibold">{item.name||item.subject}</p><p className="text-[10px] text-[#7c99a9]">{item.status||"Draft"} · {item.targetedProspects?"Selected audience ("+(item.recipientCount||0)+")":"All opted-in contacts"}</p></div><button type="button" onClick={()=>send(item)} disabled={!enabled||!status.connected||busy!==""} className="shrink-0 rounded-lg bg-[#1c4560] px-3 py-2 text-[10px] font-bold text-white disabled:opacity-40">{busy===item.id?"Sending…":"Send next 10"}</button></div>)}{!campaigns.some(x=>x.channel==="email")&&<p className="text-xs text-[#7c99a9]">Save an email campaign below to start sending.</p>}</div>
    </div>
   </div>
   {notice&&<p role="status" className="mt-4 rounded-xl border border-[#d3e6f0] bg-white p-4 text-xs text-[#4c7a93]">{notice}</p>}
