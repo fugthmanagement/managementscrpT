@@ -21,7 +21,7 @@ test("independent sample design services are not a verified claim",async()=>{
   industry:"contractor",description:"We are the best in the universe.",
   services:["Fake premium roof service"],showServices:true},
   question:"What services do you offer?",mode:"facts"});
- assert.notMatch(x.reply,/Fake premium roof service|best in the universe/i);
+ assert.doesNotMatch(x.reply,/Fake premium roof service|best in the universe/i);
  assert.equal(x.mode,"unverified");
 });
 test("known hours use deterministic approved facts without model generation",async()=>{
