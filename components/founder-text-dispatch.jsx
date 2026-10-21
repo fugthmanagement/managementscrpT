@@ -2,6 +2,7 @@
 import {useEffect,useMemo,useState} from "react";
 import {auth} from "../lib/firebase";
 import {saveProspectClientFallback} from "../lib/client/prospect-outreach-fallback";
+import {canRecordPastText} from "../lib/prospect-outreach-eligibility";
 const VOICE="https://voice.google.com/u/0/messages";
 const TEXTNOW="https://www.textnow.com/";
 const btn="rounded-xl border border-[#cbdfea] bg-white px-3 py-2.5 text-xs font-bold text-[#28516a] disabled:opacity-40";
@@ -29,7 +30,7 @@ export default function FounderTextDispatch({prospect,composed,canPrepare,phone,
  useEffect(()=>{setDraftId(freshId());setLastLogged("");setSentConfirmed(false);setNotice("");},[prospect?.id,provider]);
  const current=providers.find(x=>x.id===provider)||providers[0];
  const currentNumber=String(phone||prospect?.phone||"");
- const canLog=Boolean(prospect?.id&&currentNumber.replace(/\D/g,"").length>=7);
+ const canLog=canRecordPastText(prospect,currentNumber);
  const validPhone=currentNumber.replace(/\D/g,"");
  const linkToOpen=()=>{
   if(provider==="whatsapp")return "https://wa.me/"+validPhone+"?text="+encodeURIComponent(composed);
