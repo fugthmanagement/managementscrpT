@@ -33,7 +33,7 @@ export default function FounderProspectFollowUp({prospect,subject,validDraft=fal
   setBusy(true);setNotice("");
   try{
    const j=await api({action,subject:subject||"",email:prospect.email,
-    provider:"manual_email",note,stage,followUpAt:followUp?new Date(followUp+"T17:00:00").toISOString():null,...override});
+    provider:isEmail?"manual_email":"manual_sms",note,stage,followUpAt:followUp?new Date(followUp+"T17:00:00").toISOString():null,...override});
    setNotice(j.note||"Saved to Firestore.");
    setConfirmed(false);
    setHistory(h=>[{type:action,note:note||"",at:new Date().toISOString()},...h].slice(0,10));
@@ -48,7 +48,7 @@ export default function FounderProspectFollowUp({prospect,subject,validDraft=fal
    <div className="rounded-xl bg-white p-3"><strong>{prospect.outreachStage||"New"}</strong><p className="mt-1 text-[#7693a3]">Current sales stage</p></div>
    <div className="rounded-xl bg-white p-3"><strong>{prospect.nextFollowUpAt?new Date(prospect.nextFollowUpAt).toLocaleDateString():"Not scheduled"}</strong><p className="mt-1 text-[#7693a3]">{due?"Follow-up due":"Next follow-up"}</p></div>
   </div>
-  {currentCount>0&&<p className="mt-3 rounded-xl bg-[#e4f6eb] p-3 text-xs font-bold text-[#216948]">✓ Already contacted by email. Verify you're not repeating the same outreach.</p>}
+  {currentCount>0&&<p className="mt-3 rounded-xl bg-[#e4f6eb] p-3 text-xs font-bold text-[#216948]">✓ Already contacted by {isEmail?"email":"text"}. Check whether a follow-up is wanted before contacting again.</p>}
   {isEmail&&<>
   <label className="mt-4 flex items-start gap-2 text-xs leading-6">
    <input type="checkbox" checked={confirmed} onChange={e=>setConfirmed(e.target.checked)} className="mt-1"/>
@@ -73,7 +73,7 @@ export default function FounderProspectFollowUp({prospect,subject,validDraft=fal
    <button className={button} disabled={busy} onClick={()=>perform("set_stage")}>Save sales stage</button>
    <button className={button} disabled={busy||!followUp} onClick={()=>perform("schedule_followup")}>Schedule follow-up</button>
    <button className={button} disabled={busy} onClick={()=>perform("record_reply",{stage:stage==="contacted"?"replied":stage})}>Record their reply</button>
-   <button className={button} disabled={busy||(isEmail?prospect.emailOptOut:prospect.smsOptOut)} onClick={()=>{if(window.confirm("Mark this recipient as opted out of promotional "+(isEmail?"email":"SMS")+"?"))perform("suppress",{channel})}}>Mark email opt-out</button>
+   <button className={button} disabled={busy||(isEmail?prospect.emailOptOut:prospect.smsOptOut)} onClick={()=>{if(window.confirm("Mark this recipient as opted out of promotional "+(isEmail?"email":"SMS")+"?"))perform("suppress",{channel})}}>Mark {isEmail?"email":"SMS"} opt-out</button>
   </div>
   <p className="mt-3 text-[11px] leading-5 text-[#698ca0]">Prospect history is stored in your founder Firestore workspace. A follow-up reminder is a planning record, not automatic permission to send another message.</p>
   {notice&&<p role="status" className="mt-3 rounded-xl bg-white p-3 text-xs leading-6">{notice}</p>}
