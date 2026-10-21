@@ -6,6 +6,7 @@ import FounderTextDispatch from "./founder-text-dispatch";
 import FounderGgufWriter from "./founder-gguf-writer";
 import FounderBookingCalendar from "./founder-booking-calendar";
 import ProspectPreviewHealth from "./prospect-preview-health";
+import FounderProspectFollowUp from "./founder-prospect-followup";
 
 const ROOT="https://www.fugthmanagement.space";
 const VOICE="https://voice.google.com/u/0/messages";
@@ -283,6 +284,7 @@ export default function FounderTextDesk({user,initialProspectId="",onOpenSiteMak
      </>}
     </div>
     <FounderTextDispatch prospect={prospect} composed={composed} canPrepare={canPrepare} phone={validPhone} preset={preset} link={link}/>
+    <FounderProspectFollowUp key={prospect?.id||"none"} prospect={prospect} channel="sms" subject=""/>
     {info&&<p role="status" className="mt-3 rounded-lg bg-[#edf7fc] p-3 text-xs leading-6">{info}</p>}
    </section>
   </div>
