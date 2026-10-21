@@ -37,6 +37,9 @@ import FounderSalesDesk from "./founder-sales-desk";
 import FounderRevenuePlanner from "./founder-revenue-planner";
 import FounderBillingHealth from "./founder-billing-health";
 import FounderVoiceHealth from "./founder-voice-health";
+import FounderBookingCalendar from "./founder-booking-calendar";
+import FounderSiteClaims from "./founder-site-claims";
+import FounderGgufWriter from "./founder-gguf-writer";
 import FounderDemoControls from "./founder-demo-controls";
 import FounderAccountDirectory from "./founder-account-directory";
 import MarketingHub from "./marketing-hub";
@@ -369,6 +372,7 @@ export default function FugthWorkspace() {
         ...MENU,
         { id: "accounts", label: "Accounts", icon: "users" },
         { id: "sales", label: "Cold Calling", icon: "phone" },
+        { id: "gguf", label: "GGUF AI", icon: "admin" },
         { id: "admin", label: "Administration", icon: "admin" },
       ]
     : MENU;
@@ -1100,6 +1104,11 @@ export default function FugthWorkspace() {
                 description="Sign in with a verified FUGTH management account to access calling and prospecting."
               />
             )}
+            {page === "gguf" && founder && (
+              <div>
+                <FounderGgufWriter user={user}/>
+              </div>
+            )}
             {page === "admin" && founder && (
               <div>
                 <SectionHeading
@@ -1118,6 +1127,8 @@ export default function FugthWorkspace() {
                       payments.
                     </p>
                   </div>
+                  <FounderBookingCalendar />
+                  <FounderSiteClaims />
                   <FounderAccountDirectory />
                   <FounderRevenuePlanner />
                   <FounderVoiceHealth />
