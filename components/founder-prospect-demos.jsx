@@ -19,6 +19,7 @@ const initial = {
 };
 export default function FounderProspectDemos({user,onOpenSiteMaker}) {
   const [prospects,setProspects]=useState([]);
+  const [listStatus,setListStatus]=useState("loading"),[listError,setListError]=useState(""),[listHint,setListHint]=useState(""),[listWarning,setListWarning]=useState("");
   const [form, setForm] = useState(initial),
     [rows, setRows] = useState([]),
     [error, setError] = useState(""),
@@ -40,15 +41,30 @@ export default function FounderProspectDemos({user,onOpenSiteMaker}) {
         cache: "no-store",
       }),
       data = await response.json();
-    if (!response.ok) throw Error(data.error || "Request failed");
+    if (!response.ok) {
+      const err=Error(data.error||"Request failed");
+      err.hint=data.hint||"";
+      err.code=data.code||"";
+      throw err;
+    }
     return data;
   }
   async function refresh() {
+    setListStatus("loading");
+    setListError("");
+    setListHint("");
     try {
-      const data = await request("/api/dev/prospect-demos");
-      setRows(data.demos || []);
-    } catch (e) {
-      setError(e.message);
+      const data=await request("/api/dev/prospect-demos");
+      if(data.loaded===false)throw Error(data.error||"Demo list could not be loaded.");
+      setRows(Array.isArray(data.demos)?data.demos:[]);
+      setListStatus("loaded");
+      setListWarning(data.warning||(data.partial?"Some newer previews may not be included in the first 100 returned results.":""));
+    }catch(e){
+      // A failed read is NOT proof that the user's saved previews are missing.
+      setListStatus("error");
+      setListError(e.message||"Could not read existing website previews.");
+      setListHint(e.hint||"");
+      setListWarning("");
     }
   }
   useEffect(() => {
@@ -186,6 +202,13 @@ export default function FounderProspectDemos({user,onOpenSiteMaker}) {
             {busy ? "Saving…" : "Generate & save Firestore link"}
           </button>
         </form>
+        {listStatus==="error"&&<div role="alert" className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
+         <strong>Saved preview directory is temporarily unavailable.</strong>
+         <p className="mt-2">{listError}</p>
+         {listHint&&<p className="mt-2 text-xs leading-6">{listHint}</p>}
+         <p className="mt-2 text-xs font-semibold">This does not mean any of your Firestore previews were deleted. The form can still create a new preview when Firestore writes are working.</p>
+         <button type="button" className="mt-3 rounded-lg border border-amber-400 bg-white px-4 py-2 text-xs font-bold" onClick={refresh}>Retry saved preview list</button>
+        </div>}
         {error && (
           <p role="alert" className="mt-4 text-sm text-red-700">
             {error}
@@ -206,11 +229,10 @@ export default function FounderProspectDemos({user,onOpenSiteMaker}) {
           </button>
         </div>
         <div className="mt-5 grid gap-4">
-          {rows.length === 0 && (
-            <p className="text-sm text-[#6e7a71]">
-              No saved preview links yet.
-            </p>
-          )}
+          {listStatus==="loading"&&<p className="text-sm text-[#6e7a71]">Checking your private Firestore demo directory…</p>}
+          {listStatus==="error"&&rows.length===0&&<p className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">Cannot confirm saved links while the directory request is failing. Use Retry above; existing links may still work.</p>}
+          {listStatus==="loaded"&&rows.length===0&&<p className="text-sm text-[#6e7a71]">No saved previews were found for this signed-in founder account.</p>}
+          {listWarning&&<p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs">{listWarning}</p>}
           {rows.map((r) => (
             <article
               key={r.id}

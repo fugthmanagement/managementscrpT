@@ -2,6 +2,7 @@ import {randomBytes} from "crypto";
 import {NextResponse} from "next/server";
 import {authenticatedUser,firebaseAdmin,isFounder} from "../../../../lib/server/auth";
 import {demoTemplate,demoIndustries} from "../../../../lib/demo-template";
+import {listFounderDemos,firestoreDemoFailure} from "../../../../lib/server/prospect-demos-directory";
 export const runtime="nodejs";export const dynamic="force-dynamic";
 const credentials=()=>Boolean(process.env.FIREBASE_SERVICE_ACCOUNT||(process.env.FIREBASE_CLIENT_EMAIL&&process.env.FIREBASE_PRIVATE_KEY));
 const clean=(s,n)=>String(s||"").trim().slice(0,n).replace(/[<>]/g,"");
@@ -9,8 +10,14 @@ async function guard(req){const user=await authenticatedUser(req);return isFound
 export async function GET(req){
  const user=await guard(req);if(!user)return NextResponse.json({error:"Founder authentication required"},{status:403});
  if(!credentials())return NextResponse.json({error:"Firebase Admin credentials required"},{status:503});
- try{const snap=await firebaseAdmin().firestore().collection("prospectDemos").where("founderId","==",user.uid).limit(100).get();return NextResponse.json({demos:snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)))});}
- catch{return NextResponse.json({error:"Could not list demos"},{status:503})}
+ try{
+  const result=await listFounderDemos(firebaseAdmin().firestore(),user.uid);
+  return NextResponse.json({...result,loaded:true},{headers:{"Cache-Control":"private, no-store"}});
+ }catch(err){
+  const issue=firestoreDemoFailure(err);
+  console.error("FUGTH_DEMOS_LIST",{code:issue.code,dbCode:String(err?.code||"unknown")});
+  return NextResponse.json({...issue,loaded:false},{status:503,headers:{"Cache-Control":"private, no-store"}});
+ }
 }
 export async function POST(req){
  const user=await guard(req);if(!user)return NextResponse.json({error:"Founder authentication required"},{status:403});
@@ -43,5 +50,5 @@ export async function POST(req){
  },{merge:true});
  await batch.commit();
  return NextResponse.json({success:true,id,url:"/demo/site/"+id,record},{status:201});
- }catch(e){console.error("demo create",e?.code);return NextResponse.json({error:"Could not save demo"},{status:503})}
+ }catch(e){const result=firestoreDemoFailure(e);console.error("FUGTH_DEMO_CREATE",{code:result.code});return NextResponse.json({...result,error:"Could not save demo. "+result.error},{status:503})}
 }
