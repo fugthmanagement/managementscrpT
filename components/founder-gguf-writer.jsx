@@ -5,11 +5,11 @@ import {auth,db} from "../lib/firebase";
 const field="mt-2 w-full rounded-xl border border-[#c6dfed] bg-white px-3 py-3 text-sm text-[#204b65]";
 const btn="rounded-xl border border-[#c9dfea] bg-white px-4 py-3 text-xs font-black text-[#245c77] disabled:opacity-40";
 const sources=[["preview","Reveal a FUGTH website"],["upgrade","Improve existing website"],["follow_up","Follow-up"],["booking","Offer no-account booking"],["referral","Real verified referral"]];
-export default function FounderGgufWriter({user,selectedProspectId="",onDraft}){
+export default function FounderGgufWriter({user,selectedProspectId="",onDraft,mode="sms"}){
  const [prospects,setProspects]=useState([]),[selected,setSelected]=useState(selectedProspectId),[model,setModel]=useState("0.5b");
  const [state,setState]=useState(null),[busy,setBusy]=useState(""),[notice,setNotice]=useState("");
  const [style,setStyle]=useState("preview"),[referrer,setReferrer]=useState(""),[verifiedReferral,setVerifiedReferral]=useState(false);
- const [audit,setAudit]=useState(null),[draft,setDraft]=useState("");
+ const [audit,setAudit]=useState(null),[draft,setDraft]=useState(""),[draftSubject,setDraftSubject]=useState("");
  useEffect(()=>{if(selectedProspectId)setSelected(selectedProspectId)},[selectedProspectId]);
  useEffect(()=>{if(!db||!user?.uid)return;
   return onSnapshot(query(collection(db,"users",user.uid,"campaigns"),orderBy("createdAt","desc"),limit(900)),
@@ -35,7 +35,7 @@ export default function FounderGgufWriter({user,selectedProspectId="",onDraft}){
     body:JSON.stringify({action,prospectId:selected,model,style,referrer,verifiedReferral})});
    const j=await r.json().catch(()=>({}));if(!r.ok)throw Error(j.error||"The GGUF didn't finish this step.");
    if(action==="audit"){setAudit(j.record);setNotice("Website inspected and evidence saved. Review the extracted observations before drafting.");}
-   if(action==="draft"){setDraft(j.draft||"");setNotice("GGUF draft prepared. This is a suggestion—not a verified fact or a sent message.");}
+   if(action==="draft"||action==="email"){setDraft(j.draft||"");setDraftSubject(j.subject||"");setNotice("GGUF "+(mode==="email"?"email":"SMS")+" draft prepared for your review. Nothing was sent.");}
    if(action==="wake"){await refresh();setNotice(j.health?.ready?"The GGUF server is responding.":"Wake probe sent; model may need more time or the Space may be paused.");}
    if(action==="config"){await refresh();setNotice("Founder default GGUF text model saved.");}
   }catch(e){setNotice(e.message||"GGUF is offline or busy. Built-in text presets remain available.")}
@@ -46,7 +46,7 @@ export default function FounderGgufWriter({user,selectedProspectId="",onDraft}){
  return <section className="space-y-5 overflow-hidden rounded-[26px] border border-[#cbe2ef] bg-white text-[#22475f]">
   <header className="bg-[#102d41] p-6 text-white sm:p-8">
    <p className="text-[10px] font-black uppercase tracking-[.23em] text-[#a9e4ff]">MEPLIFEOS / PRIVATE GGUF OPERATIONS</p>
-   <h3 className="mt-3 text-2xl font-black">AI text writing & website research</h3>
+   <h3 className="mt-3 text-2xl font-black">AI {mode==="email"?"email":"SMS"} writing & website research</h3>
    <p className="mt-2 max-w-3xl text-xs leading-6 text-[#c0d8e6]">Two small models, one shared inference queue. Website review and message drafting are separate, resumable steps; the model cannot send texts, claim a customer site or publish code.</p>
   </header>
   <div className="space-y-4 p-5 sm:p-7">
@@ -85,7 +85,7 @@ export default function FounderGgufWriter({user,selectedProspectId="",onDraft}){
       <p className="mt-2 text-[#86a3b3]">Observations aren't guaranteed comprehensive. Don't claim a feature is missing simply because it wasn't seen.</p></div>}
     </div>
     <div className="rounded-xl border border-[#d8e7f0] p-4">
-     <strong className="text-sm">Step 2 — write personalized text</strong>
+     <strong className="text-sm">Step 2 — write personalized {mode==="email"?"email":"text"}</strong>
      <label className="mt-3 block text-xs font-bold">Message direction
       <select className={field} value={style} onChange={e=>setStyle(e.target.value)}>{sources.map(([k,t])=><option key={k} value={k}>{t}</option>)}</select>
      </label>
@@ -93,18 +93,18 @@ export default function FounderGgufWriter({user,selectedProspectId="",onDraft}){
       <input value={referrer} onChange={e=>setReferrer(e.target.value)} placeholder="Real referrer's name" className={field}/>
       <label className="flex gap-2 text-xs"><input type="checkbox" checked={verifiedReferral} onChange={e=>setVerifiedReferral(e.target.checked)}/> I confirm the referral is real and accurately represented.</label>
      </div>}
-     <button className="mt-4 rounded-xl bg-[#215976] px-4 py-3 text-xs font-black text-white disabled:opacity-40" disabled={!selected||!!busy} onClick={()=>execute("draft")}>{busy==="draft"?"Drafting…":"Write text with GGUF"}</button>
+     <button className="mt-4 rounded-xl bg-[#215976] px-4 py-3 text-xs font-black text-white disabled:opacity-40" disabled={!selected||!!busy} onClick={()=>execute(mode==="email"?"email":"draft")}>{busy==="draft"||busy==="email"?"Drafting…":mode==="email"?"Write email with GGUF":"Write text with GGUF"}</button>
      {draft&&<div className="mt-4 rounded-xl bg-[#f2fafe] p-3 text-xs">
-      <p className="whitespace-pre-wrap leading-6">{draft}</p>
+      {draftSubject&&<p className="mb-3 font-black">Subject: {draftSubject}</p>}<p className="whitespace-pre-wrap leading-6">{draft}</p>
       <div className="mt-3 flex flex-wrap gap-2">
-       <button className={btn} onClick={()=>navigator.clipboard?.writeText(draft).then(()=>setNotice("Draft copied.")).catch(()=>setNotice("Copy manually."))}>Copy text</button>
-       {onDraft&&<button className={btn} onClick={()=>onDraft({prospectId:selected,text:draft})}>Use in Text workbench →</button>}
+       <button className={btn} onClick={()=>navigator.clipboard?.writeText((draftSubject?"Subject: "+draftSubject+"\n\n":"")+draft).then(()=>setNotice("Draft copied.")).catch(()=>setNotice("Copy manually."))}>Copy {mode==="email"?"email":"text"}</button>
+       {onDraft&&<button className={btn} onClick={()=>onDraft({prospectId:selected,text:draft,subject:draftSubject})}>Use in {mode==="email"?"Email Outreach":"SMS Outreach"} →</button>}
       </div>
      </div>}
     </div>
    </div>
    {notice&&<p role="status" className="rounded-xl bg-[#e9f6fd] p-3 text-xs leading-6">{notice}</p>}
-   <p className="text-[11px] leading-6 text-[#86a0af]">The free Hugging Face Space may sleep or be overloaded; wake checks cannot guarantee instant inference. Generated copy requires human review, recipient permission and truthful claims. This tool never sends SMS.</p>
+   <p className="text-[11px] leading-6 text-[#86a0af]">The free Hugging Face Space may sleep or be overloaded; wake checks cannot guarantee instant inference. Generated copy requires human review, recipient permission and truthful claims. This tool never sends SMS or email.</p>
   </div>
  </section>;
 }
