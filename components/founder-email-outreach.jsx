@@ -12,6 +12,8 @@ const hasConsent=x=>x.marketingOptIn===true&&String(x.consentSource||"").trim().
 const suppressed=x=>x.doNotCall||x.status==="do_not_call"||x.unsubscribed||x.emailOptOut;
 const siteUrl=x=>{try{const u=new URL(String(x||""));return u.protocol==="https:"?u.href:""}catch{return ""}};
 const presetCatalog=[
+ {id:"intro",name:"Simple introduction (no website required)",subject:"An idea for {{business}}",
+  body:"Hi {{contact}},\n\nI'm Pierre with FUGTH Management. We help small businesses improve their online presentation and customer appointment handling. I'd be happy to show you a design concept tailored to {{business}} if you're interested.\n\nWould a short conversation be useful? You can also pick an available time here: {{booking}}\n\nPierre\nFUGTH Management"},
  {id:"concept",name:"Independent website preview",needsLink:true,subject:"A website concept for {{business}}",
   body:"Hi {{contact}},\n\nI'm Pierre with FUGTH Management. I put together an independent sample website concept for {{business}} that might give you some ideas for your online presence.\n\nHere's the preview: {{site}}\n\nIt's an early concept, not a finished website. If the direction interests you, we can improve the design, photos and content based on your preferences. Would you be open to a short conversation?\n\nPierre\nFUGTH Management"},
  {id:"improvement",name:"Respectful website refresh",needsLink:true,subject:"An idea for {{business}}'s website",
@@ -35,7 +37,7 @@ async function copy(s){if(!navigator.clipboard?.writeText)throw Error("Clipboard
 export default function FounderEmailOutreach({user,initialProspectId="",onOpenMarketing,onOpenSiteMaker}){
  const [queueFilter,setQueueFilter]=useState("all");
  const [all,setAll]=useState([]),[search,setSearch]=useState(""),[selected,setSelected]=useState([]),
-  [activeId,setActiveId]=useState(initialProspectId),[preset,setPreset]=useState("concept"),
+  [activeId,setActiveId]=useState(initialProspectId),[preset,setPreset]=useState("intro"),
   [subject,setSubject]=useState(presetCatalog[0].subject),[body,setBody]=useState(presetCatalog[0].body),
   [mailingAddress,setMailingAddress]=useState(""),[referrer,setReferrer]=useState(""),
   [verifiedReferral,setVerifiedReferral]=useState(false),[verifiedConversation,setVerifiedConversation]=useState(false),
