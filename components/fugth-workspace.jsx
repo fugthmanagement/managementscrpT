@@ -1107,7 +1107,7 @@ export default function FugthWorkspace() {
             )}
             {page === "sales" && founder && (
               <div>
-                <FounderSalesDesk user={user} />
+                <FounderSalesDesk user={user} onOpenMarketing={()=>changePage("marketing")}/>
               </div>
             )}
             {page === "sales" && !founder && (
@@ -1139,7 +1139,7 @@ export default function FugthWorkspace() {
                       payments.
                     </p>
                   </div>
-                  <FounderBookingCalendar />
+                  <FounderBookingCalendar user={user}/>
                   <FounderSiteClaims />
                   <FounderAccountDirectory />
                   <FounderRevenuePlanner />
