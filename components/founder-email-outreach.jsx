@@ -10,17 +10,17 @@ const hasConsent=x=>x.marketingOptIn===true&&String(x.consentSource||"").trim().
 const suppressed=x=>x.doNotCall||x.status==="do_not_call"||x.unsubscribed||x.emailOptOut;
 const siteUrl=x=>{try{const u=new URL(String(x||""));return u.protocol==="https:"?u.href:""}catch{return ""}};
 const presetCatalog=[
- {id:"concept",name:"Independent website preview",subject:"A website concept for {{business}}",
+ {id:"concept",name:"Independent website preview",needsLink:true,subject:"A website concept for {{business}}",
   body:"Hi {{contact}},\n\nI'm Pierre with FUGTH Management. I put together an independent sample website concept for {{business}} that might give you some ideas for your online presence.\n\nHere's the preview: {{site}}\n\nI'd love to hear what you think. Would you be open to a short conversation?\n\nPierre\nFUGTH Management"},
- {id:"improvement",name:"Respectful website refresh",subject:"An idea for {{business}}'s website",
+ {id:"improvement",name:"Respectful website refresh",needsLink:true,subject:"An idea for {{business}}'s website",
   needsExisting:true,body:"Hi {{contact}},\n\nI'm Pierre with FUGTH Management. I came across {{business}}'s online presence and thought there might be an opportunity for a refreshed presentation. I'm not suggesting there is anything wrong with your current site.\n\nI have an independent design concept to share: {{site}}\n\nWould you like to take a look and tell me if it's useful?\n\nPierre\nFUGTH Management"},
- {id:"claim",name:"Preview & website claim",needsDemo:true,subject:"Your independent {{business}} website preview",
+ {id:"claim",name:"Preview & website claim",needsDemo:true,needsLink:true,subject:"Your independent {{business}} website preview",
   body:"Hi {{contact}},\n\nI'm Pierre with FUGTH Management. I prepared an independent sample website concept for {{business}}:\n{{site}}\n\nIf you'd like to work with this design, you can create an account with Google or email and request verified ownership here: {{claim}}. There's no obligation to publish it.\n\nInterested in a walkthrough?\n\nPierre\nFUGTH Management"},
  {id:"appointment",name:"Book a no-account consultation",subject:"An easy time to talk about {{business}}",
   body:"Hi {{contact}},\n\nI'm Pierre from FUGTH Management. If you'd like to discuss a website concept or your business phone coverage, you can book an available 30-minute conversation without creating an account:\n{{booking}}\n\nIf you have questions first, feel free to reply.\n\nPierre\nFUGTH Management"},
- {id:"follow_up",name:"After a real conversation",needsConversation:true,subject:"Following up on our {{business}} conversation",
+ {id:"follow_up",name:"After a real conversation",needsConversation:true,needsLink:true,subject:"Following up on our {{business}} conversation",
   body:"Hi {{contact}},\n\nThanks for taking the time to speak with me. Here's the FUGTH website concept related to {{business}}:\n{{site}}\n\nYou can book a follow-up directly if helpful: {{booking}}\n\nPierre\nFUGTH Management"},
- {id:"referral",name:"Real referral introduction",needsReferral:true,subject:"A quick introduction via {{referrer}}",
+ {id:"referral",name:"Real referral introduction",needsReferral:true,needsLink:true,subject:"A quick introduction via {{referrer}}",
   body:"Hi {{contact}},\n\nI'm Pierre from FUGTH Management. {{referrer}} suggested I reach out about {{business}}. I put together an independent website preview you may be interested in:\n{{site}}\n\nWould you like to see a quick walkthrough?\n\nPierre\nFUGTH Management"},
  {id:"custom",name:"Your own email",subject:"A quick idea for {{business}}",body:"Hi {{contact}},\n\n"}
 ];
@@ -59,7 +59,7 @@ export default function FounderEmailOutreach({user,initialProspectId="",onOpenMa
  const demoId=String(current?.assignedPreviewId||"");
  const claimLink=/^[a-f0-9]{24}$/.test(demoId)?"https://www.fugthmanagement.space/claim/"+demoId:"";
  const existsWebsite=Boolean(siteUrl(current?.website));
- const styleAllowed=(!style.needsDemo||Boolean(claimLink))&&(!style.needsExisting||existsWebsite)&&
+ const styleAllowed=(!style.needsLink||Boolean(linkedSite))&&(!style.needsDemo||Boolean(claimLink))&&(!style.needsExisting||existsWebsite)&&
   (!style.needsReferral||(verifiedReferral&&referrer.trim().length>=2))&&(!style.needsConversation||verifiedConversation);
  const interpolatedSubject=expand(subject,current,{site:linkedSite,claim:claimLink,referrer,address:mailingAddress});
  const interpolatedBody=expand(body,current,{site:linkedSite,claim:claimLink,referrer,address:mailingAddress});
@@ -136,6 +136,7 @@ export default function FounderEmailOutreach({user,initialProspectId="",onOpenMa
      <label className="mt-2 flex gap-2 text-xs"><input type="checkbox" checked={verifiedReferral} onChange={e=>setVerifiedReferral(e.target.checked)}/> I personally verify this referral is real.</label>
     </div>}
     {style.needsConversation&&<label className="mt-3 flex items-center gap-2 text-xs"><input type="checkbox" checked={verifiedConversation} onChange={e=>setVerifiedConversation(e.target.checked)}/> I confirm a previous conversation took place.</label>}
+    {style.needsLink&&!linkedSite&&<p className="mt-2 text-xs text-amber-800">Assign a real FUGTH website preview to this prospect before preparing a link-based email.</p>}
     {style.needsDemo&&!claimLink&&<p className="mt-2 text-xs text-amber-800">Assign a saved claimable demo to this prospect to use this preset.</p>}
     {style.needsExisting&&!existsWebsite&&<p className="mt-2 text-xs text-amber-800">This email refers to their existing website, but no website was saved on this prospect.</p>}
     <label className="mt-4 block text-xs font-black">To<input className={cls} value={current?.email||""} readOnly placeholder="Select prospect"/></label>
@@ -149,7 +150,7 @@ export default function FounderEmailOutreach({user,initialProspectId="",onOpenMa
      <p className="mt-2 whitespace-pre-wrap break-words leading-6">{finalBody}</p>
     </div>
     <div className="mt-4 flex flex-wrap gap-2">
-     <button disabled={!current?.email} className={btn} onClick={()=>copyPart(current.email,"Email address")}>Copy email</button>
+     <button disabled={!current?.email||suppressed(current)} className={btn} onClick={()=>copyPart(current.email,"Email address")}>Copy email</button>
      <button disabled={!canCompose||!styleAllowed} className={btn} onClick={()=>copyPart(interpolatedSubject,"Subject")}>Copy subject</button>
      <button disabled={!canCompose||!styleAllowed} className={btn} onClick={()=>copyPart(finalBody,"Body")}>Copy body</button>
      <button disabled={!canCompose||!styleAllowed} className={btn} onClick={()=>copyPart("To: "+current.email+"\nSubject: "+interpolatedSubject+"\n\n"+finalBody,"Full draft")}>Copy full draft</button>
