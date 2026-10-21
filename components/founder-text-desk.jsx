@@ -2,16 +2,28 @@
 import {useCallback,useEffect,useMemo,useState} from "react";
 import {collection,doc,limit,onSnapshot,orderBy,query,serverTimestamp,updateDoc} from "firebase/firestore";
 import {auth,db} from "../lib/firebase";
+import FounderTextDispatch from "./founder-text-dispatch";
+import FounderGgufWriter from "./founder-gguf-writer";
 
 const ROOT="https://www.fugthmanagement.space";
 const VOICE="https://voice.google.com/u/0/messages";
 const field="mt-2 w-full rounded-xl border border-[#c9dfeb] bg-white px-3 py-3 text-sm text-[#20455c] outline-none focus:border-[#448eaf]";
 const btn="rounded-xl border border-[#c4dbe7] bg-white px-4 py-3 text-xs font-black text-[#215874] disabled:opacity-40";
 const PRESETS=[
- {id:"preview",label:"Website preview (after requested)",needsLink:true,text:"Hi {{contact}}, this is Pierre with FUGTH Management. As requested, here is the website preview for {{business}}: {{link}}. Let me know what you think or if you'd like a quick walkthrough."},
- {id:"followup",label:"Follow-up after conversation",text:"Hi {{contact}}, this is Pierre from FUGTH Management. Following up on our conversation about {{business}}. Let me know if you'd like to discuss the website or call-handling tools. {{link}}"},
- {id:"invite",label:"Ask about a demo",text:"Hi {{contact}}, Pierre here with FUGTH Management. Would you still be interested in a short walkthrough of the website and AI receptionist options for {{business}}? {{link}}"},
- {id:"checkin",label:"Friendly check-in",text:"Hi {{contact}}, this is Pierre with FUGTH Management. Just checking in about {{business}}. Is there anything you'd like me to clarify?"},
+ {id:"preview",label:"Reveal an independent website concept",needsLink:true,
+  text:"Hi {{contact}}, this is Pierre with FUGTH Management. I put together an independent sample website concept for {{business}}: {{link}}. I'd love your thoughts. If you like it, reply and we can discuss the next steps."},
+ {id:"better",label:"A nicer look for an existing website",needsSite:true,
+  text:"Hi {{contact}}, Pierre from FUGTH Management here. I checked out {{business}} online and had an idea for a fresh, more polished look. I'd be happy to show you a sample: {{link}}. Interested in seeing it?"},
+ {id:"claim",label:"Preview, claim request & account sign-up",needsLink:true,
+  text:"Hi {{contact}}, I made an independent preview concept for {{business}}: {{link}}. If you like the direction, you can make a FUGTH account and request to claim this preview after ownership verification: {{claim}}. Want a quick walkthrough?"},
+ {id:"booking",label:"No-account consultation booking",
+  text:"Hi {{contact}}, it's Pierre with FUGTH Management. If you'd like to talk about website options for {{business}}, you can request a time without making an account: {{booking}}. I'll confirm after checking my calendar."},
+ {id:"followup",label:"Follow-up after a real conversation",
+  text:"Hi {{contact}}, it's Pierre from FUGTH Management. Following up on our conversation about {{business}}. If you're still interested, here's the website concept: {{link}}. Would a short chat help?"},
+ {id:"referral",label:"Genuine referral (only when verified)",needsLink:true,needsReferral:true,
+  text:"Hi {{contact}}, this is Pierre from FUGTH Management. {{referrer}} recommended I reach out about {{business}}. I put together an independent website concept: {{link}}. Would you like to take a look?"},
+ {id:"checkin",label:"Friendly check-in",
+  text:"Hi {{contact}}, Pierre from FUGTH Management here. If you have any questions about our website or AI receptionist options for {{business}}, feel free to reply."},
  {id:"custom",label:"Custom message",text:"Hi {{contact}}, "}
 ];
 const trimmed=x=>String(x??"").trim();
@@ -26,11 +38,14 @@ function validLink(input){
 }
 const nowValid=d=>!d.revoked&&(!d.expiresAt||Date.parse(d.expiresAt)>Date.now());
 const demoLink=d=>validLink(ROOT+"/demo/site/"+encodeURIComponent(d.id));
-function expand(template,p,link){
- const replacements={contact:trimmed(p.ownerName)||"there",business:trimmed(p.businessName)||"your business",link:link||"",sender:"Pierre"};
- return String(template).replace(/\{\{(contact|business|link|sender)\}\}/g,(_,k)=>replacements[k])
+function expand(template,p,link,extras={}){
+ const replacements={contact:trimmed(p.ownerName)||"there",business:trimmed(p.businessName)||"your business",
+  link:link||"",sender:"Pierre",booking:extras.booking||ROOT+"/book",
+  claim:extras.claim||ROOT+"/login?signup=1",referrer:extras.referrer||"[verified referrer]"};
+ return String(template).replace(/\{\{(contact|business|link|sender|booking|claim|referrer)\}\}/g,(_,k)=>replacements[k])
   .replace(/[ \t]+\n/g,"\n").replace(/\n{3,}/g,"\n\n").replace(/[ \t]{2,}/g," ").trim().slice(0,1300);
 }
+
 async function clipboard(text){
  if(!navigator.clipboard?.writeText)throw Error("Clipboard permission unavailable. Select the text and copy it manually.");
  await navigator.clipboard.writeText(text);
@@ -43,6 +58,8 @@ export default function FounderTextDesk({user,initialProspectId=""}){
  const [chosenDemo,setChosenDemo]=useState(""),[preset,setPreset]=useState("preview"),[editor,setEditor]=useState(PRESETS[0].text);
  const [consentSource,setConsentSource]=useState(""),[approved,setApproved]=useState(false);
  const [saving,setSaving]=useState(false),[info,setInfo]=useState(""),[showLinkPicker,setShowLinkPicker]=useState(false);
+ const [referrer,setReferrer]=useState(""),[verifiedReferral,setVerifiedReferral]=useState(false);
+ const [showGguf,setShowGguf]=useState(false);
  useEffect(()=>{if(initialProspectId)setProspectId(initialProspectId)},[initialProspectId]);
  useEffect(()=>{if(!db||!user?.uid)return;
   return onSnapshot(query(collection(db,"users",user.uid,"campaigns"),orderBy("createdAt","desc"),limit(1200)),
@@ -88,15 +105,21 @@ export default function FounderTextDesk({user,initialProspectId=""}){
  const expired=Boolean(prospect?.assignedPreviewExpiresAt)&&Date.parse(prospect.assignedPreviewExpiresAt)<=Date.now();
  const revokedDemo=assignedId&&demos.length>0&&!assignedDemo;
  const link=(expired||revokedDemo)&&!chosenDemo?"":resolved;
- const composed=prospect?expand(editor,prospect,link):"";
+ const demoIdForLink=chosenDemoObject?.id||(!chosenSite?assignedDemo?.id:"");
+ const bookingLink=ROOT+"/book"+(demoIdForLink?"?site="+encodeURIComponent(demoIdForLink):"");
+ const claimLink=demoIdForLink?ROOT+"/claim/"+encodeURIComponent(demoIdForLink):ROOT+"/login?signup=1";
+ const composed=prospect?expand(editor,prospect,link,{booking:bookingLink,claim:claimLink,referrer}):"";
  const optedIn=Boolean(prospect?.phoneMarketingOptIn===true&&trimmed(prospect?.consentSource).length>=5);
  const optedSource=trimmed(prospect?.consentSource);
  const suppressed=Boolean(prospect?.doNotCall===true||prospect?.status==="do_not_call"||prospect?.unsubscribed===true||prospect?.smsOptOut===true);
  const validPhone=e164(prospect?.phone);
- const needsLink=Boolean(PRESETS.find(x=>x.id===preset)?.needsLink);
+ const selectedPreset=PRESETS.find(x=>x.id===preset)||PRESETS[0];
+ const needsLink=Boolean(selectedPreset.needsLink);
+ const referralAllowed=!selectedPreset.needsReferral||(verifiedReferral&&referrer.trim().length>=2);
+ const currentWebsiteAllowed=!selectedPreset.needsSite||Boolean(prospect?.website);
  const canPrepare=Boolean(prospect&&!suppressed&&validPhone&&optedIn&&composed.length>=10&&(!needsLink||link));
- useEffect(()=>{setChosenDemo("");setConsentSource(trimmed(prospect?.consentSource));setApproved(false);setInfo("");},[prospectId]);
- function changePreset(value){setPreset(value);setEditor(PRESETS.find(x=>x.id===value)?.text||"");setInfo("");}
+ useEffect(()=>{setChosenDemo("");setConsentSource(trimmed(prospect?.consentSource));setApproved(false);setInfo("");setVerifiedReferral(false);},[prospectId]);
+ function changePreset(value){setPreset(value);setEditor(PRESETS.find(x=>x.id===value)?.text||"");setVerifiedReferral(false);setInfo("");}
  function chooseDemo(value){
   setChosenDemo(value);setInfo("");
  }
@@ -210,7 +233,12 @@ export default function FounderTextDesk({user,initialProspectId=""}){
     <label className="mt-4 block text-xs font-black">Edit the message (personalization uses the selected prospect and site)
      <textarea rows={6} maxLength={1300} className={field+" min-h-[170px]"} value={editor} onChange={e=>setEditor(e.target.value)}/>
     </label>
-    <p className="mt-2 text-[11px] text-[#7a94a5]">Available tokens: {"{{contact}}"}, {"{{business}}"}, {"{{link}}"}, {"{{sender}}"}.</p>
+    <p className="mt-2 text-[11px] text-[#7a94a5]">Available: {"{{contact}}"}, {"{{business}}"}, {"{{link}}"}, {"{{booking}}"}, {"{{claim}}"}, {"{{referrer}}"}.</p>
+    {selectedPreset.needsSite&&!prospect?.website&&<p className="mt-3 rounded-lg bg-amber-50 p-3 text-xs text-amber-900">This preset references their existing website. No business website is saved for this prospect. Choose another preset.</p>}
+    {selectedPreset.needsReferral&&<div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
+     <label className="block text-xs font-bold">Who actually referred you?<input className={field} value={referrer} onChange={e=>setReferrer(e.target.value)} placeholder="Real person's name"/></label>
+     <label className="mt-3 flex items-start gap-2 text-xs"><input type="checkbox" checked={verifiedReferral} onChange={e=>setVerifiedReferral(e.target.checked)}/> I confirm this person really referred me, and I am describing the relationship truthfully.</label>
+    </div>}
     <div className="mt-4 rounded-xl bg-[#edf7fc] p-4"><p className="text-[10px] font-black uppercase text-[#648fa7]">Live personalized preview</p>
      <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-7">{composed||"Choose a prospect to preview their customized text."}</p></div>
     {needsLink&&!link&&<p className="mt-3 text-xs font-bold text-amber-800">This preset needs a real, active website preview. Select a site before preparing the text.</p>}
@@ -225,14 +253,13 @@ export default function FounderTextDesk({user,initialProspectId=""}){
       <button className={"mt-3 "+btn} disabled={saving||!approved||consentSource.trim().length<8} onClick={saveConsent}>Record verified permission</button>
      </>}
     </div>
-    <div className="mt-4 flex flex-wrap gap-2">
-     <button type="button" disabled={!canPrepare} onClick={openVoice} className="rounded-xl bg-[#194961] px-4 py-3 text-xs font-black text-white disabled:opacity-40">Copy text + open Google Voice ↗</button>
-     <button type="button" disabled={!canPrepare} onClick={copyText} className={btn}>Copy message</button>
-     <button type="button" disabled={!canPrepare} onClick={openNativeSms} className={btn}>Open Samsung SMS app ↗</button>
-    </div>
-    <div className="mt-3 flex flex-wrap items-center gap-3"><a href={VOICE} target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-[#2b80a6] underline">Open Google Voice Messages ↗</a><span className="text-[11px] text-[#8da4b2]">No message is sent by FUGTH.</span></div>
+    <FounderTextDispatch prospect={prospect} composed={composed} canPrepare={canPrepare} phone={validPhone} preset={preset} link={link}/>
     {info&&<p role="status" className="mt-3 rounded-lg bg-[#edf7fc] p-3 text-xs leading-6">{info}</p>}
    </section>
+  </div>
+  <div className="rounded-[22px] border border-[#d4e6ef] bg-white p-4">
+    <button type="button" className="w-full rounded-xl bg-[#e7f5fb] px-5 py-3 text-left text-xs font-black text-[#1d5875]" onClick={()=>setShowGguf(x=>!x)}>{showGguf?"Hide":"Open"} GGUF AI text writer & website-review tools ↗</button>
+    {showGguf&&<div className="mt-4"><FounderGgufWriter user={user} selectedProspectId={prospectId} onDraft={value=>{setProspectId(value.prospectId);setPreset("custom");setEditor(value.text);setInfo("GGUF draft imported into the editable text box. Review before sending.");}}/></div>}
   </div>
   <p className="rounded-xl bg-[#f3f8fb] p-4 text-[11px] leading-6 text-[#6c8c9d]">Samsung tip: copy the number first and the text second, then open Google Voice and use your keyboard's Clipboard history if available. Only one item is guaranteed to be on the system clipboard at a time. Google Voice does not support reliable third-party auto-filled texts. Do not send repeated unwanted marketing messages or text contacts who opted out.</p>
  </section>;
