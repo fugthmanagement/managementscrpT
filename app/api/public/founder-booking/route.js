@@ -1,7 +1,8 @@
 import {createHash,randomBytes} from "node:crypto";
 import {NextResponse} from "next/server";
 import {firebaseAdmin} from "../../../../lib/server/auth";
-import {founderDaySlots,founderSlotDetails,FOUNDER_TIMEZONE} from "../../../../lib/server/founder-calendar";
+import {founderDaySlots,founderSlotDetails,founderNoSlotsReason,MIN_NOTICE_MINUTES,FOUNDER_TIMEZONE} from "../../../../lib/server/founder-calendar";
+import {firestoreDemoFailure} from "../../../../lib/server/prospect-demos-directory";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
 const json=(v,s=200)=>NextResponse.json(v,{status:s,headers:{"Cache-Control":"no-store"}});
@@ -25,17 +26,29 @@ export async function GET(req){
  if(!/^\d{4}-\d{2}-\d{2}$/.test(day))return json({error:"Choose a valid calendar date."},400);
  const slots=founderDaySlots(day);
  try{
-  if(!slots.length)return json({date:day,timezone:FOUNDER_TIMEZONE,slots:[]});
+  // Always validate the backend before reporting an empty calendar; otherwise
+  // an empty day can hide a broken Firebase Admin configuration.
   const db=firebaseAdmin().firestore();
+  if(!slots.length)return json({date:day,timezone:FOUNDER_TIMEZONE,slots:[],
+   minNoticeMinutes:MIN_NOTICE_MINUTES,availability:"closed",...founderNoSlotsReason(day)});
+
   const refs=slots.map(s=>db.doc("founderCalendarSlots/"+s.id));
   const docs=await db.getAll(...refs);
-  return json({date:day,timezone:FOUNDER_TIMEZONE,slots:slots.map((s,i)=>({
+  const visible=slots.map((s,i)=>({
    startTime:s.startTime,label:s.label,available:!docs[i].exists,
-   reason:docs[i].exists?"booked":null
-  }))});
+   reason:docs[i].exists?(docs[i].data()?.status==="blocked"?"blocked":"booked"):null
+  }));
+  return json({date:day,timezone:FOUNDER_TIMEZONE,slots:visible,
+   minNoticeMinutes:MIN_NOTICE_MINUTES,availability:visible.some(x=>x.available)?"available":"full",
+   message:visible.some(x=>x.available)?"Choose a time that works for you.":
+    "This date is fully booked. Choose another weekday."});
  }catch(e){
-  console.warn("Founder availability unavailable",{code:e?.code||"server"});
-  return json({error:"Availability can't be verified. Please try again."},503);
+  const issue=firestoreDemoFailure(e);
+  console.warn("FUGTH_GUEST_AVAILABILITY_FAILURE",{code:issue.code});
+  return json({error:"Appointment calendar is temporarily offline. Times cannot be verified.",
+   code:issue.code,bookingUnavailable:true,
+   hint:issue.code.startsWith("firebase_")?"FUGTH administrators: open Website Demo Builder → Firebase connection test. "+issue.hint:
+    "FUGTH administrators: check the Firestore connection. "+issue.hint},503);
  }
 }
 export async function POST(req){
@@ -49,8 +62,9 @@ export async function POST(req){
   phone=clean(body.phone,32),notes=clean(body.notes,400),siteId=clean(body.siteId,70);
  const slot=founderSlotDetails(body.startTime);
  if(name.length<2||!mail(email)||!validPhone(phone)||!slot||body.consent!==true)
-  return json({error:"Enter valid contact details and select an available weekday time at least 24 hours ahead."},400);
+  return json({error:"Enter valid contact details and select an available weekday time at least one hour ahead."},400);
  if(/https?:\/\//i.test(notes))return json({error:"Please describe your request without external links."},400);
+ try{
  const db=firebaseAdmin().firestore(),day=new Date().toISOString().slice(0,10);
  // Reverse proxy IP is only a coarse rate-limit hint. Do not store raw visitor IPs.
  const ip=String(req.headers.get("x-real-ip")||req.headers.get("x-forwarded-for")||"unknown").split(",")[0].slice(0,95);
@@ -59,7 +73,6 @@ export async function POST(req){
  const dupeRef=db.doc("guestBookingLimits/slot_"+hash(email+"|"+phone+"|"+slot.id));
  const slotRef=db.doc("founderCalendarSlots/"+slot.id);
  const bookingId=randomBytes(14).toString("hex"),booking=db.doc("guestBookingRequests/"+bookingId);
- try{
   const uid=await founderId();
   let demoName="";
   if(siteId){
@@ -108,7 +121,18 @@ export async function POST(req){
    startTime:slot.startTime,endTime:slot.endTime,
    message:"Confirmed! Your appointment is reserved in the FUGTH calendar. Save the time shown below; a separate email invitation is not sent automatically."},201);
  }catch(e){
-  console.warn("FUGTH Firestore guest booking failed",{code:e?.code||"booking"});
-  return json({error:"The booking could not be completed right now. Please check availability again."},503);
+  const issue=firestoreDemoFailure(e);
+  const ownerProblem=/^auth\/(user-not-found|invalid-email)/.test(String(e?.code||""))||
+    String(e?.message||"").includes("Founder booking account is not verified");
+  const code=ownerProblem?"booking_owner_not_configured":issue.code;
+  console.warn("FUGTH_GUEST_BOOKING_FAILURE",{code});
+  return json({
+   error:ownerProblem?"FUGTH booking calendar is temporarily unavailable.":
+    "The calendar could not save your appointment. No booking was confirmed.",
+   code,bookingUnavailable:true,
+   hint:ownerProblem?
+    "FUGTH administrators: verify FUGTH_BOOKING_OWNER_EMAIL matches an existing verified Firebase Auth founder account.":
+    issue.hint
+  },503);
  }
 }
