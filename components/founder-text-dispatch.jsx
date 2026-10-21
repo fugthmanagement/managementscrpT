@@ -105,8 +105,8 @@ export default function FounderTextDispatch({prospect,composed,canPrepare,phone,
    <input className="mt-2 w-full rounded-xl border p-3 text-xs" value={otherUrl} onChange={e=>setOtherUrl(e.target.value)} placeholder="https://messages.example.com"/>
   </label>}
   <div className="flex flex-wrap gap-2">
-   <button disabled={!phone||!prospect} className={btn} onClick={()=>copyPart(phone,"Number")}>Copy number</button>
-   <button disabled={!composed||!prospect} className={btn} onClick={()=>copyPart(composed,"Message")}>Copy message</button>
+   <button disabled={!canPrepare} className={btn} onClick={()=>copyPart(phone,"Number")}>Copy number</button>
+   <button disabled={!canPrepare} className={btn} onClick={()=>copyPart(composed,"Message")}>Copy message</button>
    <button disabled={!canPrepare} className="rounded-xl bg-[#164b65] px-4 py-3 text-xs font-black text-white disabled:opacity-40" onClick={openWebsite}>Copy text & open {current.label.split(" (")[0]} ↗</button>
    {provider==="textnow"&&<button disabled={!canPrepare} className={btn} onClick={openApp}>Try TextNow app (Android)</button>}
    <button disabled={!canPrepare} className={btn} onClick={share}>Share with Android app…</button>
