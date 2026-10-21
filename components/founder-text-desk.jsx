@@ -38,6 +38,7 @@ async function clipboard(text){
 
 export default function FounderTextDesk({user,initialProspectId=""}){
  const [all,setAll]=useState([]),[demos,setDemos]=useState([]),[demosError,setDemosError]=useState("");
+ const [publishedSites,setPublishedSites]=useState([]),[siteSearch,setSiteSearch]=useState(""),[siteError,setSiteError]=useState("");
  const [prospectId,setProspectId]=useState(initialProspectId),[filter,setFilter]=useState("");
  const [chosenDemo,setChosenDemo]=useState(""),[preset,setPreset]=useState("preview"),[editor,setEditor]=useState(PRESETS[0].text);
  const [consentSource,setConsentSource]=useState(""),[approved,setApproved]=useState(false);
@@ -57,6 +58,22 @@ export default function FounderTextDesk({user,initialProspectId=""}){
   }catch(e){setDemosError(e.message||"Saved demo lookup unavailable. Existing assigned links still work.");}
  },[]);
  useEffect(()=>{refreshDemos()},[refreshDemos]);
+ const refreshPublished=useCallback(async()=>{
+  try{
+   const token=await auth.currentUser?.getIdToken();if(!token)throw Error("Sign in again.");
+   let after="",pages=0,items=[];
+   do{
+    const res=await fetch("/api/dev/outreach-sites"+(after?"?after="+encodeURIComponent(after):""),{
+     cache:"no-store",headers:{"Authorization":"Bearer "+token}});
+    const j=await res.json().catch(()=>({}));
+    if(!res.ok)throw Error(j.error||"Could not load published websites.");
+    items.push(...(j.sites||[]));after=j.nextCursor||"";pages++;
+   }while(after&&pages<4);
+   setPublishedSites(items);setSiteError("");
+  }catch(e){setSiteError(e.message||"Published site directory unavailable.");}
+ },[]);
+ useEffect(()=>{refreshPublished()},[refreshPublished]);
+
  const prospect=all.find(p=>p.id===prospectId)||null;
  const matching=useMemo(()=>all.filter(p=>[p.businessName,p.ownerName,p.phone,p.industry].join(" ").toLowerCase().includes(filter.toLowerCase())).slice(0,400),[all,filter]);
  const assignedLink=prospect?validLink(prospect.websitePreviewUrl||prospect.assignedSiteUrl||""):"";
@@ -65,7 +82,9 @@ export default function FounderTextDesk({user,initialProspectId=""}){
  const matchedDemo=demos.filter(d=>d.prospectId===prospect?.id|| (d.assignedUid&&prospect?.customerUid&&d.assignedUid===prospect.customerUid));
  const phoneMatches=demos.filter(d=>e164(d.phone)&&e164(d.phone)===e164(prospect?.phone));
  // Phone match is a suggestion only; never auto-assign links by business name.
- const resolved=chosenDemo?demoLink(demos.find(d=>d.id===chosenDemo)||{id:""}):assignedLink;
+ const chosenSite=chosenDemo.startsWith("site:")?publishedSites.find(d=>d.id===chosenDemo.slice(5)):null;
+ const chosenDemoObject=chosenDemo.startsWith("demo:")?demos.find(d=>d.id===chosenDemo.slice(5)):null;
+ const resolved=chosenDemo?(chosenSite?validLink(chosenSite.url):chosenDemoObject?demoLink(chosenDemoObject):""):assignedLink;
  const expired=Boolean(prospect?.assignedPreviewExpiresAt)&&Date.parse(prospect.assignedPreviewExpiresAt)<=Date.now();
  const revokedDemo=assignedId&&demos.length>0&&!assignedDemo;
  const link=(expired||revokedDemo)&&!chosenDemo?"":resolved;
@@ -83,12 +102,14 @@ export default function FounderTextDesk({user,initialProspectId=""}){
  }
  async function saveAssignment(){
   if(!prospect||!chosenDemo||!user?.uid)return;
-  const chosen=demos.find(d=>d.id===chosenDemo);
-  if(!chosen)return setInfo("Choose an active preview to assign.");
+  const chosen=chosenSite||chosenDemoObject;
+  if(!chosen)return setInfo("Choose an active demo or published website to assign.");
   setSaving(true);
   try{
    await updateDoc(doc(db,"users",user.uid,"campaigns",prospect.id),{
-    websitePreviewUrl:demoLink(chosen),assignedPreviewId:chosen.id,assignedPreviewExpiresAt:chosen.expiresAt||"",
+    websitePreviewUrl:chosenSite?validLink(chosenSite.url):demoLink(chosen),
+    assignedPreviewId:chosenSite?"":chosen.id,assignedSiteOwnerUid:chosenSite?chosen.id:"",
+    assignedPreviewExpiresAt:chosenSite?"":chosen.expiresAt||"",
     assignedPreviewName:chosen.name||"",updatedAt:serverTimestamp()
    });
    setInfo("Assigned this preview to the selected prospect. It will fill automatically next time.");
@@ -163,15 +184,20 @@ export default function FounderTextDesk({user,initialProspectId=""}){
      {matchedDemo.length>0&&<p className="mt-2 text-[11px] text-[#537e92]">Linked to this prospect: {matchedDemo.map(d=>d.name).join(", ")}. Select it below to use it.</p>}
      {!matchedDemo.length&&phoneMatches.length>0&&<p className="mt-2 text-[11px] text-[#537e92]">Some saved previews have this phone number. Verify the business before assigning one.</p>}
      {(showLinkPicker||!link)&&<div className="mt-3">
-      <label className="block text-xs font-bold">Saved demo site
+      <label className="block text-xs font-bold">Search saved sites
+       <input className={field} value={siteSearch} onChange={e=>setSiteSearch(e.target.value)} placeholder="Search business name / industry"/>
+      </label>
+      <label className="mt-3 block text-xs font-bold">Saved demos and published FUGTH sites
        <select className={field} value={chosenDemo} onChange={e=>chooseDemo(e.target.value)}>
         <option value="">Use prospect's assigned link</option>
-        {demos.map(d=><option key={d.id} value={d.id}>{d.name} · {d.kind} {d.prospectId===prospectId?"(assigned)":""}</option>)}
+        {demos.filter(d=>[d.name,d.kind].join(" ").toLowerCase().includes(siteSearch.toLowerCase())).map(d=><option key={"demo:"+d.id} value={"demo:"+d.id}>{d.name} · Demo preview {d.prospectId===prospectId?"(linked)":""}</option>)}
+        {publishedSites.filter(d=>[d.name,d.industry].join(" ").toLowerCase().includes(siteSearch.toLowerCase())).map(d=><option key={"site:"+d.id} value={"site:"+d.id}>{d.name} · Published FUGTH website</option>)}
        </select>
       </label>
-      <button className={"mt-3 "+btn} onClick={refreshDemos}>Refresh saved sites</button>
+      <button className={"mt-3 "+btn} onClick={()=>{refreshDemos();refreshPublished();}}>Refresh saved sites</button>
       <button className={"mt-3 ml-2 "+btn} disabled={!prospect||!chosenDemo||saving} onClick={saveAssignment}>Save site to prospect</button>
       {demosError&&<p className="mt-2 text-[11px] text-amber-800">{demosError}</p>}
+      {siteError&&<p className="mt-2 text-[11px] text-amber-800">{siteError}</p>}
      </div>}
      {link&&<a href={link} target="_blank" rel="noopener noreferrer" className="mt-3 inline-block break-all text-xs font-bold text-[#287fa7] underline">Preview selected website ↗</a>}
     </div>
