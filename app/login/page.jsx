@@ -14,7 +14,7 @@ import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "../../lib/firebase";
 import { detectIndustry } from "../../lib/site-presets";
 import BrandSignalArt from "../../components/brand-signal-art";
-const safeNext=(fallback)=>{if(typeof window==="undefined")return fallback;const next=new URLSearchParams(window.location.search).get("next");return next==="/plans"?"/plans":fallback;};
+const safeNext=(fallback)=>{if(typeof window==="undefined")return fallback;const next=new URLSearchParams(window.location.search).get("next");return next==="/plans"||/^\/claim\/[a-f0-9]{24}$/.test(next)?next:fallback;};
 const field =
   "mt-2 w-full rounded-xl border border-[#d2e4ef] bg-white px-4 py-3.5 text-[15px] text-[#183b52] outline-none focus:border-[#66b8e5] focus:ring-2 focus:ring-[#e2f5ff]";
 
