@@ -2,7 +2,7 @@
 import {useCallback,useEffect,useMemo,useState} from "react";
 import {auth} from "../lib/firebase";
 const pad=x=>String(x).padStart(2,"0");
-const dayKey=d=>{const date=new Date(d);return Number.isFinite(date.getTime())?new Intl.DateTimeFormat("en-CA",{timeZone:"America/New_York",year:"numeric",month:"2-digit",day:"2-digit"}).format(date):""};
+const dayKey=d=>{const date=new Date(d);if(!Number.isFinite(date.getTime()))return "";const parts=Object.fromEntries(new Intl.DateTimeFormat("en-US",{timeZone:"America/New_York",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(date).map(p=>[p.type,p.value]));return [parts.year,parts.month,parts.day].join("-")};
 const stamp=s=>{if(!s)return "Unknown time";const d=new Date(s);return Number.isFinite(d.getTime())?d.toLocaleString("en-US",{timeZone:"America/New_York",dateStyle:"medium",timeStyle:"short"})+" ET":s};
 const thisMonth=()=>{const today=new Date();const p=dayKey(today).split("-").map(Number);return {year:p[0]||2026,month:(p[1]||1)-1}};
 const button="rounded-xl border border-[#cbdfea] bg-white px-3 py-2 text-xs font-black text-[#285874] disabled:opacity-40";
@@ -29,7 +29,7 @@ export default function FounderBookingCalendar(){
  },[events,requests]);
  const visible=useMemo(()=>{
   if(!selected)return [...events.map(x=>({...x,kind:"google"})),...pending.map(x=>({...x,kind:"request"}))].filter(x=>filter==="all"||x.kind===filter).sort((a,b)=>String(a.startTime).localeCompare(String(b.startTime))).slice(0,80);
-  return (eventGroups[selected]||[]).filter(x=>filter==="all"||x.kind===filter).sort((a,b)=>String(a.startTime).localeCompare(String(b.startTime));
+  return (eventGroups[selected]||[]).filter(x=>filter==="all"||x.kind===filter).sort((a,b)=>String(a.startTime).localeCompare(String(b.startTime)));
  },[selected,eventGroups,events,pending,filter]);
  async function action(id,operation){
   if(operation==="approve"&&!confirm("Approve this specific guest request and create an invitation in your connected Google Calendar?"))return;
