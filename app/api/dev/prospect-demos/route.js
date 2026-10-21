@@ -1,4 +1,5 @@
-import {randomBytes,createHash} from "crypto";
+import {randomBytes} from "crypto";
+import {stableProspectPreviewId} from "../../../../lib/server/prospect-preview-ids";
 import {NextResponse} from "next/server";
 import {authenticatedUser,firebaseAdmin,isFounder} from "../../../../lib/server/auth";
 import {demoTemplate,demoIndustries} from "../../../../lib/demo-template";
@@ -54,7 +55,7 @@ export async function POST(req){
     const p=prospect.data();
     if(String(p.businessName||"").trim().toLowerCase()!==name.toLowerCase())
      throw Object.assign(Error("The business name must match the selected prospect."),{status:409});
-    const stable=createHash("sha256").update("fugth-prospect-preview-v1:"+user.uid+":"+prospectId).digest("hex").slice(0,24);
+    const stable=stableProspectPreviewId(user.uid,prospectId);
     const previous=/^[a-f0-9]{24}$/.test(String(p.assignedPreviewId||""))?p.assignedPreviewId:stable;
     let ref=db.doc("prospectDemos/"+previous),old=await tx.get(ref);
     if(old.exists&&(old.data()?.founderId!==user.uid||old.data()?.prospectId!==prospectId)){
