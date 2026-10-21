@@ -52,7 +52,7 @@ async function clipboard(text){
  await navigator.clipboard.writeText(text);
 }
 
-export default function FounderTextDesk({user,initialProspectId=""}){
+export default function FounderTextDesk({user,initialProspectId="",onOpenSiteMaker}){
  const [all,setAll]=useState([]),[demos,setDemos]=useState([]),[demosError,setDemosError]=useState("");
  const [publishedSites,setPublishedSites]=useState([]),[siteSearch,setSiteSearch]=useState(""),[siteError,setSiteError]=useState("");
  const [prospectId,setProspectId]=useState(initialProspectId),[filter,setFilter]=useState("");
@@ -94,6 +94,7 @@ export default function FounderTextDesk({user,initialProspectId=""}){
 
  const prospect=all.find(p=>p.id===prospectId)||null;
  const matching=useMemo(()=>all.filter(p=>[p.businessName,p.ownerName,p.phone,p.industry].join(" ").toLowerCase().includes(filter.toLowerCase())).slice(0,400),[all,filter]);
+ const notTexted=all.filter(p=>!Number(p.smsSentCount||0)&&!p.doNotCall&&p.status!=="do_not_call");
  const assignedLink=prospect?validLink(prospect.websitePreviewUrl||prospect.assignedSiteUrl||""):"";
  const assignedId=trimmed(prospect?.assignedPreviewId||prospect?.sitePreviewId);
  const assignedDemo=demos.find(d=>d.id===assignedId);
@@ -192,7 +193,7 @@ export default function FounderTextDesk({user,initialProspectId=""}){
     <label className="mt-4 block text-xs font-black">Prospect
      <select className={field} value={prospectId} onChange={e=>setProspectId(e.target.value)}>
       <option value="">Select a saved prospect</option>
-      {matching.map(p=><option value={p.id} key={p.id}>{p.businessName} · {p.phone||"No number"}</option>)}
+      {matching.map(p=><option value={p.id} key={p.id}>{Number(p.smsSentCount||0)>0?"✓ TEXTED · ":"○ NOT TEXTED · "}{p.businessName} · {p.phone||"No number"}</option>)}
       {prospect&&!matching.some(p=>p.id===prospectId)&&<option value={prospect.id}>{prospect.businessName} · {prospect.phone}</option>}
      </select>
     </label>
@@ -200,7 +201,11 @@ export default function FounderTextDesk({user,initialProspectId=""}){
      <p className="text-base font-black">{prospect.businessName}</p>
      <p className="mt-1 text-xs text-[#65889c]">{prospect.industry||"Business"} · {prospect.ownerName||"Contact unknown"}</p>
      <p className="mt-3 font-mono text-sm">{prospect.phone||"No number saved"}</p>
-     <button className={"mt-3 "+btn} disabled={!validPhone||suppressed} onClick={copyPhone}>Copy number</button>
+     <div className="mt-3 flex flex-wrap gap-2">
+      <button className={btn} disabled={!validPhone||suppressed} onClick={copyPhone}>Copy number</button>
+      {onOpenSiteMaker&&<button type="button" className="rounded-xl bg-[#195d83] px-4 py-3 text-xs font-black text-white" onClick={()=>onOpenSiteMaker(prospect)}>✦ Open this business in Site Maker ↗</button>}
+     </div>
+     {Number(prospect.smsSentCount||0)>0&&<p className="mt-3 rounded-lg bg-[#dff4e8] px-3 py-2 text-xs font-bold text-[#176a44]">✓ Already texted {prospect.smsSentCount} time{prospect.smsSentCount===1?"":"s"} · last marked {prospect.smsLastSentAt?new Date(prospect.smsLastSentAt).toLocaleString():"in FUGTH"}</p>}
      {suppressed&&<p className="mt-2 rounded-lg bg-rose-50 p-3 text-xs font-bold text-rose-800">Do not contact / opted out — texting is disabled for this prospect.</p>}
     </div>:<p className="mt-4 text-xs text-[#7b97a5]">Choose an existing prospect or add one in Prospects & Calls.</p>}
     <div className="mt-5 border-t border-[#e4edf2] pt-4">
@@ -225,6 +230,7 @@ export default function FounderTextDesk({user,initialProspectId=""}){
       {demosError&&<p className="mt-2 text-[11px] text-amber-800">{demosError}</p>}
       {siteError&&<p className="mt-2 text-[11px] text-amber-800">{siteError}</p>}
      </div>}
+     {prospect&&onOpenSiteMaker&&<button type="button" className="mt-3 rounded-xl border border-[#aad2e7] bg-[#e9f7ff] px-4 py-3 text-xs font-black text-[#246785]" onClick={()=>onOpenSiteMaker(prospect)}>{link?"Customize the assigned site in Site Maker ↗":"Create this prospect's saved preview ↗"}</button>}
      {link&&<a href={link} target="_blank" rel="noopener noreferrer" className="mt-3 inline-block break-all text-xs font-bold text-[#287fa7] underline">Preview selected website ↗</a>}
     </div>
    </section>
