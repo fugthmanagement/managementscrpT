@@ -4,6 +4,7 @@ import Link from "next/link";
 import {auth,db} from "../lib/firebase";
 import {doc,getDoc,setDoc,serverTimestamp} from "firebase/firestore";
 import SiteImageLibrary from "./site-image-library";
+import SiteSocialProofStudio from "./site-social-proof-studio";
 import {buildStarterSite,getIndustry,getIndustryThemes,SITE_THEMES,siteFields} from "../lib/site-presets";
 import SiteStudioBuilder from "./site-studio-builder";
 import {themeNarrative} from "../lib/site-layout-copy";
@@ -155,6 +156,7 @@ export default function SiteStudio({user,workspace={},targetUid=null,locked=fals
   {(error||message)&&<p role="status" className={`rounded-xl border px-4 py-3 text-sm ${error?"border-red-200 bg-red-50 text-red-800":"border-emerald-200 bg-emerald-50 text-emerald-800"}`}>{error||message}</p>}
   <div className="rounded-2xl border border-[#dddddd] bg-[#f5f5f5] p-5 text-[#333333] sm:p-6"><p className="text-xs font-bold uppercase tracking-wider">Preview design · Personalized launch service</p><p className="mt-2 text-sm leading-7">These designs are previews, not your finished custom website. Choose a FUGTH package that includes professional website customization and our team will personalize your site and prepare it for launch within 24 hours after purchase and receipt of your business details. Domain approval or content delays may affect the public launch time.</p><p className="mt-2 text-xs">Your preview helps us understand your style; the final design can be substantially improved.</p></div>
   <SiteStudioBuilder site={site} uid={uid} locked={locked} published={published} busy={busy} onChange={change} onTemplate={chooseTemplate} onSave={action} onPublish={()=>action("publish")} onUnpublish={()=>action("unpublish")}/>
+  <SiteSocialProofStudio site={site} onChange={change} locked={locked}/>
   <section className="overflow-hidden rounded-[24px] border border-[#b9dceb] bg-white shadow-[0_10px_36px_rgba(31,81,110,.06)]">
    <div className="bg-[#143246] p-5 text-white sm:p-7"><p className="text-[10px] font-black uppercase tracking-[.19em] text-[#a9dff7]">FUGTH WEBSITE STUDIO / ASSISTANT</p><h3 className="mt-3 text-2xl font-black tracking-[-.04em]">Your site's own business agent.</h3><p className="mt-2 max-w-2xl text-xs leading-6 text-[#c3d8e5]">Each published website answers only from its published business facts. A relevance filter rejects unrelated questions before any local model runs. Assign your GGUF size here; the model weights and keys never go in the page.</p></div>
    <div className="grid gap-4 p-5 sm:grid-cols-2 sm:p-7">
