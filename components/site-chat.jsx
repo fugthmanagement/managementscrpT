@@ -1,8 +1,9 @@
 "use client";
 import {useEffect,useRef,useState} from "react";
 import {factChunks,classifyBusinessQuestion,retrieveBusinessFacts,safeBusinessAnswer,previewConceptAnswer} from "../lib/business-agent-rag";
+import {sitePresetQuestions} from "../lib/site-preset-questions";
 function TypedMessage({text}){const [visible,setVisible]=useState("");useEffect(()=>{setVisible("");let i=0;const handle=setInterval(()=>{i=Math.min(String(text).length,i+2);setVisible(String(text).slice(0,i));if(i>=String(text).length)clearInterval(handle);},18);return()=>clearInterval(handle);},[text]);return <>{visible}<span aria-hidden="true" className="animate-pulse">▏</span></>;}
-const questions=["What services do you offer?","Can I request an appointment?","What are your hours?","Can I get pricing?"];
+
 function previewAnswer(question,site,isPreview=false){
  if(isPreview)return previewConceptAnswer(question,site);
  const facts=factChunks(site),gate=classifyBusinessQuestion(question,site,facts);
@@ -20,6 +21,16 @@ export default function SiteChat({site,preview=false,demoId=""}){
  const [bookingOpen,setBookingOpen]=useState(false);
  const [booking,setBooking]=useState({name:"",contact:"",service:"",date:"",time:""});
  const [bookingNotice,setBookingNotice]=useState("");
+ const presetOnly=site.aiAgentMode!=="local";
+ const choices=sitePresetQuestions(site,preview);
+ function answerPreset(item){
+  if(!item||busy)return;
+  const id=++sequence.current;
+  setMessages(old=>[...old.slice(-14),{from:"visitor",id:"question"+id,text:item.question},
+   {from:"bot",id:"preset"+id,text:item.answer,pending:false,mode:"preset"}]);
+  if(item.id==="appointment"&&site.contactEmail)setBookingOpen(true);
+ }
+
  useEffect(()=>{try{if(window.parent!==window)window.parent.postMessage({type:"FUGTH_CHAT_RESIZE",open},"*");}catch{}},[open]);
  useEffect(()=>{
   setMicAvailable(Boolean(window.SpeechRecognition||window.webkitSpeechRecognition));
@@ -141,15 +152,19 @@ export default function SiteChat({site,preview=false,demoId=""}){
  return <div className={preview?"relative mx-auto my-12 w-full max-w-[800px] border-y border-zinc-200 bg-white px-4 py-7 sm:rounded-[24px] sm:border sm:px-8":"fixed bottom-4 right-4 z-[60] w-[min(380px,calc(100vw-2rem))] sm:bottom-6 sm:right-6"} data-fugth-chat="business-assistant">
   {open&&<section aria-label="Business website chat" className={preview?"flex min-h-[420px] flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-[0_10px_32px_rgba(0,0,0,.06)]":"mb-3 flex max-h-[min(580px,75vh)] flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-[0_16px_70px_rgba(0,0,0,.18)]"}>
    <header className="flex items-center justify-between bg-zinc-950 px-5 py-4 text-white"><div><p className="text-sm font-semibold">Ask {site.name}</p><p className="mt-1 text-[11px] text-[#c0e1f2]">{preview?"Independent website concept · sample details pending owner approval":"Business-only assistance · no invented details"}</p></div>{!preview&&<button type="button" onClick={()=>setOpen(false)} className="rounded-lg border border-white/20 px-3 py-2 text-sm" aria-label="Close chat">×</button>}</header>
-   <div className="flex flex-wrap gap-2 border-b border-zinc-200 bg-white px-4 py-3" role="tablist" aria-label="Chat answer mode">
-    <button type="button" role="tab" aria-selected={chatMode==="facts"} disabled={busy}
-     onClick={()=>{setChatMode("facts");setProgress("");}}
-     className={"rounded-full px-4 py-2 text-xs font-bold "+(chatMode==="facts"?"bg-zinc-900 text-white":"bg-zinc-100 text-zinc-700")}>Quick answers</button>
-    <button type="button" role="tab" aria-selected={chatMode==="live"} disabled={busy}
-     onClick={()=>{setChatMode("live");setProgress("");}}
-     className={"rounded-full px-4 py-2 text-xs font-bold "+(chatMode==="live"?"bg-[#124d67] text-white":"bg-[#e7f3fa] text-[#245871]")}>✦ AI live support</button>
-    {chatMode==="live"&&<span className="self-center text-[10px] text-[#668899]">Uses the shared GGUF queue · may take longer</span>}
-   </div>
+   {presetOnly?
+    <div className="border-b border-zinc-200 bg-[#f2faff] px-4 py-3 text-xs font-semibold text-[#285774]">
+     Quick answers only · Choose one of the prepared questions below. No AI model or free-text questions are used.
+    </div>:
+    <div className="flex flex-wrap gap-2 border-b border-zinc-200 bg-white px-4 py-3" role="tablist" aria-label="Chat answer mode">
+     <button type="button" role="tab" aria-selected={chatMode==="facts"} disabled={busy}
+      onClick={()=>{setChatMode("facts");setProgress("");}}
+      className={"rounded-full px-4 py-2 text-xs font-bold "+(chatMode==="facts"?"bg-zinc-900 text-white":"bg-zinc-100 text-zinc-700")}>Prepared questions</button>
+     <button type="button" role="tab" aria-selected={chatMode==="live"} disabled={busy}
+      onClick={()=>{setChatMode("live");setProgress("");}}
+      className={"rounded-full px-4 py-2 text-xs font-bold "+(chatMode==="live"?"bg-[#124d67] text-white":"bg-[#e7f3fa] text-[#245871]")}>✦ GGUF live support</button>
+     {chatMode==="live"&&<span className="self-center text-[10px] text-[#668899]">Uses the assigned GGUF queue · may take longer</span>}
+    </div>}
    {busy&&<div className="border-b border-[#dceaf1] bg-[#f3faff] px-4 py-3" role="status">
     <div className="mb-2 flex items-center justify-between text-[11px] text-[#42738d]"><span>{progress||"Retrieving business details…"}</span><span className="ml-2 animate-pulse">● ● ●</span></div>
     <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#d5eaf4]"><div className="h-full w-2/5 animate-pulse rounded-full bg-[#4699bc]"/></div>
@@ -158,7 +173,13 @@ export default function SiteChat({site,preview=false,demoId=""}){
     <p className="max-w-[90%] rounded-2xl rounded-bl-sm bg-white p-3 text-sm leading-6 text-zinc-800">{site.chatbotGreeting||"Hi! Welcome. How can I help you today?"}</p>
     {messages.map((m,i)=><p key={m.id||i} className={`max-w-[92%] rounded-2xl p-3 text-sm leading-6 ${m.from==="visitor"?"ml-auto rounded-br-sm bg-zinc-900 text-white":"rounded-bl-sm bg-white text-zinc-800"}`}>{m.from==="bot"?(m.pending?<span>{m.text} <span className="inline-flex animate-pulse tracking-widest text-[#3a8cb2]" aria-label="Assistant typing">•••</span></span>:<TypedMessage text={m.text}/>):m.text}</p>)}
    </div>
-   {messages.length<2&&<div className="flex gap-2 overflow-x-auto bg-[#fafaf8] px-4 pb-3">{questions.map(q=><button key={q} type="button" onClick={()=>ask(q)} className="shrink-0 rounded-full border border-zinc-300 bg-white px-3 py-2 text-[11px] font-semibold text-zinc-800">{q}</button>)}</div>}
+   {(presetOnly||chatMode==="facts")&&<div className="max-h-[235px] space-y-2 overflow-y-auto border-t border-zinc-100 bg-[#fafaf8] px-4 py-3">
+    <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">Choose a question</p>
+    <div className="flex flex-wrap gap-2">{choices.map(item=><button key={item.id} type="button"
+     onClick={()=>answerPreset(item)}
+     className="rounded-full border border-zinc-300 bg-white px-3 py-2 text-left text-[11px] font-semibold text-zinc-800 hover:border-[#90bed4]">
+     {item.question}</button>)}</div>
+   </div>}
    {bookingOpen&&<form onSubmit={requestBooking} className="space-y-2 border-t border-zinc-200 bg-[#eef5e9] p-4"><div className="flex items-center justify-between"><strong className="text-sm">Request an appointment</strong><button type="button" onClick={()=>setBookingOpen(false)} className="text-xs font-semibold">Close</button></div>
     <select required value={booking.service} onChange={e=>setBooking(v=>({...v,service:e.target.value}))} className="w-full rounded-lg border border-[#cbdac5] bg-white p-2.5 text-xs"><option value="">Choose a service</option>{(site.services||[]).map(service=><option key={service} value={service}>{service}</option>)}<option value="General consultation">General consultation</option></select>
     <div className="grid grid-cols-2 gap-2"><input required type="date" value={booking.date} onChange={e=>setBooking(v=>({...v,date:e.target.value}))} className="w-full min-w-0 rounded-lg border border-[#cbdac5] p-2 text-xs"/><input type="time" value={booking.time} onChange={e=>setBooking(v=>({...v,time:e.target.value}))} className="w-full min-w-0 rounded-lg border border-[#cbdac5] p-2 text-xs"/></div>
@@ -170,8 +191,8 @@ export default function SiteChat({site,preview=false,demoId=""}){
     <p className="text-[10px] leading-5 text-[#657566]">This requests an appointment; it does not reserve a calendar slot.</p>
    </form>}
    <div className="flex items-center justify-between gap-2 border-t border-[#e4edf3] bg-[#f6fbff] px-4 py-2 text-[10px] text-[#6287a0]"><span>Business questions only · No guesses</span><button type="button" onClick={()=>{setVoiceEnabled(v=>!v);window.speechSynthesis?.cancel();}} className="rounded-full border border-[#c9e3f1] bg-white px-3 py-1.5 font-bold text-[#377a9e]">{voiceEnabled?"🔊 Read answers: On":"🔈 Read answers: Off"}</button></div>
-   <form onSubmit={e=>{e.preventDefault();ask(text);}} className="flex gap-2 border-t border-zinc-200 bg-white p-3"><label className="sr-only" htmlFor="fugth-site-chat-input">Your question</label><input id="fugth-site-chat-input" maxLength={220} autoComplete="off" placeholder="Ask a quick question..." value={text} onChange={e=>setText(e.target.value)} className="min-w-0 flex-1 rounded-lg border border-zinc-200 px-3 py-3 text-sm text-zinc-900 outline-none focus:border-zinc-900"/>{micAvailable&&<button type="button" disabled={busy} onClick={dictate} className={"rounded-lg border px-3 py-2 text-xs font-bold disabled:opacity-40 "+(listening?"border-[#b8cbe0] bg-[#ecf8ff] text-[#1e729a]":"border-[#d7e7ef] bg-white text-[#5083a0]")} aria-label={listening?"Stop recording question":"Speak a business question"}>{listening?"■":"🎤"}</button>}
-    <button disabled={busy||!text.trim()} className="rounded-lg bg-[#193e54] px-4 py-2 text-sm font-semibold text-white disabled:opacity-45">{busy?"Checking…":"Send"}</button></form>
+   {!presetOnly&&chatMode==="live"&&<form onSubmit={e=>{e.preventDefault();ask(text);}} className="flex gap-2 border-t border-zinc-200 bg-white p-3"><label className="sr-only" htmlFor="fugth-site-chat-input">Your question</label><input id="fugth-site-chat-input" maxLength={220} autoComplete="off" placeholder="Ask the GGUF AI a business question..." value={text} onChange={e=>setText(e.target.value)} className="min-w-0 flex-1 rounded-lg border border-zinc-200 px-3 py-3 text-sm text-zinc-900 outline-none focus:border-zinc-900"/>{micAvailable&&<button type="button" disabled={busy} onClick={dictate} className={"rounded-lg border px-3 py-2 text-xs font-bold disabled:opacity-40 "+(listening?"border-[#b8cbe0] bg-[#ecf8ff] text-[#1e729a]":"border-[#d7e7ef] bg-white text-[#5083a0]")} aria-label={listening?"Stop recording question":"Speak a business question"}>{listening?"■":"🎤"}</button>}
+    <button disabled={busy||!text.trim()} className="rounded-lg bg-[#193e54] px-4 py-2 text-sm font-semibold text-white disabled:opacity-45">{busy?"Checking…":"Send"}</button></form>}
    <p className="px-4 pb-3 text-[10px] leading-5 text-zinc-500">Answers are restricted to the business's published information. Off-topic questions are filtered before the AI. Appointment requests open email; the business must confirm. No live booking occurs in chat. Microphone input, if used, relies on browser speech-recognition services.</p>
   </section>}
   {!preview&&<div className="flex justify-end"><button type="button" onClick={()=>setOpen(!open)} aria-expanded={open} className="flex items-center gap-3 rounded-full bg-zinc-950 px-5 py-4 text-sm font-bold text-white shadow-xl"><span aria-hidden="true">✳</span>{open?"Close chat":"Chat with us"}</button></div>}
