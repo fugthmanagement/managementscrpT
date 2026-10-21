@@ -25,12 +25,12 @@ export async function GET(req){
  const day=new URL(req.url).searchParams.get("date")||"";
  if(!/^\d{4}-\d{2}-\d{2}$/.test(day))return json({error:"Choose a valid calendar date."},400);
  const slots=founderDaySlots(day);
- try{
-  // Always validate the backend before reporting an empty calendar; otherwise
-  // an empty day can hide a broken Firebase Admin configuration.
-  const db=firebaseAdmin().firestore();
-  if(!slots.length)return json({date:day,timezone:FOUNDER_TIMEZONE,slots:[],
+ // Slot generation is deterministic and independent of Firebase. Firebase is
+ // consulted only for booked/blocked overlays and for atomic confirmations.
+ if(!slots.length)return json({date:day,timezone:FOUNDER_TIMEZONE,slots:[],
    minNoticeMinutes:MIN_NOTICE_MINUTES,slotMinutes:30,availability:"closed",...founderNoSlotsReason(day)});
+ try{
+  const db=firebaseAdmin().firestore();
 
   const refs=slots.map(s=>db.doc("founderCalendarSlots/"+s.id));
   const docs=await db.getAll(...refs);
@@ -39,16 +39,22 @@ export async function GET(req){
    reason:docs[i].exists?(docs[i].data()?.status==="blocked"?"blocked":"booked"):null
   }));
   return json({date:day,timezone:FOUNDER_TIMEZONE,slots:visible,
-   minNoticeMinutes:MIN_NOTICE_MINUTES,slotMinutes:30,timezone:FOUNDER_TIMEZONE,availability:visible.some(x=>x.available)?"available":"full",
+   minNoticeMinutes:MIN_NOTICE_MINUTES,slotMinutes:30,verified:true,availability:visible.some(x=>x.available)?"available":"full",
    message:visible.some(x=>x.available)?"Choose a time that works for you.":
     "This date is fully booked. Choose another date."});
  }catch(e){
   const issue=firestoreDemoFailure(e);
   console.warn("FUGTH_GUEST_AVAILABILITY_FAILURE",{code:issue.code});
-  return json({error:"Appointment calendar is temporarily offline. Times cannot be verified.",
-   code:issue.code,bookingUnavailable:true,
-   hint:issue.code.startsWith("firebase_")?"FUGTH administrators: open Website Demo Builder → Firebase connection test. "+issue.hint:
-    "FUGTH administrators: check the Firestore connection. "+issue.hint},503);
+  return json({
+   date:day,timezone:FOUNDER_TIMEZONE,minNoticeMinutes:MIN_NOTICE_MINUTES,
+   slotMinutes:30,availability:"unverified",verified:false,code:issue.code,
+   // These are proposed times ONLY. No Firestore read means no claim of
+   // availability and no guaranteed reservation.
+   slots:slots.map(slot=>({startTime:slot.startTime,label:slot.label,
+    available:true,verified:false,reason:"unverified"})),
+   message:"Choose a preferred time. The calendar is temporarily unable to verify existing bookings, so this is a REQUEST only until FUGTH confirms it.",
+   hint:"FUGTH owner: the server cannot access Firestore. "+issue.hint
+  });
  }
 }
 export async function POST(req){
