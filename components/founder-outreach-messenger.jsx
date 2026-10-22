@@ -2,7 +2,7 @@
 import {useEffect,useState} from "react";
 import {doc,onSnapshot,setDoc,serverTimestamp} from "firebase/firestore";
 import {auth,db} from "../lib/firebase";
-import {DEFAULT_TEXTBACK,cleanTextbackSettings,composeTextback,missedCallOutcome} from "../lib/server/missed-call-textback";
+import {DEFAULT_TEXTBACK,cleanTextbackSettings,composeTextback} from "../lib/missed-call-textback";
 
 const field="mt-2 w-full rounded-xl border border-[#cbdeeb] bg-white px-3 py-3 text-sm text-[#21465b]";
 export default function FounderOutreachMessenger({user,workspace={}}){
