@@ -5,7 +5,7 @@ import {auth,db} from "../lib/firebase";
 import {DEFAULT_TEXTBACK,cleanTextbackSettings,composeTextback} from "../lib/missed-call-textback";
 
 const field="mt-2 w-full rounded-xl border border-[#cbdeeb] bg-white px-3 py-3 text-sm text-[#21465b]";
-export default function FounderOutreachMessenger({user,workspace={}}){
+export default function FounderOutreachMessenger({user,workspace={},founderOnly=false}){
  const [config,setConfig]=useState(DEFAULT_TEXTBACK),[loading,setLoading]=useState(true),
   [busy,setBusy]=useState(false),[note,setNote]=useState(""),[provider,setProvider]=useState(null),
   [simulate,setSimulate]=useState("(305) 555-0149");
@@ -23,7 +23,7 @@ export default function FounderOutreachMessenger({user,workspace={}}){
    setProvider(j);
   }catch(e){setNote(e.message)}
  }
- useEffect(()=>{if(user?.uid)checkProvider()},[user?.uid]);
+ useEffect(()=>{if(user?.uid&&founderOnly)checkProvider()},[user?.uid,founderOnly]);
  async function save(){
   if(!user?.uid||!db)return;
   setBusy(true);setNote("");
@@ -42,14 +42,14 @@ export default function FounderOutreachMessenger({user,workspace={}}){
     <h3 className="mt-2 text-xl font-black text-[#173e54]">Missed-call text-back automation</h3>
     <p className="mt-2 text-xs leading-6 text-[#5f8195]">Control automatic replies with your existing Firebase account. Enable only after connecting an SMS-capable number and confirming messaging compliance. FUGTH does not send or charge for a test here.</p>
    </div>
-   <button type="button" onClick={checkProvider} className="rounded-xl border border-[#b6d5e6] px-4 py-3 text-xs font-bold">Check connections</button>
+   {founderOnly&&<button type="button" onClick={checkProvider} className="rounded-xl border border-[#b6d5e6] px-4 py-3 text-xs font-bold">Check connections</button>}
   </div>
-  <div className="mt-5 grid gap-3 sm:grid-cols-3">
+  {founderOnly&&<div className="mt-5 grid gap-3 sm:grid-cols-3">
    {[["Vapi call events",provider?.vapiConfigured],["SMS sender configured",provider?.smsConfigured],["Firebase site account",Boolean(user?.uid)]].map(([label,ok])=>
     <div className={"rounded-xl border p-4 text-xs "+(ok?"border-emerald-200 bg-emerald-50":"border-amber-200 bg-amber-50")} key={label}>
      <strong>{ok?"✓ Ready":"Not ready"}</strong><p className="mt-1 text-[#496374]">{label}</p>
     </div>)}
-  </div>
+  </div>}
   <div className="mt-6 grid gap-5 md:grid-cols-2">
    <div className="space-y-4">
     <label className="flex items-start gap-3 rounded-xl border p-4 text-xs font-bold">
