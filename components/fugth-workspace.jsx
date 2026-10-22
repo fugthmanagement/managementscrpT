@@ -38,6 +38,9 @@ import FounderSalesDesk from "./founder-sales-desk";
 import FounderRevenuePlanner from "./founder-revenue-planner";
 import FounderBillingHealth from "./founder-billing-health";
 import FounderVoiceHealth from "./founder-voice-health";
+import FounderVapiSettings from "./founder-vapi-settings";
+import FounderOutreachMessenger from "./founder-outreach-messenger";
+import FounderVercelUsage from "./founder-vercel-usage";
 import FounderBookingCalendar from "./founder-booking-calendar";
 import FounderSiteClaims from "./founder-site-claims";
 import FounderGgufWriter from "./founder-gguf-writer";
@@ -1158,7 +1161,10 @@ export default function FugthWorkspace() {
                   <FounderSiteClaims />
                   <FounderAccountDirectory />
                   <FounderRevenuePlanner />
+                  <FounderVercelUsage />
+                  <FounderOutreachMessenger user={user} workspace={workspace}/>
                   <FounderVoiceHealth />
+                  <FounderVapiSettings />
                   <FounderDemoControls />
                   <FounderBillingHealth />
                   <div className="rounded-xl border border-[#d2e4ee] bg-[#f1faff] p-4 text-sm text-[#6d5b45]">
