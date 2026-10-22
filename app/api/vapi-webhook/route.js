@@ -2,6 +2,7 @@ import {NextResponse} from "next/server";
 import {timingSafeEqual} from "node:crypto";
 import {fetchProviderCall,callOwnerId,validCallId,hasAdminStorage} from "../../../lib/server/vapi-recordings";
 import {saveVerifiedCall,ended} from "../../../lib/server/voice-call-history";
+import {maybeTextBackMissedCall} from "../../../lib/server/missed-call-delivery";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
 export const maxDuration=60;
@@ -42,8 +43,14 @@ export async function POST(req){
   const ownedCall={...call,metadata:{...call.metadata,ownerId:uid}};
   const saved=await saveVerifiedCall(ownedCall,uid,null);
   if(!saved.saved)return respond({error:"Could not save the verified call and its customer lead."},503);
+  // SMS failure must never erase an independently saved call or lead.
+  // No SMS is attempted unless this is an explicitly missed INBOUND call and
+  // the business has enabled compliant text-back with a connected provider.
+  let textBack={sent:false,reason:"not_checked"};
+  try{textBack=await maybeTextBackMissedCall(ownedCall,uid)}
+  catch(e){console.warn("FUGTH_MISSED_CALL_TEXTBACK",{code:String(e?.code||"unavailable")});textBack={sent:false,reason:"processing_unavailable"}}
   return respond({success:true,processed:true,callId:id,leadSaved:saved.leadSaved===true,
-   recordingArchived:saved.recordingSaved===true});
+   recordingArchived:saved.recordingSaved===true,textBack});
  }catch(error){
   console.warn("FUGTH verified Vapi call webhook",{status:error?.status||"server"});
   return respond({error:"Voice-call processing is temporarily unavailable."},error?.status===404?404:503);

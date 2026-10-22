@@ -123,9 +123,10 @@ export default function FounderTextDesk({user,initialProspectId="",onOpenSiteMak
  const chosenDemoObject=chosenDemo.startsWith("demo:")?demos.find(d=>d.id===chosenDemo.slice(5)):null;
  const resolved=chosenDemo?(chosenSite?validLink(chosenSite.url):chosenDemoObject?demoLink(chosenDemoObject):""):assignedLink;
  const expired=Boolean(prospect?.assignedPreviewExpiresAt)&&Date.parse(prospect.assignedPreviewExpiresAt)<=Date.now();
- const revokedDemo=assignedId&&demos.length>0&&!assignedDemo;
- const link=(expired||revokedDemo)&&!chosenDemo?"":resolved;
- const demoIdForLink=chosenDemoObject?.id||(!chosenSite?assignedDemo?.id:"");
+ // Listing APIs are paginated and may omit an older prospect preview.
+ // A missing directory result NEVER means an explicitly assigned link was revoked.
+ const link=expired&&!chosenDemo?"":resolved;
+ const demoIdForLink=chosenDemoObject?.id||(!chosenSite&&/^[a-f0-9]{24}$/.test(assignedId)?assignedId:"");
  const bookingLink=ROOT+"/book"+(demoIdForLink?"?site="+encodeURIComponent(demoIdForLink):"");
  const claimLink=demoIdForLink?ROOT+"/claim/"+encodeURIComponent(demoIdForLink):ROOT+"/login?signup=1";
  const composed=prospect?expand(editor,prospect,link,{booking:bookingLink,claim:claimLink,referrer}):"";
@@ -227,9 +228,9 @@ export default function FounderTextDesk({user,initialProspectId="",onOpenSiteMak
      {suppressed&&<p className="mt-2 rounded-lg bg-rose-50 p-3 text-xs font-bold text-rose-800">Do not contact / opted out — texting is disabled for this prospect.</p>}
     </div>:<p className="mt-4 text-xs text-[#7b97a5]">Choose an existing prospect or add one in Prospects & Calls.</p>}
     <div className="mt-5 border-t border-[#e4edf2] pt-4">
-     <div className="flex flex-wrap items-center justify-between gap-3"><p className="text-xs font-black">Assigned website preview</p><button className="text-xs font-bold text-[#2681ac]" onClick={()=>setShowLinkPicker(v=>!v)}>{showLinkPicker?"Hide site list":"Choose another saved site"}</button></div>
+     <div className="flex flex-wrap items-center justify-between gap-3"><p className="text-xs font-black">Assigned website preview · automatically selected for this prospect</p><button className="text-xs font-bold text-[#2681ac]" onClick={()=>setShowLinkPicker(v=>!v)}>{showLinkPicker?"Hide site list":"Choose another saved site"}</button></div>
      <p className="mt-2 break-all text-xs text-[#557b91]">{link||"No valid assigned link yet"}</p>
-     {(expired||revokedDemo)&&<p className="mt-2 text-xs text-amber-800">The previously assigned preview may have expired or been revoked. Choose a current preview.</p>}
+     {expired&&<p className="mt-2 text-xs text-amber-800">The prospect preview has passed its saved expiration date. Generate or renew it in Site Maker before sending.</p>}
      {matchedDemo.length>0&&<p className="mt-2 text-[11px] text-[#537e92]">Linked to this prospect: {matchedDemo.map(d=>d.name).join(", ")}. Select it below to use it.</p>}
      {!matchedDemo.length&&phoneMatches.length>0&&<p className="mt-2 text-[11px] text-[#537e92]">Some saved previews have this phone number. Verify the business before assigning one.</p>}
      {(showLinkPicker||!link)&&<div className="mt-3">

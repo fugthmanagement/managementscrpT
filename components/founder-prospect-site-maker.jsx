@@ -1,7 +1,8 @@
 "use client";
 import {useCallback,useEffect,useState} from "react";
-import {auth} from "../lib/firebase";
-import {SITE_THEMES,getIndustry} from "../lib/site-presets";
+import {auth,db} from "../lib/firebase";
+import {doc,getDoc} from "firebase/firestore";
+import {SITE_THEMES,getIndustry,buildStarterSite,detectIndustry,siteFields} from "../lib/site-presets";
 import SiteStudioBuilder from "./site-studio-builder";
 import SiteImageLibrary from "./site-image-library";
 import FounderSiteEditChat from "./founder-site-edit-chat";
@@ -13,6 +14,11 @@ export default function FounderProspectSiteMaker({user,prospectId,onBack}){
   [revision,setRevision]=useState(null),[previewId,setPreviewId]=useState(""),[previewUrl,setPreviewUrl]=useState(""),
   [busy,setBusy]=useState("open"),[notice,setNotice]=useState(""),[tab,setTab]=useState("design");
  const [previewStatus,setPreviewStatus]=useState("checking"),[previewError,setPreviewError]=useState("");
+ const [localOnly,setLocalOnly]=useState(false);
+ const draftKey="fugth-prospect-local-draft:"+String(user?.uid||"")+":"+prospectId;
+ const readDraft=()=>{try{return JSON.parse(localStorage.getItem(draftKey)||"null")}catch{return null}};
+ const storeDraft=next=>{try{localStorage.setItem(draftKey,JSON.stringify(siteFields(next)))}catch{}};
+
  const request=useCallback(async(body)=>{
   const token=await auth.currentUser?.getIdToken();
   if(!token)throw Error("Sign in as founder before editing this saved business.");
@@ -43,11 +49,31 @@ export default function FounderProspectSiteMaker({user,prospectId,onBack}){
   setBusy("open");setNotice("");
   try{
    const result=await request({action:"ensure"});
-   setSite({...result.site,demoId:result.id});
+   const previous=readDraft();
+   setSite({...result.site,...(previous||{}),demoId:result.id});
+   setLocalOnly(false);
    setProspect({id:prospectId,businessName:result.site.name,industry:result.site.industry});
    setRevision(result.revision);setPreviewId(result.id);setPreviewUrl(result.url);
    await verifyPreview(result.id);
-  }catch(e){setNotice(e.message)}finally{setBusy("")}
+  }catch(e){
+   // A signed-in founder can still read their own prospect records using
+   // browser Firebase Auth even if the server's service-account email is bad.
+   // This is a LOCAL DRAFT ONLY and never produces a fake public preview URL.
+   try{
+    const snap=await getDoc(doc(db,"users",user.uid,"campaigns",prospectId));
+    const prospectData=snap.data()||{};
+    if(!snap.exists()||prospectData.type!=="cold_call_prospect")throw Error("Prospect is missing.");
+    const type=detectIndustry([prospectData.industry,prospectData.businessType,prospectData.businessName].filter(Boolean).join(" "));
+    const starter=buildStarterSite(user.uid,prospectData.businessName||"Business preview",type,{
+     phone:prospectData.phone,email:prospectData.email,serviceArea:prospectData.city
+    });
+    setProspect({id:prospectId,businessName:prospectData.businessName||"Business preview",industry:type});
+    setSite({...siteFields(starter),...(readDraft()||{}),ownerId:user.uid,previewMode:true});
+    setLocalOnly(true);setPreviewId("");setPreviewUrl("");setRevision(null);
+    setPreviewStatus("failed");
+    setNotice("Firebase Admin is offline, so this business opens as a private editable LOCAL DRAFT. Save locally and retry syncing when the backend is repaired. This is NOT a public shareable link. "+e.message);
+   }catch(readError){setNotice("Could not load this prospect's private draft from browser Firebase. "+String(readError.message||"Check login")+". "+e.message);}
+  }finally{setBusy("")}
  },[prospectId,request,verifyPreview]);
  useEffect(()=>{if(prospectId)load()},[prospectId,load]);
  const patch=v=>{setSite(current=>({...current,...v}));setNotice("Unsaved preview edits. Click Save to update this prospect's existing link.");};
@@ -58,11 +84,18 @@ export default function FounderProspectSiteMaker({user,prospectId,onBack}){
   if(!site||busy)return;
   setBusy("save");setNotice("");
   try{
+   if(localOnly){
+    storeDraft(site);
+    setNotice("✓ Private design saved in this browser only. Firebase Admin is still unavailable; no public preview URL was created.");
+    return;
+   }
    const j=await request({action:"save",site,revision});
    setSite({...j.site,demoId:j.id});setRevision(j.revision);
+   try{localStorage.removeItem(draftKey)}catch{}
    await verifyPreview(j.id);
    setNotice("✓ Saved. "+j.site.name+" keeps its same preview link; you do not need to create another site.");
-  }catch(e){setNotice(e.message)}finally{setBusy("")}
+  }catch(e){storeDraft(site);setNotice("Saved locally for recovery; the public preview could NOT be updated. "+e.message)}
+  finally{setBusy("")}
  }
  function choosePhoto(slot,id){
   if(!/^fugth-upload-[a-f0-9]{32}$/.test(id))return;
@@ -97,6 +130,10 @@ export default function FounderProspectSiteMaker({user,prospectId,onBack}){
     </p>
     <p className="mt-2 text-xs text-[#c5dce8]">This is a sample design that the business can review and request changes to before claiming or publishing it.</p>
     <div className="mt-3 flex flex-wrap gap-2">
+     {previewStatus==="ready"&&<a
+      href={"/dashboard?open=sales&tab=sms&prospect="+encodeURIComponent(prospectId)}
+      className="rounded-lg border border-white/40 bg-white/10 px-4 py-2.5 text-xs font-black">
+      Open SMS Outreach with this prospect ↗</a>}
      <button type="button" disabled={previewStatus!=="ready"} onClick={copyLink} className="rounded-lg bg-white px-4 py-2.5 text-xs font-black text-[#163b53] disabled:opacity-50">Copy verified link</button>
      <button type="button" onClick={()=>verifyPreview(previewId)} className="rounded-lg border border-white/40 px-4 py-2.5 text-xs font-black">Recheck link</button>
      <a href={previewUrl} target="_blank" rel="noopener noreferrer" className="rounded-lg border border-white/35 px-4 py-2.5 text-xs font-black">Open client preview ↗</a>
@@ -107,7 +144,7 @@ export default function FounderProspectSiteMaker({user,prospectId,onBack}){
    <p>{notice}</p>
    {!site&&<p className="mt-3">The prospect's website has not been confirmed saved. Fix the Firebase connection first; don't send a potentially broken preview link.</p>}
    {!site&&<a href="/dashboard?open=sales&tab=demos" className="mt-3 inline-block rounded-xl border border-[#a3d2e7] bg-white px-4 py-3 text-xs font-black text-[#175471]">Open Firebase connection test in Demo Builder ↗</a>}
-   {!site&&<button type="button" onClick={load} className="mt-3 ml-2 rounded-xl border bg-white px-4 py-3 text-xs font-bold">Retry loading prospect website</button>}
+   <button type="button" onClick={load} className="mt-3 ml-2 rounded-xl border bg-white px-4 py-3 text-xs font-bold">Retry Firebase sync and public link</button>
   </div>}
   {busy==="open"&&<div className="rounded-2xl bg-white p-8 text-sm">Loading or creating this prospect's saved website…</div>}
   {site&&<div className="space-y-5">
@@ -118,7 +155,7 @@ export default function FounderProspectSiteMaker({user,prospectId,onBack}){
    {tab==="design"&&<div role="tabpanel" className="space-y-5">
     <SiteStudioBuilder site={site} uid={user.uid} locked={false} busy={busy}
      onChange={patch} onTemplate={changeTemplate} onSave={save}
-     previewOnly={true} previewUrlOverride={previewUrl}/>
+     previewOnly={true} previewUrlOverride={previewUrl||"/sites/preview-canvas"}/>
     <SiteSocialProofStudio site={site} onChange={patch} locked={false}/>
     <div className="rounded-2xl border border-[#cfdfeb] bg-white p-5">
      <p className="text-sm font-black">Keep editing this same preview</p>
@@ -126,8 +163,9 @@ export default function FounderProspectSiteMaker({user,prospectId,onBack}){
      <button className={"mt-3 "+button} disabled={!!busy} onClick={save}>Save current preview design</button>
     </div>
    </div>}
-   {tab==="ai"&&<div role="tabpanel"><FounderSiteEditChat key={previewId} site={site}
+   {tab==="ai"&&!localOnly&&<div role="tabpanel"><FounderSiteEditChat key={previewId} site={site}
     prospect={prospect} onApplied={(updated,newRevision)=>{setSite({...updated,demoId:previewId});setRevision(newRevision);setNotice("✓ AI tool actions saved to the existing preview. Switch to Design editor to see the result.");}}/></div>}
+   {tab==="ai"&&localOnly&&<p className="rounded-xl bg-white p-5 text-sm">The server AI editor requires verified Firebase storage. You can edit the design, services, and legal text manually while working offline.</p>}
    {tab==="media"&&<div role="tabpanel" className="space-y-4">
     <div className="rounded-2xl border border-[#cfe4ef] bg-[#edf7fc] p-5 text-xs leading-6">
      <strong className="text-sm">Use photos you have the rights to display</strong>
