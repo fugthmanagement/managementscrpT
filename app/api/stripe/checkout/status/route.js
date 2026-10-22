@@ -1,6 +1,7 @@
 import Stripe from "stripe";
 import {NextResponse} from "next/server";
 import {authenticatedUser,firebaseAdmin} from "../../../../../lib/server/auth";
+import {resolveFirebaseAdminCredentials} from "../../../../../lib/server/firebase-admin-credentials";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
 const EXPECTED_ACCOUNT="acct_1QYiGDHGcNIhcRMj";
@@ -10,10 +11,11 @@ export async function GET(request){
  if(!user?.uid)return reply({ready:false,error:"Sign in to check checkout availability."},401);
  const issues=[];
  const secret=process.env.STRIPE_SECRET_KEY,webhook=process.env.STRIPE_WEBHOOK_SECRET;
- const firebaseReady=Boolean(process.env.FIREBASE_SERVICE_ACCOUNT||(process.env.FIREBASE_CLIENT_EMAIL&&process.env.FIREBASE_PRIVATE_KEY));
+ const preflight=resolveFirebaseAdminCredentials(process.env);
+ const firebaseReady=preflight.ok;
  if(!secret)issues.push({code:"STRIPE_KEY_MISSING",message:"Secure checkout is not connected to a Stripe merchant account."});
  if(!webhook)issues.push({code:"WEBHOOK_MISSING",message:"Subscription payment verification is not configured. A charge will not be attempted."});
- if(!firebaseReady)issues.push({code:"FIREBASE_ADMIN_MISSING",message:"Secure account activation is not configured. A charge will not be attempted."});
+ if(!firebaseReady)issues.push({code:preflight.report.code,message:"Secure account activation cannot reach Firebase: "+preflight.report.message+" No payment will start."});
  let merchantChecked=false,merchantMatches=false;
  if(secret)try{
   const stripe=new Stripe(secret,{apiVersion:"2024-06-20"});
