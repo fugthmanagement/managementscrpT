@@ -37,6 +37,10 @@ import CallInbox from "./call-inbox";
 import FounderSalesDesk from "./founder-sales-desk";
 import FounderRevenuePlanner from "./founder-revenue-planner";
 import FounderBillingHealth from "./founder-billing-health";
+import FounderDeploymentBudget from "./founder-deployment-budget";
+import FounderMessageBack from "./founder-message-back";
+import FounderVapiControls from "./founder-vapi-controls";
+import FounderStripeCatalog from "./founder-stripe-catalog";
 import FounderVoiceHealth from "./founder-voice-health";
 import FounderBookingCalendar from "./founder-booking-calendar";
 import FounderSiteClaims from "./founder-site-claims";
@@ -1158,9 +1162,13 @@ export default function FugthWorkspace() {
                   <FounderSiteClaims />
                   <FounderAccountDirectory />
                   <FounderRevenuePlanner />
+                  <FounderDeploymentBudget />
+                  <FounderMessageBack />
                   <FounderVoiceHealth />
+                  <FounderVapiControls />
                   <FounderDemoControls />
                   <FounderBillingHealth />
+                  <FounderStripeCatalog />
                   <div className="rounded-xl border border-[#d2e4ee] bg-[#f1faff] p-4 text-sm text-[#6d5b45]">
                     Pierre’s Call Guide, ZIP prospecting, lead imports,
                     follow-ups, and the calling workspace now have their own{" "}
