@@ -25,6 +25,16 @@ export default function FounderBillingHealth(){
    <div className="mt-3 flex flex-wrap gap-2 text-[11px]">{Object.entries(data.environment||{}).filter(([key])=>key!=="hostedCheckout").map(([key,value])=><span key={key} className={"rounded-full px-3 py-2 "+(value?"bg-[#d8edf6] text-[#2d7192]":"bg-[#f8e9d4] text-[#805c33]")}>{value?"✓":"×"} {key.replace(/([A-Z])/g," $1")}</span>)}</div>
    <p className="mt-3 text-xs leading-6 text-[#657866]">{data.message}</p>
   </div>}
+  {data?.firebase&&!data.firebase.validFormat&&<div className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-4 text-xs leading-6 text-amber-900">
+    <strong>Firebase activation blocked · {data.firebase.code}</strong>
+    <p className="mt-2">Stripe may be connected, but FUGTH cannot provision a paid customer or write verified prospect previews until Firebase Admin works. The existing project and key are preserved.</p>
+    <p className="mt-2">{data.firebase.hint}</p>
+   </div>}
+   <div className="mt-4 flex flex-wrap gap-3 text-xs font-bold">
+    <a className="rounded-xl border border-[#b8d8e6] bg-white px-4 py-3" target="_blank" rel="noopener noreferrer" href="https://dashboard.stripe.com/products">Manage Stripe products and prices ↗</a>
+    <a className="rounded-xl border border-[#b8d8e6] bg-white px-4 py-3" target="_blank" rel="noopener noreferrer" href="https://dashboard.stripe.com/webhooks">View signed Stripe webhooks ↗</a>
+    <a className="rounded-xl border border-[#b8d8e6] bg-white px-4 py-3" target="_blank" rel="noopener noreferrer" href="https://dashboard.stripe.com/payments">Review payments ↗</a>
+   </div>
   {error&&<p role="alert" className="mt-4 rounded-xl bg-[#fff5eb] p-4 text-xs text-[#855c39]">{error}</p>}
   <p className="mt-4 text-xs leading-6 text-[#839181]">Subscription products and your payment account must match. Paid plan access is granted by a verified payment confirmation; existing customer subscriptions remain with their original merchant unless separately migrated.</p>
  </section>;
