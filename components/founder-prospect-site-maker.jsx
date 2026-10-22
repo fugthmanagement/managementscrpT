@@ -98,7 +98,10 @@ export default function FounderProspectSiteMaker({user,prospectId,onBack}){
     <p className="mt-2 text-xs text-[#c5dce8]">This is a sample design that the business can review and request changes to before claiming or publishing it.</p>
     <div className="mt-3 flex flex-wrap gap-2">
      <button type="button" disabled={previewStatus!=="ready"} onClick={copyLink} className="rounded-lg bg-white px-4 py-2.5 text-xs font-black text-[#163b53] disabled:opacity-50">Copy verified link</button>
-     <button type="button" onClick={()=>verifyPreview(previewId)} className="rounded-lg border border-white/40 px-4 py-2.5 text-xs font-black">Recheck link</button>
+     <button type="button" onClick={async()=>{if(portable&&isPortablePreviewUrl(previewUrl)){
+      try{await readPortablePreview(new URL(previewUrl).hash);setPreviewStatus("ready");setPreviewError("")}
+      catch(e){setPreviewStatus("failed");setPreviewError(e.message)}
+     }else verifyPreview(previewId)}} className="rounded-lg border border-white/40 px-4 py-2.5 text-xs font-black">Recheck link</button>
      <a href={previewUrl} target="_blank" rel="noopener noreferrer" className="rounded-lg border border-white/35 px-4 py-2.5 text-xs font-black">Open client preview ↗</a>
     </div>
    </div>}

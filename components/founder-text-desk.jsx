@@ -113,6 +113,15 @@ export default function FounderTextDesk({user,initialProspectId="",onOpenSiteMak
  const prospect=all.find(p=>p.id===prospectId)||null;
  const matching=useMemo(()=>all.filter(p=>[p.businessName,p.ownerName,p.phone,p.industry].join(" ").toLowerCase().includes(filter.toLowerCase())).slice(0,400),[all,filter]);
  const notTexted=all.filter(p=>!textCount(p)&&!p.doNotCall&&p.status!=="do_not_call");
+ const readyQueue=matching.filter(p=>p.websitePreviewUrl&&
+  !p.smsOptOut&&!p.unsubscribed&&!p.doNotCall&&
+  p.phoneMarketingOptIn===true&&String(p.consentSource||"").trim().length>=5);
+ const queueIndex=readyQueue.findIndex(p=>p.id===prospectId);
+ const nextQueued=()=>{if(!readyQueue.length)return;
+  setProspectId(readyQueue[(queueIndex+1+readyQueue.length)%readyQueue.length].id)};
+ const previousQueued=()=>{if(!readyQueue.length)return;
+  setProspectId(readyQueue[(queueIndex-1+readyQueue.length)%readyQueue.length].id)};
+
  const assignedLink=prospect?validLink(prospect.websitePreviewUrl||prospect.assignedSiteUrl||""):"";
  const assignedId=trimmed(prospect?.assignedPreviewId||prospect?.sitePreviewId);
  const assignedDemo=demos.find(d=>d.id===assignedId);
@@ -215,6 +224,15 @@ export default function FounderTextDesk({user,initialProspectId="",onOpenSiteMak
       {prospect&&!matching.some(p=>p.id===prospectId)&&<option value={prospect.id}>{prospect.businessName} · {prospect.phone}</option>}
      </select>
     </label>
+    <div className="mt-3 rounded-xl border border-[#c7e2ec] bg-[#eefaff] p-3">
+      <strong className="text-xs text-[#285671]">Preview outreach queue · {readyQueue.length} ready to prepare</strong>
+      <p className="mt-1 text-[11px] leading-5 text-[#6f8ea2]">Ready means an assigned website link, a phone number and recorded SMS permission. Selecting a prospect automatically loads its own link and personalized message. Nothing is sent in bulk.</p>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+       <button type="button" className={btn} disabled={!readyQueue.length} onClick={previousQueued}>← Previous ready</button>
+       <span className="text-xs">{queueIndex>=0?queueIndex+1:0} / {readyQueue.length}</span>
+       <button type="button" className={btn} disabled={!readyQueue.length} onClick={nextQueued}>Next ready →</button>
+      </div>
+    </div>
     {prospect?<div className="mt-4 rounded-xl bg-[#f1f9fc] p-4">
      <p className="text-base font-black">{prospect.businessName}</p>
      <p className="mt-1 text-xs text-[#65889c]">{prospect.industry||"Business"} · {prospect.ownerName||"Contact unknown"}</p>

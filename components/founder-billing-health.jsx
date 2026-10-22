@@ -23,6 +23,13 @@ export default function FounderBillingHealth(){
    <p className="mt-2 break-all text-xs text-[#66889a]">FUGTH merchant: <strong>{data.merchant?.name||"Not identified"}</strong> · {data.merchant?.id||"No account returned"}</p>
    <div className="mt-3 grid gap-2 sm:grid-cols-3">{(data.plans||[]).map(p=><div key={p.plan} className="rounded-lg bg-white p-3 text-xs"><strong>{p.plan.toUpperCase()}</strong><span className={p.ready?"ml-2 text-green-700":"ml-2 text-amber-800"}>{p.ready?"✓":"Needs setup"}</span><p className="mt-1 text-[11px] leading-5 text-[#819aaa]">{p.reason}</p></div>)}</div>
    <div className="mt-3 flex flex-wrap gap-2 text-[11px]">{Object.entries(data.environment||{}).filter(([key])=>key!=="hostedCheckout").map(([key,value])=><span key={key} className={"rounded-full px-3 py-2 "+(value?"bg-[#d8edf6] text-[#2d7192]":"bg-[#f8e9d4] text-[#805c33]")}>{value?"✓":"×"} {key.replace(/([A-Z])/g," $1")}</span>)}</div>
+   {data.firebase&&<div className="mt-4 rounded-xl border border-amber-200 bg-white p-4 text-xs leading-6">
+     <strong>Firebase activation diagnostics: {data.firebase.code}</strong>
+     <p className="mt-1">{data.firebase.message}</p>
+     {!data.checks?.firestore&&<p className="mt-2">Existing Stripe products are connected independently, but checkout must not collect customer payments until verified webhook activation can write to Firestore.</p>}
+     {data.firebase.hint&&<p className="mt-2 text-[#648197]">{data.firebase.hint}</p>}
+    </div>}
+   {(data.warnings||[]).map((warning,i)=><p className="mt-2 text-xs text-amber-800" key={i}>• {warning}</p>)}
    <p className="mt-3 text-xs leading-6 text-[#657866]">{data.message}</p>
   </div>}
   {error&&<p role="alert" className="mt-4 rounded-xl bg-[#fff5eb] p-4 text-xs text-[#855c39]">{error}</p>}

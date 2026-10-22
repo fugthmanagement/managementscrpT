@@ -3,7 +3,7 @@ import {useEffect,useState} from "react";
 import {auth} from "../lib/firebase";
 import {BILLING_PLANS,dollars} from "../lib/billing-catalog";
 const field="w-full rounded-xl border border-[#e2d5c2] bg-white px-3 py-3 text-sm text-[#514333]";
-const plans=Object.values(BILLING_PLANS);
+const plans=Object.values(BILLING_PLANS).filter(p=>p.key!=="textback"); // Fixed live $49.99 price cannot be custom-quoted.
 export default function FounderOfferEditor({account}){
  const [planKey,setPlanKey]=useState("starter"),[price,setPrice]=useState("149"),[setup,setSetup]=useState("1000"),
   [requestedBillingAt,setRequestedBillingAt]=useState(""),[existing,setExisting]=useState(null),[busy,setBusy]=useState(false),[notice,setNotice]=useState(""),[url,setUrl]=useState("");

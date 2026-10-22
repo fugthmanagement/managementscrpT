@@ -2,25 +2,29 @@ import Stripe from "stripe";
 import {NextResponse} from "next/server";
 import {authenticatedUser,firebaseAdmin} from "../../../../lib/server/auth";
 import {BILLING_PLANS,BILLING_ADDONS,addonAmount,validAddons} from "../../../../lib/billing-catalog";
+import {resolveFirebaseAdminCredentials} from "../../../../lib/server/firebase-admin-credentials";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
 const siteUrl="https://www.fugthmanagement.space";
 const EXPECTED_FUGTH_MERCHANT="acct_1QYiGDHGcNIhcRMj";
+// Verified existing live Stripe price for the standalone $49.99 monthly product.
+const TEXTBACK_PRICE_ID="price_1UTPooHGcNIhcRMjPDGqXQXf";
 const reply=(data,status=200)=>NextResponse.json(data,{status,headers:{"Cache-Control":"private, no-store"}});
 const money=n=>Number.isInteger(n)&&n>=0&&n<=100000000;
 export async function POST(req){
  const user=await authenticatedUser(req);
  if(!user?.uid||!user.email)return reply({error:"Please sign in to select a FUGTH offer."},401);
  if(!process.env.STRIPE_SECRET_KEY||!process.env.STRIPE_WEBHOOK_SECRET)return reply({error:"Checkout is not ready: the Stripe merchant key or signed payment-confirmation webhook is missing. No charge started. Contact FUGTH support."},503);
- if(!process.env.FIREBASE_SERVICE_ACCOUNT&&!(process.env.FIREBASE_CLIENT_EMAIL&&process.env.FIREBASE_PRIVATE_KEY))
-  return reply({error:"Checkout is not ready: secure Firebase activation credentials are missing. No charge started. Contact FUGTH support."},503);
+ const firebaseCheck=resolveFirebaseAdminCredentials(process.env);
+ if(!firebaseCheck.ok)return reply({error:"Secure Firebase account activation is not available; no payment started.",
+  code:firebaseCheck.report.code,hint:firebaseCheck.report.hint},503);
  let body;try{const txt=await req.text();if(txt.length>2500)throw Error();body=JSON.parse(txt);}catch{return reply({error:"Invalid plan selection."},400);}
  const planKey=String(body?.planKey||""),plan=BILLING_PLANS[planKey];
  if(!plan)return reply({error:"Choose a valid package."},400);
  const cycle=body?.billingCycle==="yearly"?"yearly":"monthly",multiplier=cycle==="yearly"?12:1,interval=cycle==="yearly"?"year":"month";
  const addons=validAddons(planKey,body?.addons||[]);
  if(!addons)return reply({error:"Invalid add-on selection."},400);
- if(plan.kind==="one_time"&&cycle==="yearly")return reply({error:"Website purchases are one-time payments."},400);
+ if((plan.kind==="one_time"||planKey==="textback")&&cycle==="yearly")return reply({error:"Website purchases are one-time payments."},400);
  try{
   const stripe=new Stripe(process.env.STRIPE_SECRET_KEY,{apiVersion:"2024-06-20"});
   // Never collect funds in an unrelated Stripe workspace after a credential migration.
@@ -36,6 +40,7 @@ export async function POST(req){
    return reply({error:"This account already has a paid website purchase. Contact FUGTH support before placing a second order."},409);
   let monthlyCents=plan.monthly,setupCents=plan.setup,offerId="",billingAnchor=null;
   if(body.useFounderOffer===true){
+   if(planKey==="textback")return reply({error:"The standalone text-back subscription has a fixed $49.99 monthly price."},400);
    const doc=await db.doc("founderOffers/"+user.uid).get();
    const offer=doc.data()||{};
    if(!doc.exists||offer.planKey!==planKey||offer.status!=="pending"||Date.parse(offer.expiresAt||"")<=Date.now()||
@@ -50,7 +55,9 @@ export async function POST(req){
    }
   }
   const recurringCents=(monthlyCents+addons.reduce((a,k)=>a+addonAmount(planKey,k),0))*multiplier;
-  const line_items=[{
+  const line_items=planKey==="textback"?[{
+   price:TEXTBACK_PRICE_ID,quantity:1
+  }]:[{
    price_data:{currency:"usd",unit_amount:monthlyCents*multiplier,
     ...(plan.kind==="one_time"?{}:{recurring:{interval,interval_count:1}}),
     product_data:{name:"FUGTH "+plan.name,metadata:{brand:"fugth_management",planKey,kind:plan.kind}}},

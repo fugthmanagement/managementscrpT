@@ -1,7 +1,9 @@
 "use client";
 import { useEffect, useState } from "react";
 import { auth, db } from "../lib/firebase";
-import {collection,limit,onSnapshot,orderBy,query} from "firebase/firestore";
+import {collection,doc,getDoc,updateDoc,serverTimestamp,limit,onSnapshot,orderBy,query} from "firebase/firestore";
+import {demoTemplate} from "../lib/demo-template";
+import {createPortablePreviewUrl,readPortablePreview,isPortablePreviewUrl} from "../lib/portable-prospect-preview";
 import FounderDemoAgentSettings from "./founder-demo-agent-settings";
 const kinds = [
   ["electrician", "⚡ Electrician"],
@@ -138,7 +140,26 @@ export default function FounderProspectDemos({user,onOpenSiteMaker}) {
        (verification.ok?" · Link verified from the public preview API.":" · PREVIEW NOT VERIFIED: "+verification.detail));
       await refresh();
     } catch (e) {
-      setError(e.message);
+      if(!form.prospectId){setError(e.message+" · Select a saved prospect to use a direct Firestore preview fallback.");}
+      else try{
+       const ref=doc(db,"users",user.uid,"campaigns",form.prospectId);
+       const snap=await getDoc(ref),p=snap.data();
+       if(!snap.exists||p?.type!=="cold_call_prospect")throw Error("Selected prospect was not found in your signed-in Firestore list.");
+       const site=demoTemplate(form.kind,p.businessName,{
+        phone:form.phone||p.phone,contactEmail:form.email||p.email
+       });
+       if(!site)throw Error("No design template for this industry.");
+       const url=await createPortablePreviewUrl(site);
+       const readback=await readPortablePreview(new URL(url).hash);
+       if(readback.name!==p.businessName)throw Error("Portable link verification failed.");
+       await updateDoc(ref,{websitePreviewUrl:url,assignedPreviewId:"",
+        assignedPreviewName:p.businessName,assignedPreviewExpiresAt:"",
+        portableSiteDraft:site,portableUpdatedAt:new Date().toISOString(),
+        updatedAt:serverTimestamp()});
+       setLastPreview({id:"",url,verified:true,portable:true});
+       setMessage("✓ Independent sample saved directly to this prospect by your founder Firestore login. SMS Outreach receives the new URL automatically. This portable snapshot cannot be remotely revoked or updated; save a new version and share its new link after editing.");
+       setError("");
+      }catch(fallback){setError("Server demo unavailable: "+e.message+" · Direct Firebase fallback also failed: "+fallback.message);}
     } finally {
       setBusy(false);
     }
@@ -163,9 +184,7 @@ export default function FounderProspectDemos({user,onOpenSiteMaker}) {
         </p>
         <h3 className="mt-2 text-3xl font-bold">Saved website previews</h3>
         <p className="mt-3 text-sm leading-7 text-[#65756b]">
-          All three demo types are generated from your existing Site Studio
-          engine. Each link is a saved Firebase snapshot, with an independent
-          expiration and optional customer-account assignment.
+          All three demo types use your existing Site Studio. A server-backed preview keeps its link; when Firebase Admin is unavailable, a selected prospect can receive a shareable snapshot saved directly from your signed-in Firestore account. Portable snapshots cannot be revoked or updated after sharing.
         </p>
         <section className="mt-6 rounded-2xl border border-[#b4d2e1] bg-[#f0f9ff] p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -272,12 +291,12 @@ export default function FounderProspectDemos({user,onOpenSiteMaker}) {
          <button type="button" className="mt-3 rounded-lg border border-amber-400 bg-white px-4 py-2 text-xs font-bold" onClick={refresh}>Retry saved preview list</button>
         </div>}
         {lastPreview&&<div className={"mt-4 rounded-xl border p-4 text-sm "+(lastPreview.verified?"border-emerald-200 bg-emerald-50":"border-amber-300 bg-amber-50")}>
-          <strong>{lastPreview.verified?"✓ Public preview is reachable":"Saved, but public preview requires attention"}</strong>
+          <strong>{lastPreview.verified?(lastPreview.portable?"✓ Public snapshot decoded and prospect link saved":"✓ Public preview is reachable"):"Saved, but public preview requires attention"}</strong>
           <p className="mt-2 break-all font-mono text-xs">{lastPreview.url}</p>
           <div className="mt-3 flex flex-wrap gap-2">
            <a href={lastPreview.url} target="_blank" rel="noopener noreferrer" className="rounded-lg border bg-white px-4 py-2 text-xs font-bold">Open website ↗</a>
            <button type="button" onClick={()=>navigator.clipboard?.writeText(lastPreview.url)} className="rounded-lg border bg-white px-4 py-2 text-xs font-bold">Copy link</button>
-           <button type="button" onClick={async()=>{const r=await checkPublicPreview(lastPreview.id);setLastPreview(x=>({...x,verified:r.ok}));setMessage(r.detail)}} className="rounded-lg border bg-white px-4 py-2 text-xs font-bold">Recheck preview</button>
+           <button type="button" onClick={async()=>{const r=lastPreview.portable?{ok:isPortablePreviewUrl(lastPreview.url),detail:"Portable shareable link format verified."}:await checkPublicPreview(lastPreview.id);setLastPreview(x=>({...x,verified:r.ok}));setMessage(r.detail)}} className="rounded-lg border bg-white px-4 py-2 text-xs font-bold">Recheck preview</button>
           </div>
         </div>}
         {error && (
