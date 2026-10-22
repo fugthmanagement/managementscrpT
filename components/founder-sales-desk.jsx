@@ -1,5 +1,5 @@
 "use client";
-import {useState} from "react";
+import {useEffect,useState} from "react";
 import FounderColdCall from "./founder-cold-call";
 import FounderProspectImport from "./founder-prospect-import";
 import FounderPierreGuide from "./founder-pierre-guide";
@@ -12,6 +12,13 @@ import FounderOutreachMessenger from "./founder-outreach-messenger";
 export default function FounderSalesDesk({user,onOpenMarketing,onOpenSiteMaker,initialTab="guide"}){
  const [tab,setTab]=useState(initialTab);
  const [textProspectId,setTextProspectId]=useState("");
+ useEffect(()=>{
+   const params=new URLSearchParams(window.location.search);
+   const prospect=params.get("prospect")||"";
+   if(/^[A-Za-z0-9_-]{8,128}$/.test(prospect)&&params.get("tab")==="sms"){
+     setTextProspectId(prospect);setTab("sms");
+   }
+ },[]);
  function openText(prospect){setTextProspectId(String(prospect?.id||""));setTab("sms");}
  function openSite(prospect){onOpenSiteMaker?.({...prospect,originTab:tab})}
  const tabs=[["guide","Pierre’s Call Map"],["training","Call Training"],["leads","Prospects & Calls"],["sms","SMS Outreach"],["messenger","Outreach Messenger"],["email","Email Outreach"],["outreach","CSV & Phone Tools"],["demos","Website Demo Builder"]];
@@ -22,6 +29,6 @@ export default function FounderSalesDesk({user,onOpenMarketing,onOpenSiteMaker,i
    <p className="mt-2 text-xs leading-6 text-[#b2cedd]">Practice realistic conversations by voice, follow Pierre’s branching map, and work through prospecting, personalized website demos and outreach. Each prospect keeps their own notes and progress.</p>
    <div role="tablist" aria-label="Sales operations" className="mt-5 flex flex-wrap gap-2">{tabs.map(([id,label])=><button key={id} type="button" role="tab" aria-selected={tab===id} onClick={()=>setTab(id)} className={"rounded-full px-4 py-3 text-xs font-bold "+(tab===id?"bg-[#b9e5fb] text-[#153b50]":"border border-white/20 bg-white/10 text-[#d8e9f4] hover:bg-white/20")}>{label}</button>)}</div>
   </div>
-  <div role="tabpanel">{tab==="guide"?<FounderPierreGuide user={user} onText={openText}/>:tab==="training"?<FounderCallTraining/>:tab==="sms"?<FounderTextDesk user={user} initialProspectId={textProspectId} onOpenSiteMaker={openSite}/>:tab==="messenger"?<FounderOutreachMessenger user={user}/>:tab==="email"?<FounderEmailOutreach user={user} onOpenMarketing={onOpenMarketing} onOpenSiteMaker={openSite}/>:tab==="outreach"?<FounderOutreachDesk user={user}/>:tab==="demos"?<FounderProspectDemos user={user} onOpenSiteMaker={openSite}/>:<div className="space-y-6"><FounderProspectImport user={user} onText={openText} onOpenSiteMaker={openSite}/><FounderColdCall user={user} onOpenSiteMaker={openSite}/></div>}</div>
+  <div role="tabpanel">{tab==="guide"?<FounderPierreGuide user={user} onText={openText}/>:tab==="training"?<FounderCallTraining/>:tab==="sms"?<FounderTextDesk user={user} initialProspectId={textProspectId} onOpenSiteMaker={openSite}/>:tab==="messenger"?<FounderOutreachMessenger user={user} founderOnly/>:tab==="email"?<FounderEmailOutreach user={user} onOpenMarketing={onOpenMarketing} onOpenSiteMaker={openSite}/>:tab==="outreach"?<FounderOutreachDesk user={user}/>:tab==="demos"?<FounderProspectDemos user={user} onOpenSiteMaker={openSite}/>:<div className="space-y-6"><FounderProspectImport user={user} onText={openText} onOpenSiteMaker={openSite}/><FounderColdCall user={user} onOpenSiteMaker={openSite}/></div>}</div>
  </section>;
 }
