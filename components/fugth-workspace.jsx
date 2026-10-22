@@ -56,6 +56,7 @@ const MENU = [
   { id: "calls", label: "Calls", icon: "phone" },
   { id: "customers", label: "Customers", icon: "users" },
   { id: "marketing", label: "Marketing", icon: "link" },
+  { id: "messenger", label: "Text-Back", icon: "phone" },
   { id: "website", label: "Website", icon: "layout" },
   { id: "settings", label: "Settings", icon: "settings" },
 ];
@@ -935,6 +936,19 @@ export default function FugthWorkspace() {
                 />
               </div>
             )}
+            {page === "messenger" && (
+              <div>
+                <SectionHeading eyebrow="FUGTH / OUTREACH MESSENGER"
+                  title="Missed-call text-back."
+                  description="Choose a response for callers you miss. Text delivery requires a connected and registered SMS provider; no unsupported sending is enabled."/>
+                {(founder&&previewPlan===null)||effectivePlanKey==="textback"||hasPlan(effectivePlanKey,"starter")?
+                  <FounderOutreachMessenger user={user} workspace={workspace} founderOnly={founder&&previewPlan===null}/>:
+                  <div className="rounded-2xl border border-[#d7e4ed] bg-white p-6 text-sm">
+                    Missed-call text-back requires a paid text-back or higher business plan.
+                    <Link className="ml-2 font-bold underline" href="/plans?plan=textback">View $49.99 option ↗</Link>
+                  </div>}
+              </div>
+            )}
             {page === "website" && (
               <div>
                 {founder&&prospectSiteMakerId?
@@ -1162,7 +1176,7 @@ export default function FugthWorkspace() {
                   <FounderAccountDirectory />
                   <FounderRevenuePlanner />
                   <FounderVercelUsage />
-                  <FounderOutreachMessenger user={user} workspace={workspace}/>
+                  <FounderOutreachMessenger user={user} workspace={workspace} founderOnly/>
                   <FounderVoiceHealth />
                   <FounderVapiSettings />
                   <FounderDemoControls />
