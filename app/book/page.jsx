@@ -5,6 +5,23 @@ const input="mt-2 w-full rounded-xl border border-[#cedfea] bg-white px-4 py-3 t
 const publicSiteId=()=>typeof window!=="undefined"?new URLSearchParams(window.location.search).get("site")||"":"";
 const displayTime=t=>new Date(t).toLocaleString("en-US",{timeZone:"America/New_York",weekday:"long",
  month:"long",day:"numeric",year:"numeric",hour:"numeric",minute:"2-digit"})+" ET";
+const utcCalendarTime=value=>new Date(value).toISOString().replace(/[-:]/g,"").replace(/\.\d{3}Z$/,"Z");
+const googleCalendarHref=booking=>{
+ if(!booking?.startTime||!booking?.endTime)return "";
+ const dates=utcCalendarTime(booking.startTime)+"/"+utcCalendarTime(booking.endTime);
+ return "https://calendar.google.com/calendar/render?action=TEMPLATE&"+
+  new URLSearchParams({text:"FUGTH consultation",dates,
+   details:"Confirmed FUGTH appointment. Reference: "+booking.id}).toString();
+};
+const icsCalendarHref=booking=>{
+ if(!booking?.startTime||!booking?.endTime)return "";
+ const content=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//FUGTH Management//Booking//EN",
+ "BEGIN:VEVENT","UID:"+booking.id+"@fugthmanagement.space",
+ "DTSTAMP:"+utcCalendarTime(new Date()),"DTSTART:"+utcCalendarTime(booking.startTime),
+ "DTEND:"+utcCalendarTime(booking.endTime),"SUMMARY:FUGTH consultation",
+ "DESCRIPTION:Confirmed in FUGTH. Reference "+booking.id,"END:VEVENT","END:VCALENDAR",""].join("\r\n");
+ return "data:text/calendar;charset=utf-8,"+encodeURIComponent(content);
+};
 const dateEastern=(value=new Date())=>{
  const parts=Object.fromEntries(new Intl.DateTimeFormat("en-US",{
   timeZone:"America/New_York",year:"numeric",month:"2-digit",day:"2-digit"
@@ -103,7 +120,12 @@ export default function BookFounder(){
     throw Error((result.error||"Could not reserve that time.")+
      (r.status>=500?" The backend is unavailable, so use the appointment-request email below instead. Nothing has been reserved.":""));
    }
-   setConfirmed({id:result.bookingId,startTime:result.startTime});
+   if(result.booked!==true||result.status!=="confirmed"||
+      !/^[a-f0-9]{28}$/.test(String(result.bookingId||""))||
+      !Number.isFinite(Date.parse(result.startTime))||
+      !Number.isFinite(Date.parse(result.endTime)))
+     throw Error("The server did not confirm a saved appointment. Please retry or contact FUGTH.");
+   setConfirmed({id:result.bookingId,startTime:result.startTime,endTime:result.endTime});
    setMessage(result.message||"Your FUGTH appointment is confirmed.");
   }catch(e){setMessage(e.message||"Couldn't book this appointment.")}
   finally{setSending(false)}
@@ -121,7 +143,13 @@ export default function BookFounder(){
     <p className="rounded-xl bg-[#ecf8f3] p-4 text-sm leading-7 text-[#245c49]">{message}</p>
     <strong className="block text-lg">{displayTime(confirmed.startTime)}</strong>
     <p className="break-all text-xs text-[#7195a5]">Reference: {confirmed.id}</p>
-    <p className="text-sm leading-6">Save this date and time. The appointment is confirmed in FUGTH; an email invitation or Google Calendar event is <strong>not</strong> created automatically.</p>
+    <p className="text-sm leading-6">This time is reserved in FUGTH. Add it to your calendar using one of the options below. An invitation email is <strong>not sent automatically</strong> yet.</p>
+    <div className="flex flex-wrap gap-3">
+     <a className="inline-block rounded-xl border border-[#bcded0] bg-[#e7f6ec] px-5 py-3 text-xs font-black text-[#185a43]"
+      href={googleCalendarHref(confirmed)} target="_blank" rel="noopener noreferrer">Add to Google Calendar ↗</a>
+     <a className="inline-block rounded-xl border border-[#cde3ef] bg-[#eef8ff] px-5 py-3 text-xs font-black text-[#245b77]"
+      href={icsCalendarHref(confirmed)} download={"FUGTH-"+confirmed.id+".ics"}>Download calendar invitation (.ics) ↓</a>
+    </div>
     <Link href="/" className="inline-block rounded-xl bg-[#174a66] px-5 py-3 text-xs font-black text-white">Back to FUGTH ↗</Link>
    </div>:<form onSubmit={submit} className="grid gap-5 p-6 sm:grid-cols-2 sm:p-10">
     <label className="text-xs font-bold">Your name<input required className={input} maxLength={90} value={form.name} onChange={e=>change("name",e.target.value)} placeholder="First and last name"/></label>
@@ -131,13 +159,13 @@ export default function BookFounder(){
     <label className="text-xs font-bold sm:col-span-2">Choose your date · Eastern Time
      <input required type="date" className={input} min={min} max={max} value={form.date} onChange={e=>{setForm(x=>({...x,date:e.target.value,startTime:""}));setMessage("");}}/>
     </label>
-    {form.date&&<fieldset className="sm:col-span-2">
+    {form.date&&<fieldset className="sm:col-span-2" aria-labelledby="fugth-time-heading">
      <div className="flex flex-wrap items-center justify-between gap-2">
-      <legend className="text-xs font-black">Choose a preferred time · America/New_York</legend>
+      <p className="text-xs font-black" id="fugth-time-heading">Choose a preferred time · America/New_York</p>
       <div className="flex flex-wrap gap-3">
        <button type="button" onClick={refresh} disabled={loading} className="text-xs font-bold text-[#2b799b] underline">{loading?"Checking…":"Refresh times"}</button>
        <button type="button" className="text-xs font-bold text-[#2b799b] underline"
-        onClick={()=>{setForm(x=>({...x,date:nextDay(x.date),startTime:""}));setMessage("")}}>Next day →</button>
+        disabled={form.date>=dateEastern(new Date(Date.now()+45*86400000))} onClick={()=>{setForm(x=>({...x,date:nextDay(x.date),startTime:""}));setMessage("")}}>Next day →</button>
       </div>
      </div>
      {groups.map(g=>{
@@ -181,7 +209,7 @@ export default function BookFounder(){
      <input type="checkbox" className="mt-1" required checked={form.consent} onChange={e=>change("consent",e.target.checked)}/>
      I authorize FUGTH to contact me about my appointment. This does not subscribe me to marketing emails or texts.
     </label>
-    <p className="text-[11px] leading-5 text-[#718d9e] sm:col-span-2">30-minute appointments · Monday–Friday, 9 AM–5 PM Eastern · At least 24 hours' notice. If someone else books your selected time first, you'll be asked to choose another.</p>
+    <p className="text-[11px] leading-5 text-[#718d9e] sm:col-span-2">30-minute appointments · Seven days a week, including evenings · At least 30 minutes' notice. If someone else books your selected time first, you'll be asked to choose another.</p>
     <button disabled={sending||loading||!form.startTime||!form.consent} className="rounded-xl bg-[#174a66] px-6 py-4 text-sm font-black text-white disabled:opacity-40 sm:col-span-2">
      {sending?"Checking & saving…":verifiedCalendar?"Confirm appointment in FUGTH":"Request this time · verify Firestore"}
     </button>
