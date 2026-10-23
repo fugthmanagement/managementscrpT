@@ -38,6 +38,7 @@ import FounderSalesDesk from "./founder-sales-desk";
 import FounderRevenuePlanner from "./founder-revenue-planner";
 import FounderBillingHealth from "./founder-billing-health";
 import FounderStripeFeatures from "./founder-stripe-features";
+import FounderReleaseMonitor from "./founder-release-monitor";
 import FounderVoiceHealth from "./founder-voice-health";
 import FounderBookingCalendar from "./founder-booking-calendar";
 import FounderSiteClaims from "./founder-site-claims";
@@ -1167,6 +1168,7 @@ export default function FugthWorkspace() {
                   <FounderRevenuePlanner />
                   <FounderVoiceHealth />
                   <FounderDemoControls />
+                  <FounderReleaseMonitor />
                   <FounderBillingHealth />
                   <FounderStripeFeatures />
                   <div className="rounded-xl border border-[#d2e4ee] bg-[#f1faff] p-4 text-sm text-[#6d5b45]">
