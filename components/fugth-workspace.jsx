@@ -200,6 +200,7 @@ export default function FugthWorkspace() {
     [ready, setReady] = useState(false);
   const [prospectSiteMakerId,setProspectSiteMakerId]=useState("");
   const [lastSalesTab,setLastSalesTab]=useState("guide");
+  const [handoffProspectId,setHandoffProspectId]=useState("");
   const [page, setPage] = useState("home"),
     [menuOpen, setMenuOpen] = useState(false);
   const [founder, setFounder] = useState(false),
@@ -395,6 +396,10 @@ export default function FugthWorkspace() {
     // Every top-level tab starts at the top, including on mobile.
     if(typeof window!=="undefined"&&window.scrollY>160)window.scrollTo({top:0,behavior:"instant"});
   };
+  function sendProspectToSms(id){
+    if(!id)return;
+    setHandoffProspectId(id);setLastSalesTab("sms");setProspectSiteMakerId("");changePage("sales");
+  }
   function openProspectSiteMaker(prospect){
     if(!prospect?.id)return;
     if(["guide","training","leads","sms","email","outreach","demos"].includes(prospect.originTab))setLastSalesTab(prospect.originTab);
@@ -936,7 +941,8 @@ export default function FugthWorkspace() {
               <div>
                 {founder&&prospectSiteMakerId?
                  <FounderProspectSiteMaker user={user} prospectId={prospectSiteMakerId}
-                  onBack={()=>{setProspectSiteMakerId("");changePage("sales")}}/>:
+                  onBack={()=>{setProspectSiteMakerId("");changePage("sales")}}
+                  onSendSms={sendProspectToSms}/>:
                  <>
                   <SectionHeading eyebrow="FUGTH WEBSITE MAKER"
                    title="Build and manage your professional business website."
@@ -1122,7 +1128,7 @@ export default function FugthWorkspace() {
             )}
             {page === "sales" && founder && (
               <div>
-                <FounderSalesDesk user={user} onOpenMarketing={()=>changePage("marketing")} onOpenSiteMaker={openProspectSiteMaker} initialTab={lastSalesTab}/>
+                <FounderSalesDesk user={user} onOpenMarketing={()=>changePage("marketing")} onOpenSiteMaker={openProspectSiteMaker} initialTab={lastSalesTab} initialProspectId={handoffProspectId}/>
               </div>
             )}
             {page === "sales" && !founder && (
