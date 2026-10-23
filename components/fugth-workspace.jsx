@@ -201,6 +201,7 @@ export default function FugthWorkspace() {
   const [user, setUser] = useState(null),
     [ready, setReady] = useState(false);
   const [prospectSiteMakerId,setProspectSiteMakerId]=useState("");
+  const [prospectSiteMakerDetails,setProspectSiteMakerDetails]=useState(null);
   const [lastSalesTab,setLastSalesTab]=useState("guide");
   const [handoffProspectId,setHandoffProspectId]=useState("");
   const [page, setPage] = useState("home"),
@@ -405,6 +406,7 @@ export default function FugthWorkspace() {
   function openProspectSiteMaker(prospect){
     if(!prospect?.id)return;
     if(["guide","training","leads","sms","email","outreach","demos"].includes(prospect.originTab))setLastSalesTab(prospect.originTab);
+    setProspectSiteMakerDetails(prospect);
     changePage("website");
     setProspectSiteMakerId(prospect.id);
   }
@@ -942,7 +944,7 @@ export default function FugthWorkspace() {
             {page === "website" && (
               <div>
                 {founder&&prospectSiteMakerId?
-                 <FounderProspectSiteMaker user={user} prospectId={prospectSiteMakerId}
+                 <FounderProspectSiteMaker user={user} prospectId={prospectSiteMakerId} prospectDetails={prospectSiteMakerDetails}
                   onBack={()=>{setProspectSiteMakerId("");changePage("sales")}}
                   onSendSms={sendProspectToSms}/>:
                  <>
