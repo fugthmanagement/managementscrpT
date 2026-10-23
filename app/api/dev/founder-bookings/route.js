@@ -2,6 +2,7 @@ import {NextResponse} from "next/server";
 import {randomBytes} from "node:crypto";
 import {authenticatedUser,isFounder,firebaseAdmin} from "../../../../lib/server/auth";
 import {founderSlotDetails,FOUNDER_TIMEZONE} from "../../../../lib/server/founder-calendar";
+import {verifiedFounderBookingOwner} from "../../../../lib/server/founder-booking-owner";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
 const out=(v,s=200)=>NextResponse.json(v,{status:s,headers:{"Cache-Control":"private, no-store"}});
@@ -9,9 +10,7 @@ const dateIso=()=>new Date().toISOString();
 async function checkOwner(req){
  const user=await authenticatedUser(req);
  if(!user?.uid||!isFounder(user))return null;
- const email=String(process.env.FUGTH_BOOKING_OWNER_EMAIL||process.env.FUGTH_CALENDAR_OWNER_EMAIL||"fugthmanagement@gmail.com").trim().toLowerCase();
- if(!["fugthmanagement@gmail.com","fugthchat@gmail.com","mepenginestudio@gmail.com","novaeriahengine@gmail.com"].includes(email))return null;
- const owner=await firebaseAdmin().auth().getUserByEmail(email);
+ const owner=await verifiedFounderBookingOwner(firebaseAdmin().auth(),process.env);
  return owner.uid===user.uid?user:null;
 }
 export async function GET(req){
