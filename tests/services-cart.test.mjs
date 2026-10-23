@@ -1,3 +1,4 @@
+import {readFileSync} from "node:fs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import {makeServiceCart,ServiceCartError} from "../lib/billing-cart.js";
@@ -66,4 +67,10 @@ test("unpaid or nonexistent addon lines never grant feature access",()=>{
  assert.deepEqual(verifiedStripeCartSubscription(sub,()=>null)?.addons,["email"]);
  sub.items.data.pop();
  assert.equal(verifiedStripeCartSubscription(sub,()=>null),null);
+});
+
+test("checkout route uses the server-priced cart multiplier for Stripe metadata",()=>{
+ const source=readFileSync(new URL("../app/api/stripe/checkout/route.js",import.meta.url),"utf8");
+ assert.match(source,/baseAmountCents:String\(purchaseCart\.baseCents\*purchaseCart\.multiplier\)/);
+ assert.doesNotMatch(source,/monthlyCents\*multiplier/);
 });
