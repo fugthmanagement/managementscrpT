@@ -20,6 +20,15 @@ function planForSubscription(subscription){
  // New checkout sessions create their prices dynamically. Validate their
  // trusted Stripe-created subscription metadata against the actual base line.
  const meta=subscription.metadata||{},plan=BILLING_PLANS[meta.planKey];
+ if(meta.planKey==="textback"&&meta.planTier==="textback"&&meta.kind==="subscription"&&
+    meta.billingCycle!=="yearly"){
+  const priceId=process.env.STRIPE_MISSED_CALL_TEXTBACK_PRICE_ID||"price_1UTPooHGcNIhcRMjPDGqXQXf";
+  if((subscription.items?.data||[]).some(line=>line.price?.id===priceId&&
+    line.price?.active!==false&&line.price?.currency==="usd"&&
+    line.price?.unit_amount===4999&&line.price?.recurring?.interval==="month"))
+   return {tier:"textback",cycle:"monthly",offer:"textback"};
+ }
+
  const amount=Number(meta.baseAmountCents);
  const cycle=meta.billingCycle==="yearly"?"yearly":"monthly";
  if(plan&&plan.kind!=="one_time"&&meta.kind==="subscription"&&
@@ -109,7 +118,7 @@ export async function POST(req) {
       planTier:matched.tier,
       billingOfferKey:matched.offer||subscription.metadata?.planKey||null,
       billingCycle:matched.cycle,
-      billingAddons:String(subscription.metadata?.addons||"").split(",").filter(x=>["website","booking","email","analytics","automation","priority","integration","voice","location","staff","sms"].includes(x)),
+      billingAddons:String(subscription.metadata?.addons||"").split(",").filter(x=>["website","booking","email","analytics","automation","priority","integration","voice","location","staff","sms","textback"].includes(x)),
       planStatus:status,
       billingActive:isActive,
       billingCurrentPeriodStart:start,
