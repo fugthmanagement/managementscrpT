@@ -31,6 +31,12 @@ export async function POST(req){
   }
   const db=firebaseAdmin().firestore(),userDoc=await db.doc("users/"+user.uid).get();
   if(!userDoc.exists)return reply({error:"We couldn't find your FUGTH account profile. Sign out and back in, then finish the account setup before checkout."},409);
+  const controlsSnap=await db.doc("adminSettings/stripeFeatures").get();
+  const controls=controlsSnap.data()||{};
+  if(controls.subscriptionsEnabled===false&&plan.kind!=="one_time")
+   return reply({error:"New FUGTH subscription checkouts are temporarily paused. No charge started."},503);
+  if(planKey==="textback"&&controls.textbackCheckoutEnabled===false)
+   return reply({error:"Text-Back checkout is temporarily paused. No charge started."},503);
   if(userDoc.data()?.billingActive&&plan.kind!=="one_time")
    return reply({error:"A subscription is already active. Contact support to change your plan safely."},409);
   if(plan.kind==="one_time"&&userDoc.data()?.websitePurchased===true)
@@ -79,7 +85,7 @@ export async function POST(req){
    customer_email:user.email,client_reference_id:user.uid,
    success_url:siteUrl+"/billing/return?session_id={CHECKOUT_SESSION_ID}",
    cancel_url:siteUrl+"/plans?plan="+encodeURIComponent(planKey)+"&cycle="+cycle,
-   allow_promotion_codes:true,metadata,
+   allow_promotion_codes:controls.promotionCodesEnabled!==false,metadata,
    ...(plan.kind==="one_time"?{payment_intent_data:{metadata}}:{subscription_data:{metadata,...(billingAnchor?{billing_cycle_anchor:billingAnchor,proration_behavior:"create_prorations"}:{})}})
   });
   if(!session.url)return reply({error:"Secure checkout could not be opened."},502);
