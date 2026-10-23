@@ -10,7 +10,6 @@ export const dynamic = "force-dynamic";
 const supported = new Set([
   "checkout.session.completed",
   "checkout.session.async_payment_succeeded",
-  "checkout.session.async_payment_succeeded",
   "customer.subscription.created",
   "customer.subscription.updated",
   "customer.subscription.deleted",
