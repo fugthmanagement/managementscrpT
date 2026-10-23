@@ -109,6 +109,7 @@ export default function Plans() {
     setSelected(key);
     if (BILLING_PLANS[key].kind === "one_time") setCycle("monthly");
     setAddons((v) => v.filter((a) => addonAmount(key, a) > 0));
+    if(key==="textback")setCycle("monthly");
     setError("");
   }
   function toggle(key) {
@@ -136,7 +137,7 @@ export default function Plans() {
         body: JSON.stringify({
           planKey: selected,
           addons: billable,
-          billingCycle: cycle,
+          billingCycle: selected==="textback"?"monthly":cycle,
           useFounderOffer: offerApplied,
         }),
       });
@@ -190,7 +191,7 @@ export default function Plans() {
           <button
             type="button"
             aria-pressed={cycle === "yearly"}
-            disabled={plan.kind === "one_time"}
+            disabled={plan.kind === "one_time" || plan.key === "textback"}
             onClick={() => setCycle("yearly")}
             className={
               "rounded-lg px-5 py-3 text-xs font-bold " +
