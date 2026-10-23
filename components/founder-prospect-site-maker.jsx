@@ -1,18 +1,25 @@
 "use client";
 import {useCallback,useEffect,useState} from "react";
-import {auth} from "../lib/firebase";
-import {SITE_THEMES,getIndustry} from "../lib/site-presets";
+import {auth,db} from "../lib/firebase";
+import {doc,getDoc,updateDoc,serverTimestamp} from "firebase/firestore";
+import {createPortablePreviewUrl,readPortablePreview,isPortablePreviewUrl} from "../lib/portable-prospect-preview";
+import {SITE_THEMES,getIndustry,siteFields,buildStarterSite} from "../lib/site-presets";
 import SiteStudioBuilder from "./site-studio-builder";
 import SiteImageLibrary from "./site-image-library";
 import FounderSiteEditChat from "./founder-site-edit-chat";
 import SiteSocialProofStudio from "./site-social-proof-studio";
 const tabs=[["design","Design editor"],["ai","AI site editor"],["media","Photo folders & labels"]];
 const button="rounded-xl border border-[#bfd8e8] bg-white px-4 py-3 text-xs font-black text-[#215874] disabled:opacity-40";
-export default function FounderProspectSiteMaker({user,prospectId,onBack}){
+export default function FounderProspectSiteMaker({user,prospectId,prospectDetails=null,onBack,onSendSms}){
  const [site,setSite]=useState(null),[prospect,setProspect]=useState(null),
   [revision,setRevision]=useState(null),[previewId,setPreviewId]=useState(""),[previewUrl,setPreviewUrl]=useState(""),
-  [busy,setBusy]=useState("open"),[notice,setNotice]=useState(""),[tab,setTab]=useState("design");
+  [busy,setBusy]=useState("open"),[notice,setNotice]=useState(""),[tab,setTab]=useState("design"),[offline,setOffline]=useState(false);
  const [previewStatus,setPreviewStatus]=useState("checking"),[previewError,setPreviewError]=useState("");
+ const [portable,setPortable]=useState(false),[portableAssigned,setPortableAssigned]=useState(false);
+ const draftKey="fugth:prospect-design:"+String(user?.uid||"founder")+":"+String(prospectId||"");
+ const localDraft=()=>{try{return JSON.parse(localStorage.getItem(draftKey)||"null")}catch{return null}};
+ const cacheDraft=value=>{try{localStorage.setItem(draftKey,JSON.stringify(siteFields(value)))}catch{}};
+
  const request=useCallback(async(body)=>{
   const token=await auth.currentUser?.getIdToken();
   if(!token)throw Error("Sign in as founder before editing this saved business.");
@@ -43,14 +50,46 @@ export default function FounderProspectSiteMaker({user,prospectId,onBack}){
   setBusy("open");setNotice("");
   try{
    const result=await request({action:"ensure"});
-   setSite({...result.site,demoId:result.id});
+   const cached=localDraft();
+   setSite({...siteFields(cached?{...result.site,...cached}:result.site),demoId:result.id});
    setProspect({id:prospectId,businessName:result.site.name,industry:result.site.industry});
-   setRevision(result.revision);setPreviewId(result.id);setPreviewUrl(result.url);
+   setRevision(result.revision);setPreviewId(result.id);setPreviewUrl(result.url);setOffline(false);
+   setPortable(false);setPortableAssigned(false);
    await verifyPreview(result.id);
-  }catch(e){setNotice(e.message)}finally{setBusy("")}
+   if(cached)setNotice("Local edits restored. Press Save design to sync them with this prospect's existing Firestore preview.");
+  }catch(e){
+   const cached=localDraft();
+   let details={...(prospectDetails||{})};
+   // Firebase browser Auth is independent from the invalid SERVER service-account email.
+   // Use the founder's own campaign document when its security rules permit it.
+   try{
+    const snap=await getDoc(doc(db,"users",user.uid,"campaigns",prospectId));
+    if(snap.exists()&&snap.data()?.type==="cold_call_prospect")details={...details,...snap.data()};
+   }catch{}
+   const starter=buildStarterSite(user.uid,details.businessName||"Selected business",details.industry||details.businessType||"general",details);
+   let draft=siteFields({...starter,...(cached||{}),name:details.businessName||cached?.name||starter.name});
+   let snapshot="";
+   if(!cached&&isPortablePreviewUrl(details.websitePreviewUrl)){
+    try{
+     const saved=await readPortablePreview(new URL(details.websitePreviewUrl).hash);
+     draft=siteFields({...saved,ownerId:user.uid,previewMode:true});
+     snapshot=details.websitePreviewUrl;
+    }catch{}
+   }
+   setSite(draft);setProspect({id:prospectId,businessName:draft.name,industry:draft.industry});
+   setRevision(null);setPreviewId("");setPreviewUrl(snapshot);setPreviewStatus(snapshot?"ready":"failed");
+   setPortable(Boolean(snapshot));setPortableAssigned(Boolean(snapshot));
+   setOffline(true);
+   setNotice(snapshot?
+    "Saved public snapshot link restored from this prospect's own Firestore campaign. This is an immutable website concept, not an editable server preview.":
+    "Firebase Admin cannot save a short server preview ("+e.message+"). You can edit a LOCAL DRAFT and optionally create a public marketing-only snapshot link without server credentials.");
+  }finally{setBusy("")}
  },[prospectId,request,verifyPreview]);
  useEffect(()=>{if(prospectId)load()},[prospectId,load]);
- const patch=v=>{setSite(current=>({...current,...v}));setNotice("Unsaved preview edits. Click Save to update this prospect's existing link.");};
+ const patch=v=>{setSite(current=>{const next={...current,...v};cacheDraft(next);return next;});
+  if(portable){setPreviewUrl("");setPortable(false);setPortableAssigned(false);setPreviewStatus("failed");}
+  setNotice(offline?"Local draft updated. Regenerate the immutable snapshot link after edits, or retry saving to Firestore. Changes are NOT published yet.":
+   "Unsaved preview edits. Click Save to update this prospect's existing link.");};
  function changeTemplate(theme){
   patch({template:theme.id,theme:theme.id,...theme.palette});
  }
@@ -58,11 +97,42 @@ export default function FounderProspectSiteMaker({user,prospectId,onBack}){
   if(!site||busy)return;
   setBusy("save");setNotice("");
   try{
-   const j=await request({action:"save",site,revision});
-   setSite({...j.site,demoId:j.id});setRevision(j.revision);
-   await verifyPreview(j.id);
-   setNotice("✓ Saved. "+j.site.name+" keeps its same preview link; you do not need to create another site.");
-  }catch(e){setNotice(e.message)}finally{setBusy("")}
+   let currentRevision=revision;
+   if(offline||!previewId){const created=await request({action:"ensure"});currentRevision=created.revision;}
+   const result=await request({action:"save",site,revision:currentRevision});
+   setSite({...result.site,demoId:result.id});setRevision(result.revision);
+   setPreviewId(result.id);setPreviewUrl(result.url);setOffline(false);
+   setPortable(false);setPortableAssigned(false);
+   try{localStorage.removeItem(draftKey)}catch{}
+   await verifyPreview(result.id);
+   setNotice("✓ Saved in Firestore. The same prospect preview link is ready after verification; open the business in SMS Outreach next.");
+  }catch(e){
+   cacheDraft(site);setOffline(true);
+   setNotice("Firestore save FAILED: "+e.message+" Changes are kept only in this browser, not shared. Do not send a preview link yet.");
+  }finally{setBusy("")}
+ }
+ async function createSnapshot(){
+  if(!site||busy)return;
+  setBusy("snapshot");setNotice("");
+  try{
+   const url=await createPortablePreviewUrl({...site,previewMode:true});
+   const decoded=await readPortablePreview(new URL(url).hash);
+   if(!decoded?.name||decoded.name!==site.name)throw Error("Snapshot validation failed.");
+   let assigned=false,assignmentIssue="";
+   try{
+    await updateDoc(doc(db,"users",user.uid,"campaigns",prospectId),{
+     websitePreviewUrl:url,assignedPreviewId:"",assignedPreviewName:site.name,
+     assignedPreviewExpiresAt:"",updatedAt:serverTimestamp()
+    });
+    assigned=true;
+   }catch(e){assignmentIssue=String(e?.code||e?.message||"browser Firestore unavailable").slice(0,160)}
+   setPreviewUrl(url);setPreviewId("");setPortable(true);setPortableAssigned(assigned);
+   setPreviewStatus("ready");setPreviewError("");setOffline(true);cacheDraft(site);
+   setNotice(assigned?
+    "✓ Public snapshot generated and assigned to this prospect in your Firestore campaigns. Open SMS Outreach for this selected prospect; the link fills automatically. Snapshots cannot be edited or revoked; regenerate after edits.":
+    "Public snapshot URL generated locally, but assigning it to this prospect FAILED ("+assignmentIssue+"). Copy the URL manually; SMS Outreach cannot auto-fill it until the browser Firestore write succeeds.");
+  }catch(e){setNotice("Could not create a shareable snapshot: "+String(e?.message||"invalid site"))}
+  finally{setBusy("")}
  }
  function choosePhoto(slot,id){
   if(!/^fugth-upload-[a-f0-9]{32}$/.test(id))return;
@@ -90,15 +160,22 @@ export default function FounderProspectSiteMaker({user,prospectId,onBack}){
    {previewUrl&&<div className="mt-5 rounded-xl border border-white/15 bg-white/10 p-4">
     <p className="text-[10px] font-bold uppercase text-[#a6dcf6]">Saved personal preview link · {site?.industry||"business"} · revision {revision}</p>
     <p className="mt-2 break-all font-mono text-xs">{previewUrl}</p>
+    {portable&&<p className="mt-2 rounded-lg bg-amber-100/15 p-3 text-xs text-amber-100">Emergency public snapshot · immutable and cannot be revoked · URL may be long and cost multiple SMS segments · never include private customer information.</p>}
     <p role="status" className={"mt-3 text-xs font-bold "+(previewStatus==="ready"?"text-emerald-200":previewStatus==="failed"?"text-amber-200":"text-[#bbd7e7]")}>
-     {previewStatus==="ready"?"✓ Saved business link verified from public preview API":
+     {previewStatus==="ready"?(portable?"✓ Public snapshot content validated locally; not a server-saved short preview.":"✓ Saved business link verified from public preview API"):
       previewStatus==="checking"?"Checking the visitor-facing website…":
       "Preview has NOT passed its public-link check: "+previewError}
     </p>
     <p className="mt-2 text-xs text-[#c5dce8]">This is a sample design that the business can review and request changes to before claiming or publishing it.</p>
     <div className="mt-3 flex flex-wrap gap-2">
      <button type="button" disabled={previewStatus!=="ready"} onClick={copyLink} className="rounded-lg bg-white px-4 py-2.5 text-xs font-black text-[#163b53] disabled:opacity-50">Copy verified link</button>
-     <button type="button" onClick={()=>verifyPreview(previewId)} className="rounded-lg border border-white/40 px-4 py-2.5 text-xs font-black">Recheck link</button>
+     <button type="button" onClick={async()=>{
+      if(portable&&isPortablePreviewUrl(previewUrl)){
+       try{await readPortablePreview(new URL(previewUrl).hash);setPreviewStatus("ready");setPreviewError("")}
+       catch(e){setPreviewStatus("failed");setPreviewError(e.message)}
+      }else await verifyPreview(previewId);
+     }} className="rounded-lg border border-white/40 px-4 py-2.5 text-xs font-black">Recheck link</button>
+     {onSendSms&&<button type="button" disabled={previewStatus!=="ready"||(portable&&!portableAssigned)} onClick={()=>onSendSms(prospectId)} className="rounded-lg border border-white/40 bg-white/20 px-4 py-2.5 text-xs font-black disabled:opacity-50">Open prospect in SMS Outreach →</button>}
      <a href={previewUrl} target="_blank" rel="noopener noreferrer" className="rounded-lg border border-white/35 px-4 py-2.5 text-xs font-black">Open client preview ↗</a>
     </div>
    </div>}
@@ -109,6 +186,12 @@ export default function FounderProspectSiteMaker({user,prospectId,onBack}){
    {!site&&<a href="/dashboard?open=sales&tab=demos" className="mt-3 inline-block rounded-xl border border-[#a3d2e7] bg-white px-4 py-3 text-xs font-black text-[#175471]">Open Firebase connection test in Demo Builder ↗</a>}
    {!site&&<button type="button" onClick={load} className="mt-3 ml-2 rounded-xl border bg-white px-4 py-3 text-xs font-bold">Retry loading prospect website</button>}
   </div>}
+  {offline&&<div role="alert" className="rounded-2xl border border-amber-300 bg-amber-50 p-5 text-sm leading-7 text-amber-900">
+   <strong>Local draft only · No public link yet</strong>
+   <p className="mt-1">Continue editing and retry the short Firestore preview when credentials work. If you need a link sooner, generate a public marketing-only snapshot. It cannot be edited or revoked and must be regenerated after changes.</p>
+   <button type="button" onClick={createSnapshot} disabled={!!busy||!site} className="mt-3 mr-2 rounded-xl bg-[#185c7b] px-5 py-3 text-xs font-bold text-white disabled:opacity-50">Generate emergency snapshot link</button>
+   <button type="button" onClick={save} disabled={!!busy||!site} className="mt-3 rounded-xl bg-amber-900 px-5 py-3 text-xs font-bold text-white disabled:opacity-50">Retry saving this preview to Firestore</button>
+  </div>}
   {busy==="open"&&<div className="rounded-2xl bg-white p-8 text-sm">Loading or creating this prospect's saved website…</div>}
   {site&&<div className="space-y-5">
    <nav role="tablist" aria-label="Prospect Site Maker tools" className="flex flex-wrap gap-2 rounded-2xl bg-white p-3">
@@ -118,7 +201,7 @@ export default function FounderProspectSiteMaker({user,prospectId,onBack}){
    {tab==="design"&&<div role="tabpanel" className="space-y-5">
     <SiteStudioBuilder site={site} uid={user.uid} locked={false} busy={busy}
      onChange={patch} onTemplate={changeTemplate} onSave={save}
-     previewOnly={true} previewUrlOverride={previewUrl}/>
+     previewOnly={true} previewUrlOverride={portable?previewUrl:offline?"":previewUrl}/>
     <SiteSocialProofStudio site={site} onChange={patch} locked={false}/>
     <div className="rounded-2xl border border-[#cfdfeb] bg-white p-5">
      <p className="text-sm font-black">Keep editing this same preview</p>
@@ -126,9 +209,9 @@ export default function FounderProspectSiteMaker({user,prospectId,onBack}){
      <button className={"mt-3 "+button} disabled={!!busy} onClick={save}>Save current preview design</button>
     </div>
    </div>}
-   {tab==="ai"&&<div role="tabpanel"><FounderSiteEditChat key={previewId} site={site}
+   {tab==="ai"&&!offline&&<div role="tabpanel"><FounderSiteEditChat key={previewId} site={site}
     prospect={prospect} onApplied={(updated,newRevision)=>{setSite({...updated,demoId:previewId});setRevision(newRevision);setNotice("✓ AI tool actions saved to the existing preview. Switch to Design editor to see the result.");}}/></div>}
-   {tab==="media"&&<div role="tabpanel" className="space-y-4">
+   {tab==="media"&&!offline&&<div role="tabpanel" className="space-y-4">
     <div className="rounded-2xl border border-[#cfe4ef] bg-[#edf7fc] p-5 text-xs leading-6">
      <strong className="text-sm">Use photos you have the rights to display</strong>
      <p className="mt-2">Upload JPG/PNG/WebP photos from your phone or computer, label them by business and subject, and group them into folders. Your original bytes go to the connected private Drive archive; Firestore stores a searchable file index, tags and folder. Choosing Hero/Gallery attaches a photo to this prospect's saved design. Click Save when finished.</p>

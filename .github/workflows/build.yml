@@ -44,6 +44,10 @@ jobs:
         run: node --experimental-default-type=module --test tests/firebase-admin-credentials.test.mjs
       - name: Test website legal templates and preset chatbot facts
         run: node --experimental-default-type=module --test tests/site-legal-presets.test.mjs
+      - name: Test $49.99 missed-call textback and account isolation
+        run: node --experimental-default-type=module --test tests/textback-plan.test.mjs
+      - name: Test emergency public-only prospect snapshot safety
+        run: node --experimental-default-type=module --test tests/portable-prospect-preview.test.mjs
       - name: Build FUGTH website
         env:
           NEXT_TELEMETRY_DISABLED: "1"

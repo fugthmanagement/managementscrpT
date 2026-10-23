@@ -46,7 +46,7 @@ function expand(template,p,link,extras={}){
   link:link||"",sender:"Pierre",booking:extras.booking||ROOT+"/book",
   claim:extras.claim||ROOT+"/login?signup=1",referrer:extras.referrer||"[verified referrer]"};
  return String(template).replace(/\{\{(contact|business|link|sender|booking|claim|referrer)\}\}/g,(_,k)=>replacements[k])
-  .replace(/[ \t]+\n/g,"\n").replace(/\n{3,}/g,"\n\n").replace(/[ \t]{2,}/g," ").trim().slice(0,1300);
+  .replace(/[ \t]+\n/g,"\n").replace(/\n{3,}/g,"\n\n").replace(/[ \t]{2,}/g," ").trim();
 }
 
 async function clipboard(text){
@@ -123,9 +123,9 @@ export default function FounderTextDesk({user,initialProspectId="",onOpenSiteMak
  const chosenDemoObject=chosenDemo.startsWith("demo:")?demos.find(d=>d.id===chosenDemo.slice(5)):null;
  const resolved=chosenDemo?(chosenSite?validLink(chosenSite.url):chosenDemoObject?demoLink(chosenDemoObject):""):assignedLink;
  const expired=Boolean(prospect?.assignedPreviewExpiresAt)&&Date.parse(prospect.assignedPreviewExpiresAt)<=Date.now();
- const revokedDemo=assignedId&&demos.length>0&&!assignedDemo;
+ const revokedDemo=Boolean(assignedDemo?.revoked);
  const link=(expired||revokedDemo)&&!chosenDemo?"":resolved;
- const demoIdForLink=chosenDemoObject?.id||(!chosenSite?assignedDemo?.id:"");
+ const demoIdForLink=chosenDemoObject?.id||(!chosenSite?(assignedDemo?.id||(!expired&&assignedLink?assignedId:"")):"");
  const bookingLink=ROOT+"/book"+(demoIdForLink?"?site="+encodeURIComponent(demoIdForLink):"");
  const claimLink=demoIdForLink?ROOT+"/claim/"+encodeURIComponent(demoIdForLink):ROOT+"/login?signup=1";
  const composed=prospect?expand(editor,prospect,link,{booking:bookingLink,claim:claimLink,referrer}):"";
@@ -139,7 +139,7 @@ export default function FounderTextDesk({user,initialProspectId="",onOpenSiteMak
  const currentWebsiteAllowed=!selectedPreset.needsSite||Boolean(prospect?.website);
  const demoAllowed=!selectedPreset.needsDemo||Boolean(demoIdForLink);
  const conversationAllowed=!selectedPreset.needsConversation||verifiedConversation;
- const canPrepare=Boolean(prospect&&!suppressed&&validPhone&&optedIn&&composed.length>=10&&(!needsLink||link)&&referralAllowed&&currentWebsiteAllowed&&demoAllowed&&conversationAllowed);
+ const canPrepare=Boolean(prospect&&!suppressed&&validPhone&&optedIn&&composed.length>=10&&composed.length<=8000&&(!needsLink||link)&&referralAllowed&&currentWebsiteAllowed&&demoAllowed&&conversationAllowed);
  useEffect(()=>{setChosenDemo("");setConsentSource(trimmed(prospect?.consentSource));setApproved(false);setInfo("");setVerifiedReferral(false);setVerifiedConversation(false);},[prospectId]);
  function changePreset(value){setPreset(value);setEditor(PRESETS.find(x=>x.id===value)?.text||"");setVerifiedReferral(false);setVerifiedConversation(false);setInfo("");}
  function chooseDemo(value){
@@ -229,7 +229,10 @@ export default function FounderTextDesk({user,initialProspectId="",onOpenSiteMak
     <div className="mt-5 border-t border-[#e4edf2] pt-4">
      <div className="flex flex-wrap items-center justify-between gap-3"><p className="text-xs font-black">Assigned website preview</p><button className="text-xs font-bold text-[#2681ac]" onClick={()=>setShowLinkPicker(v=>!v)}>{showLinkPicker?"Hide site list":"Choose another saved site"}</button></div>
      <p className="mt-2 break-all text-xs text-[#557b91]">{link||"No valid assigned link yet"}</p>
+     {link&&<p className="mt-2 text-[11px] font-semibold text-emerald-700">✓ Preview link assigned to this prospect — automatically inserted into SMS templates.</p>}
+     {link&&<button type="button" className={"mt-2 "+btn} onClick={()=>clipboard(link).then(()=>setInfo("Prospect website link copied.")).catch(()=>setInfo("Select and copy the URL above."))}>Copy prospect link</button>}
      {(expired||revokedDemo)&&<p className="mt-2 text-xs text-amber-800">The previously assigned preview may have expired or been revoked. Choose a current preview.</p>}
+     {link.includes("/demo/portable#p=")&&<p className="mt-2 text-xs leading-5 text-amber-800">This prospect has an immutable emergency snapshot link. It may be too long for some SMS apps or may incur many SMS segments. FUGTH will NOT truncate the URL; review the complete link before sending. It cannot be revoked and must be regenerated after changes. Use the normal short preview once Firebase Admin is repaired.</p>}
      {matchedDemo.length>0&&<p className="mt-2 text-[11px] text-[#537e92]">Linked to this prospect: {matchedDemo.map(d=>d.name).join(", ")}. Select it below to use it.</p>}
      {!matchedDemo.length&&phoneMatches.length>0&&<p className="mt-2 text-[11px] text-[#537e92]">Some saved previews have this phone number. Verify the business before assigning one.</p>}
      {(showLinkPicker||!link)&&<div className="mt-3">

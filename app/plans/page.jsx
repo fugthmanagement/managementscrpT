@@ -33,12 +33,12 @@ export default function Plans() {
       const saved=JSON.parse(localStorage.getItem(CART_KEY)||"null");
       if(saved){
         if(BILLING_PLANS[saved.planKey])setSelected(saved.planKey);
-        if(saved.cycle==="yearly")setCycle("yearly");
+        if(saved.cycle==="yearly"&&saved.planKey!=="textback")setCycle("yearly");
         if(Array.isArray(saved.addons))setAddons(saved.addons.filter(x=>x in BILLING_ADDONS));
       }
     }catch{}
-    if (BILLING_PLANS[requested]) { setSelected(requested); if(BILLING_PLANS[requested].kind==="one_time")setCycle("monthly"); }
-    if (new URLSearchParams(window.location.search).get("cycle") === "yearly")
+    if (BILLING_PLANS[requested]) { setSelected(requested); if(BILLING_PLANS[requested].kind==="one_time"||requested==="textback")setCycle("monthly"); }
+    if (new URLSearchParams(window.location.search).get("cycle") === "yearly" && requested!=="textback")
       setCycle("yearly");
     return () => unsub();
   }, []);
@@ -103,12 +103,13 @@ export default function Plans() {
     (n, a) => n + addonAmount(selected, a),
     0,
   );
-  const multiplier = plan.kind === "one_time" ? 1 : cycle === "yearly" ? 12 : 1;
+  const multiplier = (plan.kind === "one_time" || selected==="textback") ? 1 : cycle === "yearly" ? 12 : 1;
   const total = (planMonthly + addonMonthly) * multiplier;
   function switchPlan(key) {
     setSelected(key);
     if (BILLING_PLANS[key].kind === "one_time") setCycle("monthly");
     setAddons((v) => v.filter((a) => addonAmount(key, a) > 0));
+    if(key==="textback")setCycle("monthly");
     setError("");
   }
   function toggle(key) {
@@ -136,7 +137,7 @@ export default function Plans() {
         body: JSON.stringify({
           planKey: selected,
           addons: billable,
-          billingCycle: cycle,
+          billingCycle: selected==="textback"?"monthly":cycle,
           useFounderOffer: offerApplied,
         }),
       });
@@ -190,7 +191,7 @@ export default function Plans() {
           <button
             type="button"
             aria-pressed={cycle === "yearly"}
-            disabled={plan.kind === "one_time"}
+            disabled={plan.kind === "one_time" || plan.key === "textback"}
             onClick={() => setCycle("yearly")}
             className={
               "rounded-lg px-5 py-3 text-xs font-bold " +

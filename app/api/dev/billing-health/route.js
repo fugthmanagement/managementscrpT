@@ -2,23 +2,31 @@ import Stripe from "stripe";
 import {NextResponse} from "next/server";
 import {authenticatedUser,isFounder,firebaseAdmin} from "../../../../lib/server/auth";
 import {BILLING_PLANS} from "../../../../lib/billing-catalog";
+import {resolveFirebaseAdminCredentials} from "../../../../lib/server/firebase-admin-credentials";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
 const reply=(x,status=200)=>NextResponse.json(x,{status,headers:{"Cache-Control":"private, no-store"}});
 export async function GET(req){
  const user=await authenticatedUser(req);
  if(!user?.uid||!isFounder(user))return reply({error:"Verified founder only."},403);
+ const credentialCheck=resolveFirebaseAdminCredentials(process.env);
  const environment={stripeSecretConfigured:Boolean(process.env.STRIPE_SECRET_KEY),
   stripeWebhookConfigured:Boolean(process.env.STRIPE_WEBHOOK_SECRET),
-  firestoreServerConfigured:Boolean(process.env.FIREBASE_SERVICE_ACCOUNT||(process.env.FIREBASE_CLIENT_EMAIL&&process.env.FIREBASE_PRIVATE_KEY)),
+  firestoreServerConfigured:credentialCheck.ok,
   hostedCheckout:true,dynamicPrices:true};
- const result={ready:false,environment,merchant:null,plans:[],checks:{stripeApi:false,firestore:false,authDirectory:false},message:"",warnings:[]};
+ const result={ready:false,environment,firebaseCode:credentialCheck.report.code,merchant:null,textbackPrice:null,plans:[],checks:{stripeApi:false,firestore:false,authDirectory:false},message:"",warnings:[]};
+ if(!credentialCheck.ok)result.warnings.push("Firebase Admin: "+credentialCheck.report.code+". FUGTH cannot safely activate subscriptions until it is repaired.");
  if(environment.stripeSecretConfigured)try{
   const stripe=new Stripe(process.env.STRIPE_SECRET_KEY,{apiVersion:"2024-06-20"});
   const account=await stripe.accounts.retrieve();
   result.merchant={id:account.id,name:account.business_profile?.name||account.settings?.dashboard?.display_name||"FUGTH Management"};
   result.checks.stripeApi=account.id==="acct_1QYiGDHGcNIhcRMj";
   if(!result.checks.stripeApi)result.warnings.push("Wrong Stripe merchant credentials. Checkout is intentionally blocked to avoid charging buyers into another account.");
+  try{
+   const price=await stripe.prices.retrieve(process.env.STRIPE_MISSED_CALL_TEXTBACK_PRICE_ID||"price_1UTPooHGcNIhcRMjPDGqXQXf");
+   result.textbackPrice={id:price.id,active:price.active,amountCents:price.unit_amount,
+    monthly:price.recurring?.interval==="month",verified:price.active&&price.unit_amount===4999&&price.currency==="usd"&&price.recurring?.interval==="month"};
+  }catch{result.warnings.push("The $49.99/month live Text-Back price could not be checked.");}
  }catch(e){result.warnings.push("Stripe secret key was declined or Stripe could not be reached.");}
  if(environment.firestoreServerConfigured)try{
   const admin=firebaseAdmin();await admin.firestore().doc("users/"+user.uid).get();

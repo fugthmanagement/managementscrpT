@@ -5,6 +5,7 @@ import FounderDemoControls from "./founder-demo-controls";
 import FounderPhoneAssignment from "./founder-phone-assignment";
 import FounderOfferEditor from "./founder-offer-editor";
 import FounderDemoAccess from "./founder-demo-access";
+import FounderFeatureOverrides from "./founder-feature-overrides";
 const planOptions=[["none","Zero"],["starter","Essential · $149 founding"],["growth","Growth · $399"],["elite","Elite · $799"]];
 const input="w-full rounded-xl border border-[#d7e9f3] bg-white px-3 py-3 text-xs text-[#264f67] outline-none focus:border-[#4e829b]";
 const date=v=>{const d=new Date(v||"");return Number.isFinite(d.getTime())?d.toLocaleString(undefined,{month:"short",day:"numeric",year:"numeric",hour:"numeric",minute:"2-digit"}):"Not set";};
@@ -91,6 +92,7 @@ export default function FounderAccountDirectory(){
    <div className="mt-5"><FounderDemoAccess uid={selected.uid}/><FounderDemoControls uid={selected.uid}/></div>
    <FounderPhoneAssignment uid={selected.uid} onAssigned={()=>load()}/>
    <FounderOfferEditor key={selected.uid} account={selected}/>
+    <FounderFeatureOverrides uid={selected.uid}/>
    <p className="mt-4 text-xs"><a className="font-bold text-[#45654c] underline" href={"/sites/"+encodeURIComponent(selected.uid)+"?edit=1"} target="_blank" rel="noopener noreferrer">Open and edit this customer’s website ↗</a></p>
    <div className="mt-5 grid gap-3 sm:grid-cols-2">
     <label className="text-xs font-bold">Access tier<select value={tier} onChange={e=>setTier(e.target.value)} className={"mt-2 "+input}>{planOptions.filter(([value])=>value!=="none").map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>

@@ -37,7 +37,12 @@ import CallInbox from "./call-inbox";
 import FounderSalesDesk from "./founder-sales-desk";
 import FounderRevenuePlanner from "./founder-revenue-planner";
 import FounderBillingHealth from "./founder-billing-health";
+import FounderStripeFeatures from "./founder-stripe-features";
+import FounderReleaseMonitor from "./founder-release-monitor";
 import FounderVoiceHealth from "./founder-voice-health";
+import FounderVapiSettings from "./founder-vapi-settings";
+import FounderStripeProductEditor from "./founder-stripe-product-editor";
+import OutreachMessenger from "./outreach-messenger";
 import FounderBookingCalendar from "./founder-booking-calendar";
 import FounderSiteClaims from "./founder-site-claims";
 import FounderGgufWriter from "./founder-gguf-writer";
@@ -199,7 +204,9 @@ export default function FugthWorkspace() {
   const [user, setUser] = useState(null),
     [ready, setReady] = useState(false);
   const [prospectSiteMakerId,setProspectSiteMakerId]=useState("");
+  const [prospectSiteMakerDetails,setProspectSiteMakerDetails]=useState(null);
   const [lastSalesTab,setLastSalesTab]=useState("guide");
+  const [handoffProspectId,setHandoffProspectId]=useState("");
   const [page, setPage] = useState("home"),
     [menuOpen, setMenuOpen] = useState(false);
   const [founder, setFounder] = useState(false),
@@ -395,9 +402,14 @@ export default function FugthWorkspace() {
     // Every top-level tab starts at the top, including on mobile.
     if(typeof window!=="undefined"&&window.scrollY>160)window.scrollTo({top:0,behavior:"instant"});
   };
+  function sendProspectToSms(id){
+    if(!id)return;
+    setHandoffProspectId(id);setLastSalesTab("sms");setProspectSiteMakerId("");changePage("sales");
+  }
   function openProspectSiteMaker(prospect){
     if(!prospect?.id)return;
     if(["guide","training","leads","sms","email","outreach","demos"].includes(prospect.originTab))setLastSalesTab(prospect.originTab);
+    setProspectSiteMakerDetails(prospect);
     changePage("website");
     setProspectSiteMakerId(prospect.id);
   }
@@ -935,8 +947,9 @@ export default function FugthWorkspace() {
             {page === "website" && (
               <div>
                 {founder&&prospectSiteMakerId?
-                 <FounderProspectSiteMaker user={user} prospectId={prospectSiteMakerId}
-                  onBack={()=>{setProspectSiteMakerId("");changePage("sales")}}/>:
+                 <FounderProspectSiteMaker user={user} prospectId={prospectSiteMakerId} prospectDetails={prospectSiteMakerDetails}
+                  onBack={()=>{setProspectSiteMakerId("");changePage("sales")}}
+                  onSendSms={sendProspectToSms}/>:
                  <>
                   <SectionHeading eyebrow="FUGTH WEBSITE MAKER"
                    title="Build and manage your professional business website."
@@ -1122,7 +1135,7 @@ export default function FugthWorkspace() {
             )}
             {page === "sales" && founder && (
               <div>
-                <FounderSalesDesk user={user} onOpenMarketing={()=>changePage("marketing")} onOpenSiteMaker={openProspectSiteMaker} initialTab={lastSalesTab}/>
+                <FounderSalesDesk user={user} onOpenMarketing={()=>changePage("marketing")} onOpenSiteMaker={openProspectSiteMaker} initialTab={lastSalesTab} initialProspectId={handoffProspectId}/>
               </div>
             )}
             {page === "sales" && !founder && (
@@ -1159,8 +1172,13 @@ export default function FugthWorkspace() {
                   <FounderAccountDirectory />
                   <FounderRevenuePlanner />
                   <FounderVoiceHealth />
+                  <FounderVapiSettings />
                   <FounderDemoControls />
+                  <FounderReleaseMonitor />
                   <FounderBillingHealth />
+                  <FounderStripeFeatures />
+                  <FounderStripeProductEditor />
+                  <OutreachMessenger user={user} businessName="FUGTH Management" founder={true}/>
                   <div className="rounded-xl border border-[#d2e4ee] bg-[#f1faff] p-4 text-sm text-[#6d5b45]">
                     Pierre’s Call Guide, ZIP prospecting, lead imports,
                     follow-ups, and the calling workspace now have their own{" "}

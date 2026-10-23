@@ -21,6 +21,7 @@ export async function POST(req){
  const addons=validAddons(planKey,body?.addons||[]);
  if(!addons)return reply({error:"Invalid add-on selection."},400);
  if(plan.kind==="one_time"&&cycle==="yearly")return reply({error:"Website purchases are one-time payments."},400);
+ if(planKey==="textback"&&cycle==="yearly")return reply({error:"Text-Back is billed monthly at $49.99."},400);
  try{
   const stripe=new Stripe(process.env.STRIPE_SECRET_KEY,{apiVersion:"2024-06-20"});
   // Never collect funds in an unrelated Stripe workspace after a credential migration.
@@ -30,6 +31,12 @@ export async function POST(req){
   }
   const db=firebaseAdmin().firestore(),userDoc=await db.doc("users/"+user.uid).get();
   if(!userDoc.exists)return reply({error:"We couldn't find your FUGTH account profile. Sign out and back in, then finish the account setup before checkout."},409);
+  const controlsSnap=await db.doc("adminSettings/stripeFeatures").get();
+  const controls=controlsSnap.data()||{};
+  if(controls.subscriptionsEnabled===false&&plan.kind!=="one_time")
+   return reply({error:"New FUGTH subscription checkouts are temporarily paused. No charge started."},503);
+  if(planKey==="textback"&&controls.textbackCheckoutEnabled===false)
+   return reply({error:"Text-Back checkout is temporarily paused. No charge started."},503);
   if(userDoc.data()?.billingActive&&plan.kind!=="one_time")
    return reply({error:"A subscription is already active. Contact support to change your plan safely."},409);
   if(plan.kind==="one_time"&&userDoc.data()?.websitePurchased===true)
@@ -50,7 +57,17 @@ export async function POST(req){
    }
   }
   const recurringCents=(monthlyCents+addons.reduce((a,k)=>a+addonAmount(planKey,k),0))*multiplier;
-  const line_items=[{
+  // Use the existing Stripe LIVE $49.99/month product. Never create a duplicate price.
+  // Personalized founder offers use their validated, disclosed amount instead.
+  const textbackPrice=process.env.STRIPE_MISSED_CALL_TEXTBACK_PRICE_ID||"price_1UTPooHGcNIhcRMjPDGqXQXf";
+  let line_items;
+  if(planKey==="textback"&&!offerId){
+   const actual=await stripe.prices.retrieve(textbackPrice);
+   if(!actual.active||actual.currency!=="usd"||actual.unit_amount!==4999||
+      actual.type!=="recurring"||actual.recurring?.interval!=="month")
+    return reply({error:"Text-Back's $49.99 live price could not be verified. No payment started."},503);
+   line_items=[{price:textbackPrice,quantity:1}];
+  }else line_items=[{
    price_data:{currency:"usd",unit_amount:monthlyCents*multiplier,
     ...(plan.kind==="one_time"?{}:{recurring:{interval,interval_count:1}}),
     product_data:{name:"FUGTH "+plan.name,metadata:{brand:"fugth_management",planKey,kind:plan.kind}}},
@@ -68,7 +85,7 @@ export async function POST(req){
    customer_email:user.email,client_reference_id:user.uid,
    success_url:siteUrl+"/billing/return?session_id={CHECKOUT_SESSION_ID}",
    cancel_url:siteUrl+"/plans?plan="+encodeURIComponent(planKey)+"&cycle="+cycle,
-   allow_promotion_codes:true,metadata,
+   allow_promotion_codes:controls.promotionCodesEnabled!==false,metadata,
    ...(plan.kind==="one_time"?{payment_intent_data:{metadata}}:{subscription_data:{metadata,...(billingAnchor?{billing_cycle_anchor:billingAnchor,proration_behavior:"create_prorations"}:{})}})
   });
   if(!session.url)return reply({error:"Secure checkout could not be opened."},502);

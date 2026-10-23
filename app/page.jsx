@@ -14,12 +14,14 @@ const pictures={
 const features=[
  {id:"calls",number:"01",title:"Never lose track of a call.",tag:"CALLS & RECEPTION",desc:"Give unanswered calls a clear next step. Review transcripts, customer details and follow-up needs together.",icon:"☎"},
  {id:"leads",number:"02",title:"From inquiry to opportunity.",tag:"LEADS & FOLLOW-UP",desc:"Keep new contacts, quote requests and upcoming appointments organized without another scattered inbox.",icon:"↗"},
- {id:"sites",number:"03",title:"Your website works with your desk.",tag:"WEBSITE STUDIO",desc:"Choose a polished industry layout, preview it on mobile and keep your business details connected.",icon:"◇"}
+ {id:"sites",number:"03",title:"Your website works with your desk.",tag:"WEBSITE STUDIO",desc:"Choose a polished industry layout, preview it on mobile and keep your business details connected.",icon:"◇"},
+ {id:"textback",number:"04",title:"Reply when you miss a call.",tag:"MISSED-CALL TEXT-BACK · $49.99/MO",desc:"Give missed callers an automatic business-specific reply once a compliant SMS provider is connected. Carrier and SMS fees separate.",icon:"✉"}
 ];
 const activity={
  calls:{eyebrow:"INBOUND CALL • EXAMPLE",name:"New service inquiry",detail:"Customer needs an estimate for electrical panel work.",stat:"Follow-up requested",tag:"Needs review"},
  leads:{eyebrow:"NEW LEAD • EXAMPLE",name:"Estimate request",detail:"Customer is interested in residential installation.",stat:"Contact captured",tag:"Lead created"},
- sites:{eyebrow:"WEBSITE VIEW • EXAMPLE",name:"Your business, online",detail:"An industry-specific preview with a clear request path.",stat:"Mobile-ready layout",tag:"Preview"}
+ sites:{eyebrow:"WEBSITE VIEW • EXAMPLE",name:"Your business, online",detail:"An industry-specific preview with a clear request path.",stat:"Mobile-ready layout",tag:"Preview"},
+ textback:{eyebrow:"MISSED CALL • EXAMPLE",name:"Your automatic reply",detail:"Hi, this is your business. Sorry we missed your call. How can we help?",stat:"Provider connection required",tag:"Text-back preview"}
 };
 function Arrow({diagonal=false}){return <span aria-hidden="true" className="inline-block">{diagonal?"↗":"→"}</span>}
 function Dot({soft=false}){return <span aria-hidden="true" className={"inline-block h-2 w-2 rounded-full "+(soft?"bg-[#a9dff9]":"bg-[#55acdb]")}/>}
