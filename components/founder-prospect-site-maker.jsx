@@ -8,7 +8,7 @@ import FounderSiteEditChat from "./founder-site-edit-chat";
 import SiteSocialProofStudio from "./site-social-proof-studio";
 const tabs=[["design","Design editor"],["ai","AI site editor"],["media","Photo folders & labels"]];
 const button="rounded-xl border border-[#bfd8e8] bg-white px-4 py-3 text-xs font-black text-[#215874] disabled:opacity-40";
-export default function FounderProspectSiteMaker({user,prospectId,onBack}){
+export default function FounderProspectSiteMaker({user,prospectId,onBack,onSendSms}){
  const [site,setSite]=useState(null),[prospect,setProspect]=useState(null),
   [revision,setRevision]=useState(null),[previewId,setPreviewId]=useState(""),[previewUrl,setPreviewUrl]=useState(""),
   [busy,setBusy]=useState("open"),[notice,setNotice]=useState(""),[tab,setTab]=useState("design");
@@ -99,6 +99,7 @@ export default function FounderProspectSiteMaker({user,prospectId,onBack}){
     <div className="mt-3 flex flex-wrap gap-2">
      <button type="button" disabled={previewStatus!=="ready"} onClick={copyLink} className="rounded-lg bg-white px-4 py-2.5 text-xs font-black text-[#163b53] disabled:opacity-50">Copy verified link</button>
      <button type="button" onClick={()=>verifyPreview(previewId)} className="rounded-lg border border-white/40 px-4 py-2.5 text-xs font-black">Recheck link</button>
+     {onSendSms&&<button type="button" disabled={previewStatus!=="ready"} onClick={()=>onSendSms(prospectId)} className="rounded-lg border border-white/40 bg-white/20 px-4 py-2.5 text-xs font-black disabled:opacity-50">Open prospect in SMS Outreach →</button>}
      <a href={previewUrl} target="_blank" rel="noopener noreferrer" className="rounded-lg border border-white/35 px-4 py-2.5 text-xs font-black">Open client preview ↗</a>
     </div>
    </div>}
