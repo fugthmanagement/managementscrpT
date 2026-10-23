@@ -4,7 +4,7 @@ import Link from "next/link";
 import {useSmartNavigation} from "../lib/use-smart-navigation";
 
 const icons={
- home:"⌂",calls:"☎",customers:"♧",marketing:"↗",website:"▣",settings:"⚙",
+ home:"⌂",calls:"☎",customers:"♧",marketing:"↗",website:"▣",services:"🛒",settings:"⚙",
  accounts:"♙",sales:"✧",admin:"◆"
 };
 export default function WorkspaceNavigation({

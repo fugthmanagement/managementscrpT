@@ -25,6 +25,7 @@ import {SITE_INDUSTRIES} from "../lib/site-presets";
 import {cleanBusinessDescription} from "../lib/business-profile";
 import WorkspaceNavigation from "./workspace-navigation";
 import WorkspaceOverview from "./workspace-overview";
+import ServiceMarketplace from "./service-marketplace";
 import GoogleConnectPrompt from "./google-connect-prompt";
 import BusinessOpeningHours from "./business-opening-hours";
 import {cleanOpeningHours} from "../lib/business-hours";
@@ -54,6 +55,7 @@ const MENU = [
   { id: "customers", label: "Customers", icon: "users" },
   { id: "marketing", label: "Marketing", icon: "link" },
   { id: "website", label: "Website", icon: "layout" },
+  { id: "services", label: "Services", icon: "cart" },
   { id: "settings", label: "Settings", icon: "settings" },
 ];
 const input =
@@ -654,7 +656,8 @@ export default function FugthWorkspace() {
               <WorkspaceOverview business={business} displayPlan={displayPlan} workspace={workspace}
                 calls={calls} leads={leads} appointments={appointments} notifications={notifications} navigate={navigate}/>
             )}
-            {page === "calls" && (
+            {page === "services" && <ServiceMarketplace embedded workspace={workspace}/>}
+             {page === "calls" && (
               <div>
                 <SectionHeading
                   eyebrow="RECEPTIONIST & CALLS"

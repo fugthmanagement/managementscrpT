@@ -46,6 +46,8 @@ jobs:
         run: node --experimental-default-type=module --test tests/site-legal-presets.test.mjs
       - name: Test safe customer account recovery at checkout
         run: node --experimental-default-type=module --test tests/checkout-account.test.mjs
+      - name: Test multi-item service cart and payment verification
+        run: node --experimental-default-type=module --test tests/services-cart.test.mjs
       - name: Build FUGTH website
         env:
           NEXT_TELEMETRY_DISABLED: "1"
