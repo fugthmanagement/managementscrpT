@@ -4,7 +4,7 @@ import {firestoreDemoFailure} from "../../../../lib/server/prospect-demos-direct
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
 const out=(data,status=200)=>NextResponse.json(data,{status,headers:{"Cache-Control":"private, no-store"}});
-export const VIP_FEATURES=[
+const VIP_FEATURES=[
  "voiceReceptionist","missedCallTextback","outreachMessenger","siteMaker","priorityOnboarding"
 ];
 async function founder(req){const user=await authenticatedUser(req);return user&&isFounder(user)?user:null;}
