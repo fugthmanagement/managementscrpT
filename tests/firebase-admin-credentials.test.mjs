@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {generateKeyPairSync} from "node:crypto";
-import {normalizeFirebasePrivateKey,resolveFirebaseAdminCredentials} from "../lib/server/firebase-admin-credentials.js";
+import {normalizeFirebasePrivateKey,normalizeFirebaseServiceEmail,resolveFirebaseAdminCredentials} from "../lib/server/firebase-admin-credentials.js";
 const uid="fugthmanagement-89c84";
 const email="firebase-adminsdk-test@"+uid+".iam.gserviceaccount.com";
 const {privateKey}=generateKeyPairSync("rsa",{modulusLength:2048,privateKeyEncoding:{type:"pkcs8",format:"pem"},publicKeyEncoding:{format:"pem",type:"spki"}});
@@ -65,4 +65,18 @@ test("no credential returns missing rather than initializing a fake Firestore co
  const result=resolveFirebaseAdminCredentials({});
  assert.equal(result.ok,false);
  assert.equal(result.report.code,"firebase_credentials_missing");
+});
+
+test("environment pasted Google service-account email with quotes is normalized",()=>{
+ assert.equal(normalizeFirebaseServiceEmail('  "firebase-adminsdk-test@'+uid+'.iam.gserviceaccount.com" '),email);
+ assert.equal(normalizeFirebaseServiceEmail("FIREBASE_CLIENT_EMAIL='"+email+"'"),email);
+ for(const wrapped of ['"'+email+'"',"'"+email+"'",'FIREBASE_CLIENT_EMAIL="'+email+'"']){
+  const result=verify(raw,{FIREBASE_CLIENT_EMAIL:wrapped});
+  assert.equal(result.ok,true,wrapped);
+ }
+});
+test("quoted Gmail value remains rejected and no private key leaks in diagnostics",()=>{
+ const bad=verify(raw,{FIREBASE_CLIENT_EMAIL:'"fugthchat@gmail.com"'});
+ assert.equal(bad.report.code,"firebase_service_account_email_invalid");
+ assert.equal(JSON.stringify(bad.report).includes(raw),false);
 });
