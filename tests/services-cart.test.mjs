@@ -40,6 +40,7 @@ test("standalone website remains a one-time Stripe payment",()=>{
  assert.equal(c.mode,"payment");
  assert.equal(c.firstChargeCents,29900);
  assert.equal(stripeCartLines(c)[0].price_data.recurring,undefined);
+ assert.equal(c.firstChargeCents,29900);
 });
 test("invalid item/cycle combinations cannot reach Stripe",()=>{
  for(const s of [
