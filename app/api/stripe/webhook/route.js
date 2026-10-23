@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { firebaseAdmin } from "../../../../lib/server/auth";
 import {priceDetails} from "../../../../lib/server/fugth-price-catalog";
 import {BILLING_PLANS} from "../../../../lib/billing-catalog";
+import {verifiedStripeCartSubscription,verifyWebsiteCartLines} from "../../../../lib/server/stripe-cart";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,29 +17,7 @@ const supported = new Set([
   "invoice.paid",
   "invoice.payment_failed",
 ]);
-function planForSubscription(subscription){
- // New checkout sessions create their prices dynamically. Validate their
- // trusted Stripe-created subscription metadata against the actual base line.
- const meta=subscription.metadata||{},plan=BILLING_PLANS[meta.planKey];
- const amount=Number(meta.baseAmountCents);
- const cycle=meta.billingCycle==="yearly"?"yearly":"monthly";
- if(plan&&plan.kind!=="one_time"&&meta.kind==="subscription"&&
-    meta.planTier===plan.tier&&Number.isSafeInteger(amount)&&amount>0){
-  const interval=cycle==="yearly"?"year":"month";
-  const matched=(subscription.items?.data||[]).some(line=>{
-   const product=line.price?.product,productMeta=typeof product==="object"?product.metadata||{}:{};
-   return line.price?.active!==false&&line.price?.currency==="usd"&&line.price?.unit_amount===amount&&
-     line.price?.recurring?.interval===interval&&productMeta.brand==="fugth_management"&&productMeta.planKey===meta.planKey;
-  });
-  if(matched)return {tier:plan.tier,cycle,offer:meta.planKey};
- }
- // Preserve all existing subscribers on their original Stripe price IDs.
- for(const line of subscription.items?.data||[]){
-  const legacy=priceDetails(line.price?.id||"");
-  if(legacy)return legacy;
- }
- return null;
-}
+const planForSubscription=subscription=>verifiedStripeCartSubscription(subscription,priceDetails);
 function iso(seconds) {
   return Number.isFinite(Number(seconds)) && Number(seconds) > 0
     ? new Date(Number(seconds) * 1000).toISOString()
@@ -82,6 +61,8 @@ export async function POST(req) {
       const meta=obj.metadata||{},uid=meta.userId||obj.client_reference_id||"";
       if(meta.planKey!=="website_one_time"||meta.kind!=="one_time"||!/^[a-zA-Z0-9_-]{8,128}$/.test(uid))
        throw new Error("Unknown one-time payment order.");
+      const siteLines=await stripe.checkout.sessions.listLineItems(obj.id,{limit:100,expand:["data.price.product"]});
+      if(!verifyWebsiteCartLines(siteLines.data))throw new Error("Unverified website checkout line.");
       const db=firebaseAdmin().firestore(),eventRef=db.doc("processedStripeEvents/"+event.id),userRef=db.doc("users/"+uid);
       await db.runTransaction(async tx=>{
        const seen=await tx.get(eventRef);if(seen.exists)return;
@@ -99,7 +80,15 @@ export async function POST(req) {
     const uid=subscription.metadata?.userId || (event.type==="checkout.session.completed"?obj.client_reference_id:"");
     if (!uid || !/^[a-zA-Z0-9_-]{8,128}$/.test(uid)) throw new Error("Stripe subscription is not associated with a verified Firebase account.");
     const matched=planForSubscription(subscription);
-    if (!matched) throw new Error("Stripe price does not match configured subscription tiers.");
+    if (!matched) throw new Error("Stripe plan or selected paid upgrades were not verified.");
+    let websitePaid=false;
+    if((event.type==="checkout.session.completed"||event.type==="checkout.session.async_payment_succeeded")&&
+       obj.mode==="subscription"&&obj.payment_status==="paid"&&
+       obj.metadata?.websiteOneTime==="1"&&subscription.metadata?.websiteOneTime==="1"){
+      const websiteLines=await stripe.checkout.sessions.listLineItems(obj.id,{limit:100,expand:["data.price.product"]});
+      if(!verifyWebsiteCartLines(websiteLines.data))throw new Error("Unverified one-time website item.");
+      websitePaid=true;
+    }
     const {start,end}=subscriptionPeriod(subscription);
     const status=subscription.status;
     const isActive=status==="active"||status==="trialing";
@@ -109,7 +98,7 @@ export async function POST(req) {
       planTier:matched.tier,
       billingOfferKey:matched.offer||subscription.metadata?.planKey||null,
       billingCycle:matched.cycle,
-      billingAddons:String(subscription.metadata?.addons||"").split(",").filter(x=>["website","booking","email","analytics","automation","priority","integration","voice","location","staff","sms"].includes(x)),
+      billingAddons:matched.addons||[],
       planStatus:status,
       billingActive:isActive,
       billingCurrentPeriodStart:start,
@@ -130,7 +119,9 @@ export async function POST(req) {
     await db.runTransaction(async tx=>{
       const seen=await tx.get(eventRef);
       if(seen.exists)return;
-      tx.set(userRef,{...data,email:subscription.metadata?.email||""},{merge:true});
+      tx.set(userRef,{...data,email:subscription.metadata?.email||"",
+        ...(websitePaid?{websitePurchased:true,websitePurchasedAt:new Date().toISOString(),
+          websiteOrderStatus:"awaiting_materials",websitePurchaseSessionId:obj.id}:{})},{merge:true});
       tx.create(eventRef,{type:event.type,subscriptionId:subscription.id,uid,recordedAt:new Date().toISOString()});
     });
     return NextResponse.json({received:true});
