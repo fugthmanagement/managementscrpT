@@ -21,6 +21,7 @@ export async function POST(req){
  const addons=validAddons(planKey,body?.addons||[]);
  if(!addons)return reply({error:"Invalid add-on selection."},400);
  if(plan.kind==="one_time"&&cycle==="yearly")return reply({error:"Website purchases are one-time payments."},400);
+ if(planKey==="textback"&&cycle==="yearly")return reply({error:"Text-Back is billed monthly at $49.99."},400);
  try{
   const stripe=new Stripe(process.env.STRIPE_SECRET_KEY,{apiVersion:"2024-06-20"});
   // Never collect funds in an unrelated Stripe workspace after a credential migration.
@@ -50,7 +51,17 @@ export async function POST(req){
    }
   }
   const recurringCents=(monthlyCents+addons.reduce((a,k)=>a+addonAmount(planKey,k),0))*multiplier;
-  const line_items=[{
+  // Use the existing Stripe LIVE $49.99/month product. Never create a duplicate price.
+  // Personalized founder offers use their validated, disclosed amount instead.
+  const textbackPrice=process.env.STRIPE_MISSED_CALL_TEXTBACK_PRICE_ID||"price_1UTPooHGcNIhcRMjPDGqXQXf";
+  let line_items;
+  if(planKey==="textback"&&!offerId){
+   const actual=await stripe.prices.retrieve(textbackPrice);
+   if(!actual.active||actual.currency!=="usd"||actual.unit_amount!==4999||
+      actual.type!=="recurring"||actual.recurring?.interval!=="month")
+    return reply({error:"Text-Back's $49.99 live price could not be verified. No payment started."},503);
+   line_items=[{price:textbackPrice,quantity:1}];
+  }else line_items=[{
    price_data:{currency:"usd",unit_amount:monthlyCents*multiplier,
     ...(plan.kind==="one_time"?{}:{recurring:{interval,interval_count:1}}),
     product_data:{name:"FUGTH "+plan.name,metadata:{brand:"fugth_management",planKey,kind:plan.kind}}},
