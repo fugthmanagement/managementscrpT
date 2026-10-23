@@ -6,7 +6,7 @@ import {resolveFirebaseAdminCredentials} from "../../../../lib/server/firebase-a
 import {TEXTBACK_PRICE_ID} from "../../../../lib/textback-flow";
 export const runtime="nodejs";export const dynamic="force-dynamic";
 const reply=(data,status=200)=>NextResponse.json(data,{status,headers:{"Cache-Control":"private, no-store"}});
-export const DEFAULT_STRIPE_FEATURES={subscriptionsEnabled:true,textbackCheckoutEnabled:true,promotionCodesEnabled:true};
+const DEFAULT_STRIPE_FEATURES={subscriptionsEnabled:true,textbackCheckoutEnabled:true,promotionCodesEnabled:true};
 async function owner(req){const a=await authenticatedUser(req);return a&&isFounder(a)?a:null}
 function features(data){return Object.fromEntries(Object.entries(DEFAULT_STRIPE_FEATURES).map(([k,v])=>[k,typeof data?.[k]==="boolean"?data[k]:v]))}
 async function merchant(){
