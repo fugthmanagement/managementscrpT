@@ -232,6 +232,7 @@ export default function FounderTextDesk({user,initialProspectId="",onOpenSiteMak
      {link&&<p className="mt-2 text-[11px] font-semibold text-emerald-700">✓ Preview link assigned to this prospect — automatically inserted into SMS templates.</p>}
      {link&&<button type="button" className={"mt-2 "+btn} onClick={()=>clipboard(link).then(()=>setInfo("Prospect website link copied.")).catch(()=>setInfo("Select and copy the URL above."))}>Copy prospect link</button>}
      {(expired||revokedDemo)&&<p className="mt-2 text-xs text-amber-800">The previously assigned preview may have expired or been revoked. Choose a current preview.</p>}
+     {link.includes("/demo/portable#p=")&&<p className="mt-2 text-xs leading-5 text-amber-800">This prospect has an immutable emergency snapshot link. It may use multiple SMS segments, cannot be revoked, and must be regenerated after changes. Use the normal short preview once Firebase Admin is repaired.</p>}
      {matchedDemo.length>0&&<p className="mt-2 text-[11px] text-[#537e92]">Linked to this prospect: {matchedDemo.map(d=>d.name).join(", ")}. Select it below to use it.</p>}
      {!matchedDemo.length&&phoneMatches.length>0&&<p className="mt-2 text-[11px] text-[#537e92]">Some saved previews have this phone number. Verify the business before assigning one.</p>}
      {(showLinkPicker||!link)&&<div className="mt-3">

@@ -33,9 +33,12 @@ export default function FounderReleaseMonitor(){
     <p className="mt-2 max-w-2xl text-xs leading-6 text-[#698395]">Batch features and testing on GitHub. Release a single production build only when it is needed. This tool never triggers a deployment.</p></div>
    <button type="button" disabled={busy} onClick={refresh} className="rounded-xl border bg-[#eff8fe] px-4 py-3 text-xs font-bold">Refresh</button>
   </div>
-  <div className="mt-5 grid gap-3 sm:grid-cols-3">
+  <div className="mt-5 grid gap-3 sm:grid-cols-4">
    <div className="rounded-xl bg-[#edf7fe] p-4"><p className="text-[10px] font-bold text-[#66879b]">Actual deploys remaining</p><strong className="mt-2 block text-xl">{info?.remainingDeployments??"Unknown"}</strong><p className="mt-1 text-[11px]">Vercel does not expose a verified balance here</p></div>
    <div className="rounded-xl bg-[#edf7fe] p-4"><p className="text-[10px] font-bold text-[#66879b]">Observed project builds · 24h</p><strong className="mt-2 block text-xl">{info?.projectDeployments24h??"Unavailable"}</strong><p className="mt-1 text-[11px]">{info?.source||"Checking…"}</p></div>
+   <div className="rounded-xl bg-[#edf7fe] p-4"><p className="text-[10px] font-bold text-[#66879b]">Next observed project event leaves 24h window</p>
+    <strong className="mt-2 block text-xl">{Number.isFinite(Date.parse(info?.nextObservedProjectEventExpiryAt||""))?minutes(Math.ceil((Date.parse(info.nextObservedProjectEventExpiryAt)-now)/60000)):"Unknown"}</strong>
+    <p className="mt-1 text-[11px]">Not the team-wide quota reset</p></div>
    <div className="rounded-xl bg-[#edf7fe] p-4"><p className="text-[10px] font-bold text-[#66879b]">Manual release hold</p><strong className="mt-2 block text-xl">{remaining==null?"Not set":minutes(remaining)}</strong><p className="mt-1 text-[11px]">{remaining>0?"Internal reminder, not a Vercel quota reset":"Only an internal planning hold"}</p></div>
   </div>
   <div className="mt-5 flex flex-wrap items-end gap-3">

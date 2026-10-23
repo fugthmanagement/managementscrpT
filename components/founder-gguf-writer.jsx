@@ -3,6 +3,7 @@ import {useCallback,useEffect,useState} from "react";
 import {collection,limit,onSnapshot,orderBy,query} from "firebase/firestore";
 import {auth,db} from "../lib/firebase";
 import FounderGgufConnection from "./founder-gguf-connection";
+import FounderReleaseMonitor from "./founder-release-monitor";
 const field="mt-2 w-full rounded-xl border border-[#c6dfed] bg-white px-3 py-3 text-sm text-[#204b65]";
 const btn="rounded-xl border border-[#c9dfea] bg-white px-4 py-3 text-xs font-black text-[#245c77] disabled:opacity-40";
 const sources=[["preview","Reveal a FUGTH website"],["upgrade","Improve existing website"],["follow_up","Follow-up"],["booking","Offer no-account booking"],["referral","Real verified referral"]];
@@ -50,6 +51,10 @@ export default function FounderGgufWriter({user,selectedProspectId="",onDraft,mo
    <h3 className="mt-3 text-2xl font-black">AI {mode==="email"?"email":"SMS"} writing & website research</h3>
    <p className="mt-2 max-w-3xl text-xs leading-6 text-[#c0d8e6]">Two small models, one shared inference queue. Website review and message drafting are separate, resumable steps; the model cannot send texts, claim a customer site or publish code.</p>
   </header>
+  <details className="mx-5 mt-5 rounded-2xl border border-[#d6e9f3] bg-[#f4faff] p-4 sm:mx-7">
+   <summary className="cursor-pointer text-xs font-bold text-[#1b5774]">Vercel deployment countdown & release reserve · founder only</summary>
+   <div className="mt-4"><FounderReleaseMonitor/></div>
+  </details>
   <div className="space-y-4 p-5 sm:p-7">
    <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-[#f0f8fd] p-4">
     <span className={"h-3 w-3 rounded-full "+dot}/>

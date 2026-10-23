@@ -9,7 +9,7 @@ export async function GET(req){
  const info={connected:false,source:"unavailable",project:"managementscrp-t",
   latestBuildCommit:process.env.VERCEL_GIT_COMMIT_SHA||null,
   projectDeployments24h:null,projectEventsChecked:0,remainingDeployments:null,
-  nextQuotaResetAt:null,calculatedAt:new Date().toISOString(),
+  nextQuotaResetAt:null,nextObservedProjectEventExpiryAt:null,calculatedAt:new Date().toISOString(),
   note:"Vercel does not publish a guaranteed per-project deployment allowance here. Remaining quota and reset are unavailable; do not infer them from project history."};
  if(!token)return out(info);
  try{
@@ -20,9 +20,11 @@ export async function GET(req){
   if(!res.ok)return out({...info,source:"vercel_permission_denied",note:"Vercel project history is not authorized for this server token. Deployment quota remains unknown."});
   const obj=await res.json(),list=Array.isArray(obj.deployments)?obj.deployments:[];
   const dayAgo=Date.now()-86400000,observed=list.filter(d=>Number(d.created||0)>dayAgo);
+  const oldest=observed.length?Math.min(...observed.map(d=>Number(d.created))):null;
+  const nextObservedProjectEventExpiryAt=oldest?new Date(oldest+86400000).toISOString():null;
   return out({...info,connected:true,source:"vercel_project_history",
-   projectDeployments24h:observed.length,projectEventsChecked:list.length,
+   projectDeployments24h:observed.length,projectEventsChecked:list.length,nextObservedProjectEventExpiryAt,
    sampleTruncated:list.length===100,
-   note:"This counts observed deployments for THIS PROJECT during the last 24h. It is not remaining account quota, does not include other projects, and cannot predict the rate-limit reset."});
+   note:"This counts observed deployments for THIS PROJECT during the last 24h. The next observed event leaving this rolling window is NOT the Vercel team quota reset, does not include other projects, and does not predict remaining builds."});
  }catch{return out({...info,source:"vercel_request_failed"})}
 }
