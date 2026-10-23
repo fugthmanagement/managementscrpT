@@ -1,7 +1,7 @@
 import {NextResponse} from "next/server";
+import {randomBytes} from "node:crypto";
 import {authenticatedUser,isFounder,firebaseAdmin} from "../../../../lib/server/auth";
 import {founderSlotDetails,FOUNDER_TIMEZONE} from "../../../../lib/server/founder-calendar";
-import {verifiedFounderBookingOwner} from "../../../../lib/server/founder-booking-owner";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
 const out=(v,s=200)=>NextResponse.json(v,{status:s,headers:{"Cache-Control":"private, no-store"}});
@@ -9,7 +9,9 @@ const dateIso=()=>new Date().toISOString();
 async function checkOwner(req){
  const user=await authenticatedUser(req);
  if(!user?.uid||!isFounder(user))return null;
- const owner=await verifiedFounderBookingOwner(firebaseAdmin().auth(),process.env);
+ const email=String(process.env.FUGTH_BOOKING_OWNER_EMAIL||process.env.FUGTH_CALENDAR_OWNER_EMAIL||"fugthmanagement@gmail.com").trim().toLowerCase();
+ if(!["fugthmanagement@gmail.com","fugthchat@gmail.com","mepenginestudio@gmail.com","novaeriahengine@gmail.com"].includes(email))return null;
+ const owner=await firebaseAdmin().auth().getUserByEmail(email);
  return owner.uid===user.uid?user:null;
 }
 export async function GET(req){
@@ -37,6 +39,26 @@ export async function POST(req){
  catch{return out({error:"Invalid calendar action."},400)}
  const action=String(body.action||""),db=firebaseAdmin().firestore();
  const now=dateIso();
+ if(action==="health"){
+  // Founder-only diagnostic. Never create an appointment or block a guest slot.
+  const probe=db.doc("bookingHealthChecks/"+randomBytes(12).toString("hex"));
+  let created=false;
+  try{
+   await probe.create({ownerUid:user.uid,type:"founder_booking_health",createdAt:now});
+   created=true;
+   const saved=await probe.get();
+   if(!saved.exists||saved.data()?.ownerUid!==user.uid)
+    throw Error("Firestore read-after-write did not match the booking owner.");
+   await probe.delete();created=false;
+   return out({healthy:true,ownerVerified:true,firestoreWriteReady:true,
+    message:"Booking owner verified. Firestore create, read and cleanup all succeeded. A guest appointment still requires its own confirmation."});
+  }catch(error){
+   console.warn("FUGTH_FOUNDER_BOOKING_HEALTH",{code:error?.code||"read_write_failed"});
+   if(created)try{await probe.delete()}catch{}
+   return out({healthy:false,ownerVerified:true,firestoreWriteReady:false,
+    error:"The appointment database could not complete a safe write/read test. Booking confirmations may fail."},503);
+  }
+ }
  if(action==="mark_read"){
   const noteId=String(body.id||"");
   if(!/^booking_[a-f0-9]{28}$/.test(noteId))return out({error:"Invalid notification."},400);

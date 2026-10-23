@@ -72,7 +72,7 @@ export default function FounderBookingCalendar({user,compact=false}){
    <div><p className="text-[10px] font-black uppercase tracking-[.18em] text-[#649ac0]">FUGTH / PRIVATE FOUNDER CALENDAR</p>
     <h3 className="mt-2 text-xl font-black sm:text-2xl">My bookings & notifications</h3>
     <p className="mt-2 text-xs leading-6 text-[#6c8d9e]">Appointments book instantly into Firestore. Guests see open times only. No Google Calendar approval or connection required.</p></div>
-   <div className="flex flex-wrap gap-2"><a href="/book" target="_blank" rel="noopener noreferrer" className={btn}>Public booking page ↗</a><button className={btn} onClick={()=>refresh().catch(e=>setNote(e.message))}>Refresh</button></div>
+   <div className="flex flex-wrap gap-2"><a href="/book" target="_blank" rel="noopener noreferrer" className={btn}>Public booking page ↗</a><button className={btn} disabled={!!busy} onClick={()=>action({action:"health"})}>Test booking connection</button><button className={btn} onClick={()=>refresh().catch(e=>setNote(e.message))}>Refresh</button></div>
   </div>
   <div className="grid gap-3 sm:grid-cols-3">
    {[["Confirmed bookings",reservations.length],["Blocked times",blocks.length],["Unread alerts",unread.length]].map(([k,v])=>

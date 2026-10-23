@@ -27,3 +27,13 @@ test("After booking, guests have a downloadable invite; emails are not misrepres
  assert.match(ui,/Download calendar invitation/);
  assert.match(ui,/not sent automatically/);
 });
+
+test("Founder booking health probe cannot take any guest appointment slot",()=>{
+ assert.match(privateApi,/if\(action==="health"\)/);
+ const segment=privateApi.split('if(action==="health"){')[1].split('if(action==="mark_read"){')[0];
+ assert.match(segment,/bookingHealthChecks\//);
+ assert.doesNotMatch(segment,/founderCalendarSlots\//);
+ assert.match(segment,/await probe\.create/);
+ assert.match(segment,/await probe\.get/);
+ assert.match(segment,/await probe\.delete/);
+});
