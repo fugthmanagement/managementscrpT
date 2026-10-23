@@ -3,23 +3,13 @@ import {NextResponse} from "next/server";
 import {firebaseAdmin} from "../../../../lib/server/auth";
 import {founderDaySlots,founderSlotDetails,founderNoSlotsReason,MIN_NOTICE_MINUTES,FOUNDER_TIMEZONE} from "../../../../lib/server/founder-calendar";
 import {firestoreDemoFailure} from "../../../../lib/server/prospect-demos-directory";
+import {verifiedFounderBookingOwner} from "../../../../lib/server/founder-booking-owner";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
 const json=(v,s=200)=>NextResponse.json(v,{status:s,headers:{"Cache-Control":"no-store"}});
 const clean=(v,n=150)=>String(v??"").replace(/[\u0000-\u001f<>]/g," ").trim().slice(0,n);
 const mail=s=>/^[^@\s]{1,65}@[^@\s]{2,130}\.[^@\s]{2,20}$/.test(s);
 const validPhone=s=>{const digits=String(s).replace(/\D/g,"");return digits.length===10||digits.length===11&&digits.startsWith("1")};
-export function founderBookingOwnerEmail(){
- const email=String(process.env.FUGTH_BOOKING_OWNER_EMAIL||process.env.FUGTH_CALENDAR_OWNER_EMAIL||"fugthmanagement@gmail.com").trim().toLowerCase();
- const allowed=["fugthmanagement@gmail.com","fugthchat@gmail.com","mepenginestudio@gmail.com","novaeriahengine@gmail.com"];
- if(!allowed.includes(email))throw Error("Configure a verified founder booking account.");
- return email;
-}
-async function founderId(){
- const user=await firebaseAdmin().auth().getUserByEmail(founderBookingOwnerEmail());
- if(user.disabled||!user.emailVerified)throw Error("Founder booking account is not verified.");
- return user.uid;
-}
 const hash=s=>createHash("sha256").update(s).digest("hex").slice(0,26);
 export async function GET(req){
  const day=new URL(req.url).searchParams.get("date")||"";
@@ -30,8 +20,11 @@ export async function GET(req){
  if(!slots.length)return json({date:day,timezone:FOUNDER_TIMEZONE,slots:[],
    minNoticeMinutes:MIN_NOTICE_MINUTES,slotMinutes:30,availability:"closed",...founderNoSlotsReason(day)});
  try{
-  const db=firebaseAdmin().firestore();
-
+  // Never label a slot bookable if the account that receives bookings is missing.
+  // The public GET and POST use the exact same founder-account resolver.
+  const admin=firebaseAdmin();
+  await verifiedFounderBookingOwner(admin.auth(),process.env);
+  const db=admin.firestore();
   const refs=slots.map(s=>db.doc("founderCalendarSlots/"+s.id));
   const docs=await db.getAll(...refs);
   const visible=slots.map((s,i)=>({
@@ -39,15 +32,16 @@ export async function GET(req){
    reason:docs[i].exists?(docs[i].data()?.status==="blocked"?"blocked":"booked"):null
   }));
   return json({date:day,timezone:FOUNDER_TIMEZONE,slots:visible,
-   minNoticeMinutes:MIN_NOTICE_MINUTES,slotMinutes:30,verified:true,availability:visible.some(x=>x.available)?"available":"full",
+   minNoticeMinutes:MIN_NOTICE_MINUTES,slotMinutes:30,verified:true,bookable:true,availability:visible.some(x=>x.available)?"available":"full",
    message:visible.some(x=>x.available)?"Choose a time that works for you.":
     "This date is fully booked. Choose another date."});
  }catch(e){
   const issue=firestoreDemoFailure(e);
-  console.warn("FUGTH_GUEST_AVAILABILITY_FAILURE",{code:issue.code});
+  const code=String(e?.code||"").startsWith("booking_owner_")?e.code:issue.code;
+  console.warn("FUGTH_GUEST_AVAILABILITY_FAILURE",{code});
   return json({
    date:day,timezone:FOUNDER_TIMEZONE,minNoticeMinutes:MIN_NOTICE_MINUTES,
-   slotMinutes:30,availability:"unverified",verified:false,code:issue.code,
+   slotMinutes:30,availability:"unverified",verified:false,bookable:false,code,
    // These are proposed times ONLY. No Firestore read means no claim of
    // availability and no guaranteed reservation.
    slots:slots.map(slot=>({startTime:slot.startTime,label:slot.label,
@@ -63,7 +57,7 @@ export async function POST(req){
  try{const raw=await req.text();if(raw.length>2800)throw Error();body=JSON.parse(raw)}
  catch{return json({error:"Invalid booking details."},400)}
  // Honeypot: never write anything for automated spam.
- if(body?.companyWebsite)return json({booked:true,note:"Thanks for your request."});
+ if(body?.companyWebsite)return json({booked:false,received:true,note:"Request received."},202);
  const name=clean(body.name,90),business=clean(body.business,90),email=clean(body.email,170).toLowerCase(),
   phone=clean(body.phone,32),notes=clean(body.notes,400),siteId=clean(body.siteId,70);
  const slot=founderSlotDetails(body.startTime);
@@ -79,7 +73,8 @@ export async function POST(req){
  const dupeRef=db.doc("guestBookingLimits/slot_"+hash(email+"|"+phone+"|"+slot.id));
  const slotRef=db.doc("founderCalendarSlots/"+slot.id);
  const bookingId=randomBytes(14).toString("hex"),booking=db.doc("guestBookingRequests/"+bookingId);
-  const uid=await founderId();
+  const bookingOwner=await verifiedFounderBookingOwner(firebaseAdmin().auth(),process.env);
+  const uid=bookingOwner.uid;
   let demoName="";
   if(siteId){
    if(!/^[a-f0-9]{24}$/.test(siteId))return json({error:"Invalid preview link."},400);
@@ -91,6 +86,8 @@ export async function POST(req){
   const createdAt=new Date().toISOString();
   let failure=null;
   await db.runTransaction(async tx=>{
+   // A transaction may retry after contention; discard the prior attempt result.
+   failure=null;
    const [ipSnap,contactSnap,duplicate,existingSlot]=await Promise.all([
     tx.get(ipRef),tx.get(contactRef),tx.get(dupeRef),tx.get(slotRef)
    ]);
@@ -128,16 +125,16 @@ export async function POST(req){
    message:"Confirmed! Your appointment is reserved in the FUGTH calendar. Save the time shown below; a separate email invitation is not sent automatically."},201);
  }catch(e){
   const issue=firestoreDemoFailure(e);
-  const ownerProblem=/^auth\/(user-not-found|invalid-email)/.test(String(e?.code||""))||
-    String(e?.message||"").includes("Founder booking account is not verified");
-  const code=ownerProblem?"booking_owner_not_configured":issue.code;
+  const ownerProblem=String(e?.code||"").startsWith("booking_owner_")||
+    /^auth\/(user-not-found|invalid-email)/.test(String(e?.code||""));
+  const code=ownerProblem?(String(e?.code||"").startsWith("booking_owner_")?e.code:"booking_owner_not_configured"):issue.code;
   console.warn("FUGTH_GUEST_BOOKING_FAILURE",{code});
   return json({
    error:ownerProblem?"FUGTH booking calendar is temporarily unavailable.":
     "The calendar could not save your appointment. No booking was confirmed.",
    code,bookingUnavailable:true,
    hint:ownerProblem?
-    "FUGTH administrators: verify FUGTH_BOOKING_OWNER_EMAIL matches an existing verified Firebase Auth founder account.":
+    "FUGTH administrators: verify your configured booking-owner email is approved, or verify at least one approved founder in Firebase Authentication.":
     issue.hint
   },503);
  }
