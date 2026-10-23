@@ -10,6 +10,7 @@ export const dynamic = "force-dynamic";
 const supported = new Set([
   "checkout.session.completed",
   "checkout.session.async_payment_succeeded",
+  "checkout.session.async_payment_succeeded",
   "customer.subscription.created",
   "customer.subscription.updated",
   "customer.subscription.deleted",
@@ -71,7 +72,7 @@ export async function POST(req) {
   try {
     let subscriptionId="";
     const obj=event.data.object;
-    if (event.type==="checkout.session.completed") subscriptionId=typeof obj.subscription==="string"?obj.subscription:obj.subscription?.id||"";
+    if (event.type==="checkout.session.completed"||event.type==="checkout.session.async_payment_succeeded") subscriptionId=typeof obj.subscription==="string"?obj.subscription:obj.subscription?.id||"";
     else if (event.type.startsWith("customer.subscription.")) subscriptionId=obj.id;
     else if (event.type.startsWith("invoice.")) {
       subscriptionId=(typeof obj.subscription==="string"?obj.subscription:obj.subscription?.id)

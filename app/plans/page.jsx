@@ -124,7 +124,8 @@ export default function Plans() {
         window.location.assign("/login?next=%2Fplans");
         return;
       }
-      if(readiness?.ready===false)throw Error("Payments cannot start yet: "+(readiness.issues?.[0]?.message||"Merchant setup needs attention."));
+      // Readiness is advisory and can become stale during credential rotation.
+      // The authenticated POST is always authoritative and fails closed before charging.
       const token = await currentUser.getIdToken();
       const response = await fetch("/api/stripe/checkout", {
         method: "POST",

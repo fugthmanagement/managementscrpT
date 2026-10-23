@@ -2,6 +2,8 @@ import Stripe from "stripe";
 import {NextResponse} from "next/server";
 import {authenticatedUser,firebaseAdmin} from "../../../../lib/server/auth";
 import {BILLING_PLANS,BILLING_ADDONS,addonAmount,validAddons} from "../../../../lib/billing-catalog";
+import {ensureCheckoutAccount} from "../../../../lib/server/checkout-account";
+import {resolveFirebaseAdminCredentials} from "../../../../lib/server/firebase-admin-credentials";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
 const siteUrl="https://www.fugthmanagement.space";
@@ -12,8 +14,8 @@ export async function POST(req){
  const user=await authenticatedUser(req);
  if(!user?.uid||!user.email)return reply({error:"Please sign in to select a FUGTH offer."},401);
  if(!process.env.STRIPE_SECRET_KEY||!process.env.STRIPE_WEBHOOK_SECRET)return reply({error:"Checkout is not ready: the Stripe merchant key or signed payment-confirmation webhook is missing. No charge started. Contact FUGTH support."},503);
- if(!process.env.FIREBASE_SERVICE_ACCOUNT&&!(process.env.FIREBASE_CLIENT_EMAIL&&process.env.FIREBASE_PRIVATE_KEY))
-  return reply({error:"Checkout is not ready: secure Firebase activation credentials are missing. No charge started. Contact FUGTH support."},503);
+ const credentialCheck=resolveFirebaseAdminCredentials(process.env);
+ if(!credentialCheck.ok)return reply({error:"Checkout is waiting for secure account activation ("+credentialCheck.report.code+"). No charge started."},503);
  let body;try{const txt=await req.text();if(txt.length>2500)throw Error();body=JSON.parse(txt);}catch{return reply({error:"Invalid plan selection."},400);}
  const planKey=String(body?.planKey||""),plan=BILLING_PLANS[planKey];
  if(!plan)return reply({error:"Choose a valid package."},400);
@@ -28,11 +30,13 @@ export async function POST(req){
   if(account.id!==EXPECTED_FUGTH_MERCHANT){
     return reply({error:"Checkout is connected to the wrong FUGTH merchant account. No payment started. Ask FUGTH support to reconnect the correct Stripe account."},503);
   }
-  const db=firebaseAdmin().firestore(),userDoc=await db.doc("users/"+user.uid).get();
-  if(!userDoc.exists)return reply({error:"We couldn't find your FUGTH account profile. Sign out and back in, then finish the account setup before checkout."},409);
-  if(userDoc.data()?.billingActive&&plan.kind!=="one_time")
+  const db=firebaseAdmin().firestore();
+  // Verified Firebase UID is authoritative; create only a minimum unpaid profile.
+  // A transient client signup write failure must not strand genuine customers.
+  const profile=await ensureCheckoutAccount(db,user);
+  if(profile?.billingActive&&plan.kind!=="one_time")
    return reply({error:"A subscription is already active. Contact support to change your plan safely."},409);
-  if(plan.kind==="one_time"&&userDoc.data()?.websitePurchased===true)
+  if(plan.kind==="one_time"&&profile?.websitePurchased===true)
    return reply({error:"This account already has a paid website purchase. Contact FUGTH support before placing a second order."},409);
   let monthlyCents=plan.monthly,setupCents=plan.setup,offerId="",billingAnchor=null;
   if(body.useFounderOffer===true){
