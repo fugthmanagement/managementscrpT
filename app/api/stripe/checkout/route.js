@@ -67,7 +67,7 @@ export async function POST(req){
   const line_items=stripeCartLines(purchaseCart,{textbackPrice:liveTextbackPrice});
   const recurringCents=purchaseCart.recurringCents;
   const metadata={userId:user.uid,planKey,planTier:plan.tier,billingCycle:cycle,
-   baseAmountCents:String(monthlyCents*multiplier),setupFeeCents:String(setupCents),email:user.email,
+   baseAmountCents:String(purchaseCart.baseCents*purchaseCart.multiplier),setupFeeCents:String(setupCents),email:user.email,
    addons:addons.join(","),offerId,kind:plan.kind,websiteOneTime:cart.websiteOneTime?"1":"0"};
   const sessionOptions={
    ui_mode:"hosted",mode:plan.kind==="one_time"?"payment":"subscription",line_items,
