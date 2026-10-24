@@ -15,6 +15,7 @@ import { auth, db } from "../../lib/firebase";
 import { detectIndustry } from "../../lib/site-presets";
 import BrandSignalArt from "../../components/brand-signal-art";
 const safeNext=(fallback)=>{if(typeof window==="undefined")return fallback;const next=new URLSearchParams(window.location.search).get("next");return next==="/plans"||/^\/claim\/[a-f0-9]{24}$/.test(next)?next:fallback;};
+const afterGoogleLogin=()=>safeNext("/dashboard?connectCalendar=1");
 const field =
   "mt-2 w-full rounded-xl border border-[#d2e4ef] bg-white px-4 py-3.5 text-[15px] text-[#183b52] outline-none focus:border-[#66b8e5] focus:ring-2 focus:ring-[#e2f5ff]";
 
@@ -34,7 +35,7 @@ export default function Login() {
       .then(async (result) => {
         if (result?.user) {
           await completeGoogleLogin(result.user);
-          window.location.replace(safeNext("/dashboard"));
+          window.location.replace(afterGoogleLogin());
         }
       })
       .catch((error) => setError(googleMessage(error)));
@@ -110,7 +111,7 @@ export default function Login() {
       try {
         const result = await signInWithPopup(auth, provider);
         await completeGoogleLogin(result.user);
-        window.location.replace(safeNext("/dashboard"));
+        window.location.replace(afterGoogleLogin());
       } catch (error) {
         if (
           [
@@ -375,7 +376,7 @@ export default function Login() {
             Continue with Google
           </button>
           <p className="mt-3 text-xs leading-6 text-[#738e9f]">
-            After sign-in, connect your FUGTH business calendar in Settings to
+            After Google sign-in, approve Calendar permission to sync business bookings to your phone. You can also connect later in Settings to
             approve appointment syncing. Your login alone never grants access to
             private calendar events.
           </p>
