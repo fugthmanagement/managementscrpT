@@ -3,6 +3,7 @@ import {useEffect,useMemo,useState} from "react";
 import {auth} from "../lib/firebase";
 import {saveProspectClientFallback} from "../lib/client/prospect-outreach-fallback";
 import {canRecordPastText} from "../lib/prospect-outreach-eligibility";
+import {smsComposeHref,smsRecipientHref,isAppleMobile,isMobileDevice} from "../lib/client/sms-compose";
 const VOICE="https://voice.google.com/u/0/messages";
 const TEXTNOW="https://www.textnow.com/";
 const btn="rounded-xl border border-[#cbdfea] bg-white px-3 py-2.5 text-xs font-bold text-[#28516a] disabled:opacity-40";
@@ -10,7 +11,7 @@ const providers=[
  {id:"textnow",label:"TextNow (free, manual send)",web:TEXTNOW},
  {id:"google_voice",label:"Google Voice (manual)",web:VOICE},
  {id:"whatsapp",label:"WhatsApp (pre-filled if recipient uses WhatsApp)",web:"https://web.whatsapp.com/"},
- {id:"native_sms",label:"Samsung / phone's SMS app",web:null},
+ {id:"native_sms",label:"iPhone / phone Messages",web:null},
  {id:"other_web",label:"Other messaging website",web:null}
 ];
 const validUrl=x=>{try{const u=new URL(x);return u.protocol==="https:"&&u.username===""&&u.password===""&&u.hostname.includes(".")?u.href:"";}catch{return ""}};
@@ -18,6 +19,7 @@ async function copy(value){if(!navigator.clipboard?.writeText)throw Error("Clipb
 const freshId=()=>typeof crypto!=="undefined"&&crypto.randomUUID?crypto.randomUUID():Math.random().toString(16).slice(2)+Date.now().toString(16);
 export default function FounderTextDispatch({prospect,composed,canPrepare,phone,preset,link}){
  const [provider,setProvider]=useState("textnow"),[otherUrl,setOtherUrl]=useState(""),[notice,setNotice]=useState("");
+ const [mobile,setMobile]=useState(false),[iphone,setIphone]=useState(false);
  const [logs,setLogs]=useState([]),[stats,setStats]=useState(null),[draftId,setDraftId]=useState(freshId);
  const [sentConfirmed,setSentConfirmed]=useState(false),[saving,setSaving]=useState(false),[lastLogged,setLastLogged]=useState("");
  const fetchHistory=async()=>{
@@ -27,29 +29,43 @@ export default function FounderTextDispatch({prospect,composed,canPrepare,phone,
   if(r.ok){setLogs(j.items||[]);setStats({...j.counts,partial:j.partial});}
  };
  useEffect(()=>{fetchHistory().catch(()=>{});},[]);
+ useEffect(()=>{
+  const ua=navigator.userAgent||"";
+  setMobile(isMobileDevice(ua));setIphone(isAppleMobile(ua));
+  if(isMobileDevice(ua))setProvider("native_sms");
+  const refresh=()=>{if(document.visibilityState==="visible")fetchHistory().catch(()=>{})};
+  document.addEventListener("visibilitychange",refresh);
+  return()=>document.removeEventListener("visibilitychange",refresh);
+ },[]);
  useEffect(()=>{setDraftId(freshId());setLastLogged("");setSentConfirmed(false);setNotice("");},[prospect?.id,provider]);
  const current=providers.find(x=>x.id===provider)||providers[0];
  const currentNumber=String(phone||prospect?.phone||"");
  const canLog=canRecordPastText(prospect,currentNumber);
  const validPhone=currentNumber.replace(/\D/g,"");
+ const nativeHref=smsComposeHref(currentNumber,composed,iphone?"iPhone":"Android");
+ const recipientHref=smsRecipientHref(currentNumber);
  const linkToOpen=()=>{
   if(provider==="whatsapp")return "https://wa.me/"+validPhone+"?text="+encodeURIComponent(composed);
-  if(provider==="native_sms")return "sms:"+currentNumber+"?body="+encodeURIComponent(composed);
+  if(provider==="native_sms")return nativeHref;
   return provider==="other_web"?validUrl(otherUrl):current.web;
  };
  const related=useMemo(()=>logs.filter(x=>x.prospectId===prospect?.id),[logs,prospect?.id]);
  async function copyPart(value,label){
-  try{await copy(value);setNotice(label+" copied to Samsung clipboard. You can return and copy the other field separately.")}
+  try{await copy(value);setNotice(label+" copied to your phone clipboard. Paste it into Messages, Google Voice or TextNow.")}
   catch(e){setNotice(e.message||"Clipboard isn't available; use manual select/copy.")}
  }
  function openWebsite(){
   if(!canPrepare)return;
   const url=linkToOpen();
   if(!url)return setNotice("Enter a valid HTTPS messaging website.");
-  // Open synchronously from the click gesture so Android pop-up blockers don't swallow it.
+  // Native message composition must remain a direct user gesture. Opening is not sending.
+  if(provider==="native_sms"){
+   setNotice("Messages opened with the selected number. If the draft is empty, copy the message and paste manually. You must press Send yourself.");
+   window.location.href=url;return;
+  }
   window.open(url,"_blank","noopener,noreferrer");
-  copy(composed).then(()=>setNotice("Message copied and "+current.label+" opened. Paste the recipient number and text manually, then send."))
-   .catch(()=>setNotice("Messaging service opened, but copying failed. Use the separate Copy Message button."));
+  copy(composed).then(()=>setNotice("Message copied and "+current.label+" opened. Paste the verified number and text, then send."))
+   .catch(()=>setNotice("Messaging service opened; use Copy Message if the draft did not copy."));
  }
  function openApp(){
   if(!canPrepare)return;
@@ -68,7 +84,7 @@ export default function FounderTextDispatch({prospect,composed,canPrepare,phone,
  }
  async function share(){
   if(!canPrepare)return;
-  if(!navigator.share){setNotice("Android sharing is unavailable in this browser. Use Copy Message.");return;}
+  if(!navigator.share){setNotice("Sharing is unavailable in this browser. Use Copy Message.");return;}
   try{await navigator.share({text:composed,title:"FUGTH draft for "+prospect.businessName});setNotice("Message shared to another app for review. This does not confirm that a text was sent.");}
   catch(e){setNotice("Nothing was sent or marked sent.")}
  }
@@ -114,8 +130,19 @@ export default function FounderTextDispatch({prospect,composed,canPrepare,phone,
  }
  return <section className="mt-5 space-y-4 rounded-2xl border border-[#d0e4ef] bg-[#f7fbfe] p-4 sm:p-5">
   <div><p className="text-[10px] font-black uppercase tracking-[.2em] text-[#699cb8]">3 / OPEN APP & TRACK MESSAGE</p>
-   <h4 className="mt-2 text-lg font-black">Choose your messaging service</h4>
+   <h4 className="mt-2 text-lg font-black">Send from your iPhone, Android or computer</h4>
    <p className="mt-1 text-[11px] leading-5 text-[#6f90a4]">One recipient at a time. No app automatically sends a message, and no opened tab counts as a delivered text.</p></div>
+  {mobile&&<div className="rounded-[20px] border border-[#b4d6e7] bg-white p-4 shadow-sm sm:hidden">
+   <p className="text-[10px] font-black uppercase tracking-widest text-[#588fac]">{iphone?"iPhone Messages":"Phone SMS"} · Quick send</p>
+   <p className="mt-2 text-xs leading-6">1. Copy the personalized draft. 2. Open Messages and review the number, link and text. 3. Return to FUGTH after you press Send.</p>
+   <div className="mt-3 grid grid-cols-2 gap-2">
+    <button type="button" disabled={!canPrepare} onClick={()=>copyPart(composed,"Message")} className="min-h-12 rounded-xl border border-[#a7cadb] bg-[#e9f7fe] px-3 py-3 text-xs font-black disabled:opacity-40">1 · Copy draft</button>
+    {canPrepare&&nativeHref?<a href={nativeHref} onClick={()=>setNotice("Messages compose screen opened; return to log only after sending.")} className="flex min-h-12 items-center justify-center rounded-xl bg-[#164b65] px-3 py-3 text-center text-xs font-black text-white">2 · Open Messages ↗</a>:
+     <span className="flex min-h-12 items-center justify-center rounded-xl bg-[#d1dce4] px-3 text-center text-xs font-black text-[#697e8b]">2 · Messages locked</span>}
+   </div>
+   {!canPrepare&&<p className="mt-2 text-[11px] leading-5 text-amber-800">New promotional messages require verified SMS permission, a valid number and any required preview link. You can still record a past text you actually sent.</p>}
+   {recipientHref&&canPrepare&&<a href={recipientHref} className="mt-3 inline-block text-xs font-bold text-[#266c92] underline">Open recipient only (paste text manually) ↗</a>}
+  </div>}
   <label className="block text-xs font-black">Messaging destination
    <select className="mt-2 w-full rounded-xl border border-[#c7e1ee] bg-white p-3 text-sm" value={provider} onChange={e=>setProvider(e.target.value)}>
     {providers.map(p=><option key={p.id} value={p.id}>{p.label}</option>)}
@@ -127,10 +154,11 @@ export default function FounderTextDispatch({prospect,composed,canPrepare,phone,
   <div className="flex flex-wrap gap-2">
    <button disabled={!currentNumber} className={btn} onClick={()=>copyPart(phone,"Number")}>Copy number</button>
    <button disabled={!prospect||!composed} className={btn} onClick={()=>copyPart(composed,"Message")}>Copy message</button>
-   <button disabled={!canPrepare} className="rounded-xl bg-[#164b65] px-4 py-3 text-xs font-black text-white disabled:opacity-40" onClick={openWebsite}>Copy text & open {current.label.split(" (")[0]} ↗</button>
+   <button disabled={!canPrepare} className="rounded-xl bg-[#164b65] px-4 py-3 text-xs font-black text-white disabled:opacity-40" onClick={openWebsite}>{provider==="native_sms"?"Open phone Messages ↗":"Copy text & open "+current.label.split(" (")[0]+" ↗"}</button>
    {provider==="textnow"&&<button disabled={!canPrepare} className={btn} onClick={openApp}>Try TextNow app (Android)</button>}
-   <button disabled={!canPrepare} className={btn} onClick={share}>Share with Android app…</button>
+   <button disabled={!canPrepare} className={btn} onClick={share}>Share message…</button>
   </div>
+  {provider==="native_sms"&&<p className="text-[11px] leading-6 text-[#6f8da0]">iPhone Safari may open only the recipient and omit the draft body. Use Copy message first, then paste into Messages if needed. This does not send the message automatically.</p>}
   {provider==="textnow"&&<p className="text-[11px] leading-6 text-[#6f8da0]">TextNow app launch is best-effort. The browser version always remains available. TextNow has no supported FUGTH auto-compose or delivery-status API; copy the phone number and text using the two buttons if needed.</p>}
   {provider==="whatsapp"&&<p className="text-[11px] leading-6 text-[#6f8da0]">WhatsApp can pre-fill the message with its documented click-to-chat URL, but the recipient must use WhatsApp and you still press Send yourself.</p>}
   <div className="rounded-xl border border-[#d8e7ed] bg-white p-4">
