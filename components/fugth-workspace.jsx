@@ -939,7 +939,8 @@ export default function FugthWorkspace() {
               <div>
                 {founder&&prospectSiteMakerId?
                  <FounderProspectSiteMaker user={user} prospectId={prospectSiteMakerId}
-                  onBack={()=>{setProspectSiteMakerId("");changePage("sales")}}/>:
+                  onBack={()=>{setProspectSiteMakerId("");changePage("sales")}}
+                   onOpenSms={()=>{setProspectSiteMakerId("");setLastSalesTab("sms");changePage("sales")}}/>:
                  <>
                   <SectionHeading eyebrow="FUGTH WEBSITE MAKER"
                    title="Build and manage your professional business website."
@@ -1125,7 +1126,7 @@ export default function FugthWorkspace() {
             )}
             {page === "sales" && founder && (
               <div>
-                <FounderSalesDesk user={user} onOpenMarketing={()=>changePage("marketing")} onOpenSiteMaker={openProspectSiteMaker} initialTab={lastSalesTab}/>
+                <FounderSalesDesk user={user} onOpenMarketing={()=>changePage("marketing")} onOpenSiteMaker={openProspectSiteMaker} initialTab={lastSalesTab} onTabChange={setLastSalesTab}/>
               </div>
             )}
             {page === "sales" && !founder && (
@@ -1143,10 +1144,15 @@ export default function FugthWorkspace() {
  <div>
   <SectionHeading eyebrow="FUGTH INTERNAL" title="Founder Operations"
    description="One management center with three focused areas. Pierre's calling, SMS and email stay separate in Cold Calling."/>
-  <nav role="tablist" aria-label="Founder operations" className="mb-6 flex flex-wrap gap-2 rounded-2xl border border-[#d4e7f0] bg-white p-3">
-   {[["customers","Accounts & websites"],["salesAi","Sales & AI tools"],["platform","Platform & billing"]].map(([id,label])=><button key={id} type="button" role="tab" aria-selected={adminSection===id}
-    onClick={()=>setAdminSection(id)} className={"rounded-xl px-5 py-3 text-xs font-black "+(adminSection===id?"bg-[#193d53] text-white":"border border-[#cddfe9] bg-[#f5faff] text-[#2c5770]")}>{label}</button>)}
+  <nav role="tablist" aria-label="Founder operations" className="mb-6 grid grid-cols-3 gap-1.5 rounded-2xl border border-[#d4e7f0] bg-white p-2 sm:flex sm:flex-wrap sm:gap-2 sm:p-3">
+   {[["customers","Accounts & websites","Accounts"],["salesAi","Sales & AI tools","Sales / AI"],["platform","Platform & billing","Billing"]].map(([id,label,short])=><button key={id} type="button" role="tab" aria-selected={adminSection===id}
+    onClick={()=>setAdminSection(id)} className={"min-h-[48px] rounded-xl px-2 py-3 text-[11px] font-black sm:px-5 sm:text-xs "+(adminSection===id?"bg-[#193d53] text-white":"border border-[#cddfe9] bg-[#f5faff] text-[#2c5770]")}><span className="sm:hidden">{short}</span><span className="hidden sm:inline">{label}</span></button>)}
   </nav>
+  <div className="mb-5 grid grid-cols-3 gap-2 sm:hidden" aria-label="Founder outreach shortcuts">
+   {[["leads","Prospects"],["sms","SMS"],["email","Email"]].map(([id,label])=><button type="button" key={id}
+    onClick={()=>{setLastSalesTab(id);changePage("sales")}}
+    className="min-h-[48px] rounded-xl border border-[#b8d7e7] bg-[#eff8fd] px-2 py-2 text-xs font-black text-[#235778]">{label} ↗</button>)}
+  </div>
   {adminSection==="customers"&&<div role="tabpanel" className="space-y-6">
    <div className="rounded-2xl border border-[#d4e7f0] bg-[#edf7fe] p-4 text-xs leading-6"><strong className="block text-sm">Accounts, bookings and client websites</strong> Manage website ownership, accounts and registered customers. Paid entitlements still come from verified Stripe payments.</div>
    <FounderBookingCalendar user={user}/>

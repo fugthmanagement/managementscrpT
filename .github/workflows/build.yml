@@ -54,6 +54,8 @@ jobs:
         run: node --experimental-default-type=module --test tests/site-canvas.test.mjs
       - name: Test procedural site engine, unified prospects and safe domain staging
         run: node --experimental-default-type=module --test tests/procedural-launch.test.mjs
+      - name: Test iPhone outreach, opt-in safety and prospect event history
+        run: node --experimental-default-type=module --test tests/iphone-outreach.test.mjs
       - name: Build FUGTH website
         env:
           NEXT_TELEMETRY_DISABLED: "1"

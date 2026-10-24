@@ -11,7 +11,7 @@ import FounderSiteReferenceInspector from "./founder-site-reference-inspector";
 import FounderProspectBusinessHub from "./founder-prospect-business-hub";
 const tabs=[["data","Business data & website reference"],["design","Design canvas"],["ai","AI site editor"],["media","Photo folders & labels"]];
 const button="rounded-xl border border-[#bfd8e8] bg-white px-4 py-3 text-xs font-black text-[#215874] disabled:opacity-40";
-export default function FounderProspectSiteMaker({user,prospectId,onBack}){
+export default function FounderProspectSiteMaker({user,prospectId,onBack,onOpenSms}){
  const [site,setSite]=useState(null),[prospect,setProspect]=useState(null),
   [revision,setRevision]=useState(null),[previewId,setPreviewId]=useState(""),[previewUrl,setPreviewUrl]=useState(""),
   [busy,setBusy]=useState("open"),[notice,setNotice]=useState(""),[tab,setTab]=useState("data");
@@ -92,7 +92,10 @@ export default function FounderProspectSiteMaker({user,prospectId,onBack}){
    <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
     <div><h2 className="text-3xl font-black">{prospect?.businessName||"Loading prospect website…"}</h2>
      <p className="mt-2 text-xs leading-6 text-[#bed7e6]">One saved preview per prospect. Design and media changes are saved on their existing Firestore preview. The business can claim it and request further improvements after discussing their needs.</p></div>
-    <button onClick={onBack} className="rounded-xl border border-white/25 bg-white/10 px-4 py-3 text-xs font-bold">← Back to outreach</button>
+    <div className="flex flex-wrap gap-2">
+      <button type="button" onClick={onBack} className="min-h-[44px] rounded-xl border border-white/25 bg-white/10 px-4 py-3 text-xs font-bold">← Back to outreach</button>
+      {onOpenSms&&<button type="button" onClick={onOpenSms} className="min-h-[44px] rounded-xl bg-[#b9e5fb] px-4 py-3 text-xs font-black text-[#153b51]">SMS this prospect ↗</button>}
+     </div>
    </div>
    {previewUrl&&<div className="mt-5 rounded-xl border border-white/15 bg-white/10 p-4">
     <p className="text-[10px] font-bold uppercase text-[#a6dcf6]">Saved personal preview link · {site?.industry||"business"} · revision {revision}</p>
@@ -118,7 +121,7 @@ export default function FounderProspectSiteMaker({user,prospectId,onBack}){
   </div>}
   {busy==="open"&&<div className="rounded-2xl bg-white p-8 text-sm">Loading or creating this prospect's saved website…</div>}
   {site&&<div className="space-y-5">
-   <nav role="tablist" aria-label="Prospect Site Maker tools" className="flex flex-wrap gap-2 rounded-2xl bg-white p-3">
+   <nav role="tablist" aria-label="Prospect Site Maker tools" className="grid grid-cols-2 gap-2 rounded-2xl bg-white p-2 sm:flex sm:flex-wrap sm:p-3">
     {tabs.map(([id,label])=><button key={id} role="tab" aria-selected={tab===id} onClick={()=>setTab(id)}
      className={"rounded-xl px-4 py-3 text-xs font-black "+(tab===id?"bg-[#15516f] text-white":"border border-[#d4e6ef] bg-[#f1faff] text-[#205c7c]")}>{label}</button>)}
    </nav>

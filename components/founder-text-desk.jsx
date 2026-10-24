@@ -11,8 +11,8 @@ import FounderProspectFollowUp from "./founder-prospect-followup";
 
 const ROOT="https://www.fugthmanagement.space";
 const VOICE="https://voice.google.com/u/0/messages";
-const field="mt-2 w-full rounded-xl border border-[#c9dfeb] bg-white px-3 py-3 text-sm text-[#20455c] outline-none focus:border-[#448eaf]";
-const btn="rounded-xl border border-[#c4dbe7] bg-white px-4 py-3 text-xs font-black text-[#215874] disabled:opacity-40";
+const field="mt-2 w-full rounded-xl border border-[#c9dfeb] bg-white px-3 py-3 text-base text-[#20455c] sm:text-sm outline-none focus:border-[#448eaf]";
+const btn="rounded-xl border border-[#c4dbe7] bg-white px-4 py-3 text-xs font-black text-[#215874] min-h-[44px] disabled:opacity-40";
 const PRESETS=[
  {id:"preview",label:"Reveal an independent website concept",needsLink:true,
   text:"Hi {{contact}}, this is Pierre with FUGTH Management. I put together an independent sample website concept for {{business}}: {{link}}. I'd love your thoughts! It's an early design, and we'll improve the layout, photos and content with your feedback if you want to claim it. Interested?"},
@@ -59,7 +59,7 @@ export default function FounderTextDesk({user,initialProspectId="",onOpenSiteMak
  const [all,setAll]=useState([]),[demos,setDemos]=useState([]),[demosError,setDemosError]=useState("");
  const [historicTexted,setHistoricTexted]=useState({});
  const [publishedSites,setPublishedSites]=useState([]),[siteSearch,setSiteSearch]=useState(""),[siteError,setSiteError]=useState("");
- const [prospectId,setProspectId]=useState(initialProspectId),[filter,setFilter]=useState("");
+ const [prospectId,setProspectId]=useState(initialProspectId),[filter,setFilter]=useState(""),[queueMode,setQueueMode]=useState("all");
  const [chosenDemo,setChosenDemo]=useState(""),[preset,setPreset]=useState("preview"),[editor,setEditor]=useState(PRESETS[0].text);
  const [consentSource,setConsentSource]=useState(""),[approved,setApproved]=useState(false);
  const [saving,setSaving]=useState(false),[info,setInfo]=useState(""),[showLinkPicker,setShowLinkPicker]=useState(false);
@@ -68,7 +68,7 @@ export default function FounderTextDesk({user,initialProspectId="",onOpenSiteMak
  const [sharedProspect,rememberProspect]=useActiveProspect(user?.uid);
  useEffect(()=>{if(sharedProspect)setProspectId(sharedProspect)},[sharedProspect]);
  function selectWorkingProspect(id){setProspectId(id);rememberProspect(id)}
- useEffect(()=>{if(initialProspectId)setProspectId(initialProspectId)},[initialProspectId]);
+ useEffect(()=>{if(initialProspectId){setProspectId(initialProspectId);rememberProspect(initialProspectId)}},[initialProspectId]);
  useEffect(()=>{if(!db||!user?.uid)return;
   return onSnapshot(query(collection(db,"users",user.uid,"campaigns"),orderBy("createdAt","desc"),limit(1200)),
    snapshot=>setAll(snapshot.docs.map(d=>({id:d.id,...d.data()})).filter(d=>d.type==="cold_call_prospect")),
@@ -115,8 +115,22 @@ export default function FounderTextDesk({user,initialProspectId="",onOpenSiteMak
  useEffect(()=>{refreshPublished()},[refreshPublished]);
 
  const prospect=all.find(p=>p.id===prospectId)||null;
- const matching=useMemo(()=>all.filter(p=>[p.businessName,p.ownerName,p.phone,p.industry].join(" ").toLowerCase().includes(filter.toLowerCase())).slice(0,400),[all,filter]);
+ const matching=useMemo(()=>all.filter(p=>
+  [p.businessName,p.ownerName,p.phone,p.industry].join(" ").toLowerCase().includes(filter.toLowerCase())&&
+  (queueMode==="all"||queueMode==="not_texted"&&textCount(p)===0||
+   queueMode==="ready"&&textCount(p)===0&&Boolean(e164(p.phone))&&
+    p.phoneMarketingOptIn===true&&trimmed(p.consentSource).length>=5&&
+    !p.doNotCall&&!p.smsOptOut&&!p.unsubscribed&&p.status!=="do_not_call")
+ ).slice(0,400),[all,filter,queueMode,historicTexted]);
  const notTexted=all.filter(p=>!textCount(p)&&!p.doNotCall&&p.status!=="do_not_call");
+ const readyToContact=notTexted.filter(p=>Boolean(e164(p.phone))&&p.phoneMarketingOptIn===true&&
+  trimmed(p.consentSource).length>=5&&!p.smsOptOut&&!p.unsubscribed);
+ function nextReadyProspect(){
+  if(!readyToContact.length)return setInfo("No untexted prospect with documented SMS permission is ready. Use calls or request consent before sending.");
+  const after=readyToContact.find(p=>p.id!==prospectId);
+  if(!after)return setInfo("This is your only untexted prospect with documented SMS permission.");
+  selectWorkingProspect(after.id);setInfo("Selected next SMS-eligible prospect. Verify its website link and draft before opening Messages.");
+ }
  const assignedLink=prospect?validLink(prospect.websitePreviewUrl||prospect.assignedSiteUrl||""):"";
  const assignedId=trimmed(prospect?.assignedPreviewId||prospect?.sitePreviewId);
  const assignedDemo=demos.find(d=>d.id===assignedId);
@@ -204,7 +218,17 @@ export default function FounderTextDesk({user,initialProspectId="",onOpenSiteMak
   <div className="rounded-[26px] bg-[#123147] p-6 text-white sm:p-8">
    <p className="text-[10px] font-black uppercase tracking-[.2em] text-[#a1dafa]">FUGTH / SMS OUTREACH / MESSAGE WORKBENCH</p>
    <h3 className="mt-3 text-3xl font-black tracking-[-.05em]">Text a prospect with their website preview.</h3>
-   <p className="mt-3 max-w-3xl text-xs leading-6 text-[#c6dfed]">Select a prospect, choose their site and a preset, then copy the message into TextNow, Google Voice, WhatsApp or Samsung SMS. Mark a text sent only after you actually send it.</p>
+   <p className="mt-3 max-w-3xl text-xs leading-6 text-[#c6dfed]">iPhone-first workflow: choose a prospect, pick the saved website and message, open Apple Messages, then return and confirm when actually sent. Google Voice, TextNow and WhatsApp are still available.</p>
+  </div>
+  <div className="sm:hidden rounded-[22px] border border-[#b5d9e8] bg-[#eff9fe] p-4">
+   <p className="text-[10px] font-black uppercase tracking-widest text-[#4b8aaa]">iPhone outreach / quick workflow</p>
+   <p className="mt-2 text-sm font-black text-[#1c5069]">{prospect?prospect.businessName:"Choose a prospect to begin"}</p>
+   <p className="mt-1 text-xs leading-6">{prospect?.phone||"No number selected"} · {readyToContact.length} untexted contact{readyToContact.length===1?"":"s"} with documented SMS permission.</p>
+   <div className="mt-3 grid grid-cols-2 gap-2">
+    <button type="button" onClick={nextReadyProspect} className="min-h-[48px] rounded-xl border border-[#b1d3e2] bg-white px-3 py-3 text-xs font-black">Next eligible prospect →</button>
+    <a href="#fugth-sms-send" className="flex min-h-[48px] items-center justify-center rounded-xl bg-[#194b68] px-3 py-3 text-center text-xs font-black text-white">Go to SMS actions ↓</a>
+   </div>
+   {prospect&&<p className="mt-2 text-[11px] leading-5 text-[#65899b]">Active business follows you between Prospects, Website Maker, SMS and Email.</p>}
   </div>
   <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.08fr)]">
    <section className="rounded-2xl border border-[#d5e7f1] bg-white p-5">
@@ -212,6 +236,10 @@ export default function FounderTextDesk({user,initialProspectId="",onOpenSiteMak
     <label className="mt-4 block text-xs font-black">Search your saved prospects
      <input className={field} value={filter} onChange={e=>setFilter(e.target.value)} placeholder="Name, owner or phone"/>
     </label>
+    <div className="mt-3 flex flex-wrap gap-2" aria-label="Prospect queue filter">
+     {[["all","All"],["not_texted","Not texted"],["ready","SMS ready"]].map(([id,label])=><button key={id} type="button" onClick={()=>setQueueMode(id)}
+      className={"min-h-[44px] rounded-xl px-3 py-2.5 text-xs font-black "+(queueMode===id?"bg-[#1b536e] text-white":"border border-[#c8e0ec] bg-white text-[#376c88]")}>{label}</button>)}
+    </div>
     <label className="mt-4 block text-xs font-black">Prospect
      <select className={field} value={prospectId} onChange={e=>selectWorkingProspect(e.target.value)}>
       <option value="">Select a saved prospect</option>
@@ -219,6 +247,7 @@ export default function FounderTextDesk({user,initialProspectId="",onOpenSiteMak
       {prospect&&!matching.some(p=>p.id===prospectId)&&<option value={prospect.id}>{prospect.businessName} · {prospect.phone}</option>}
      </select>
     </label>
+    <button type="button" className={"mt-3 "+btn} onClick={nextReadyProspect}>Next with SMS permission →</button>
     {prospect?<div className="mt-4 rounded-xl bg-[#f1f9fc] p-4">
      <p className="text-base font-black">{prospect.businessName}</p>
      <p className="mt-1 text-xs text-[#65889c]">{prospect.industry||"Business"} · {prospect.ownerName||"Contact unknown"}</p>
@@ -263,7 +292,7 @@ export default function FounderTextDesk({user,initialProspectId="",onOpenSiteMak
      <select className={field} value={preset} onChange={e=>changePreset(e.target.value)}>{PRESETS.map(p=><option key={p.id} value={p.id}>{p.label}</option>)}</select>
     </label>
     <label className="mt-4 block text-xs font-black">Edit the message (personalization uses the selected prospect and site)
-     <textarea rows={6} maxLength={1300} className={field+" min-h-[170px]"} value={editor} onChange={e=>setEditor(e.target.value)}/>
+     <textarea rows={6} maxLength={1300} className={field+" min-h-[150px]"} value={editor} onChange={e=>setEditor(e.target.value)}/>
     </label>
     <p className="mt-2 text-[11px] text-[#7a94a5]">Available: {"{{contact}}"}, {"{{business}}"}, {"{{link}}"}, {"{{booking}}"}, {"{{claim}}"}, {"{{referrer}}"}.</p>
     {selectedPreset.needsDemo&&!demoIdForLink&&<p className="mt-3 rounded-lg bg-amber-50 p-3 text-xs text-amber-900">This claim preset requires a saved FUGTH demo preview. Select a demo (not a different published company's live site).</p>}
@@ -287,7 +316,9 @@ export default function FounderTextDesk({user,initialProspectId="",onOpenSiteMak
       <button className={"mt-3 "+btn} disabled={saving||!approved||consentSource.trim().length<8} onClick={saveConsent}>Record verified permission</button>
      </>}
     </div>
-    <FounderTextDispatch prospect={prospect} composed={composed} canPrepare={canPrepare} phone={validPhone} preset={preset} link={link}/>
+    <div id="fugth-sms-send" className="scroll-mt-24">
+     <FounderTextDispatch prospect={prospect} composed={composed} canPrepare={canPrepare} phone={validPhone} preset={preset} link={link}/>
+    </div>
     <FounderProspectFollowUp key={prospect?.id||"none"} prospect={prospect} channel="sms" subject=""/>
     {info&&<p role="status" className="mt-3 rounded-lg bg-[#edf7fc] p-3 text-xs leading-6">{info}</p>}
    </section>
@@ -300,6 +331,6 @@ export default function FounderTextDesk({user,initialProspectId="",onOpenSiteMak
     <button type="button" className="w-full rounded-xl bg-[#e7f5fb] px-5 py-3 text-left text-xs font-black text-[#1d5875]" onClick={()=>setShowGguf(x=>!x)}>{showGguf?"Hide":"Open"} GGUF AI text writer & website-review tools ↗</button>
     {showGguf&&<div className="mt-4"><FounderGgufWriter user={user} selectedProspectId={prospectId} onDraft={value=>{selectWorkingProspect(value.prospectId);setPreset("custom");setEditor(value.text);setInfo("GGUF draft imported into the editable text box. Review before sending.");}}/></div>}
   </div>
-  <p className="rounded-xl bg-[#f3f8fb] p-4 text-[11px] leading-6 text-[#6c8c9d]">Samsung tip: copy the number first and the text second, then open Google Voice and use your keyboard's Clipboard history if available. Only one item is guaranteed to be on the system clipboard at a time. Google Voice does not support reliable third-party auto-filled texts. Do not send repeated unwanted marketing messages or text contacts who opted out.</p>
+  <p className="rounded-xl bg-[#f3f8fb] p-4 text-[11px] leading-6 text-[#6c8c9d]">iPhone tip: use Copy draft, then Open Messages. Apple's browser links may open a recipient without filling the draft, so paste manually if needed. Return to FUGTH and mark sent only after sending. Google Voice and TextNow cannot guarantee auto-fill or delivery tracking. Respect opt-outs and only send promotional texts when permission is documented.</p>
  </section>;
 }

@@ -35,7 +35,12 @@ export async function POST(req){
     const data=old.data(),pRef=db.doc("users/"+user.uid+"/campaigns/"+data.prospectId);
     const p=await tx.get(pRef);
     const delta=(body.status==="sent_manual"?1:0)-(data.status==="sent_manual"?1:0);
-    tx.set(ref,{status:body.status,updatedAt:new Date().toISOString()},{merge:true});
+    const correctedAt=new Date().toISOString();
+    tx.set(ref,{status:body.status,updatedAt:correctedAt},{merge:true});
+    const event=pRef.collection("events").doc();
+    tx.create(event,{type:"sms_history_corrected",at:correctedAt,actorUid:user.uid,
+     draftId:token,provider:String(data.provider||"").slice(0,32),
+     oldStatus:data.status,newStatus:body.status,channel:"sms"});
     if(p.exists&&delta!==0){
      const count=Math.max(0,Number(p.data()?.smsSentCount||0)+delta);
      tx.set(pRef,{smsSentCount:count,smsLastSentStatus:body.status==="sent_manual"?"sent_manual":"corrected",
@@ -73,6 +78,12 @@ export async function POST(req){
     suppressedAtTime:wasSuppressed
    });
    if(status==="sent_manual"){
+    tx.create(prospectRef.collection("events").doc(),{
+     type:"sms_marked_sent",at:now,actorUid:user.uid,channel:"sms",
+     provider,previewUrl:preview,draftId:token,
+     textPreview:message.slice(0,180),verifiedDelivery:false,
+     consentDocumentedAtTime:consentVerified
+    });
     tx.set(prospectRef,{
      smsSentCount:Math.max(0,Number(snapshot.data().smsSentCount||0))+1,
      smsLastSentAt:now,smsLastProvider:provider,smsLastSentStatus:"sent_manual",
