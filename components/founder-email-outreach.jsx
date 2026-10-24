@@ -6,8 +6,8 @@ import {useActiveProspect} from "../lib/client/active-prospect";
 import FounderGgufWriter from "./founder-gguf-writer";
 import FounderProspectFollowUp from "./founder-prospect-followup";
 import ProspectPreviewHealth from "./prospect-preview-health";
-const cls="mt-2 w-full rounded-xl border border-[#c9dfeb] bg-white px-3 py-3 text-sm text-[#20455c]";
-const btn="rounded-xl border border-[#c4dbe7] bg-white px-3 py-2.5 text-xs font-black text-[#215874] disabled:opacity-40";
+const cls="mt-2 w-full rounded-xl border border-[#c9dfeb] bg-white px-3 py-3 text-base text-[#20455c] sm:text-sm";
+const btn="rounded-xl border border-[#c4dbe7] bg-white px-3 py-2.5 text-xs font-black text-[#215874] min-h-[44px] disabled:opacity-40";
 const validEmail=x=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(x||"").trim());
 const hasConsent=x=>x.marketingOptIn===true&&String(x.consentSource||"").trim().length>=8;
 const suppressed=x=>x.doNotCall||x.status==="do_not_call"||x.unsubscribed||x.emailOptOut;
@@ -139,9 +139,18 @@ export default function FounderEmailOutreach({user,initialProspectId="",onOpenMa
    <p className="mt-3 text-xs leading-6 text-[#bbd9e7]">Use your saved prospect emails, select recipients, edit a professional message, copy or open Gmail. Approved contacts can be moved into your existing consent-based sending campaign.</p>
    <p className="mt-4 text-xs font-bold text-[#a4ddf7]">{totalEmail} prospects with email · {contactedCount} emailed · {dueCount} follow-ups due · {consented.length} selected with verified opt-in · Gmail API: {connection?.connected?"Connected":"Not connected"}</p>
   </header>
+  <div className="rounded-2xl border border-[#b6d9e9] bg-[#f0f9fe] p-4 sm:hidden">
+   <p className="text-[10px] font-black uppercase tracking-wider text-[#538ba5]">iPhone email shortcuts</p>
+   <p className="mt-2 text-sm font-black">{current?.businessName||"Select a saved prospect"}</p>
+   <p className="mt-1 break-all text-xs text-[#5f8092]">{current?.email||"No email selected"}</p>
+   <div className="mt-3 grid grid-cols-2 gap-2">
+    <a href="#fugth-email-queue" className="flex min-h-[48px] items-center justify-center rounded-xl border border-[#b6d6e6] bg-white px-2 py-2 text-center text-xs font-black">Choose recipient ↓</a>
+    <a href="#fugth-email-compose" className="flex min-h-[48px] items-center justify-center rounded-xl bg-[#1b546e] px-2 py-2 text-center text-xs font-black text-white">Open Mail draft ↓</a>
+   </div>
+  </div>
   {message&&<p role="status" className="rounded-xl border border-[#cbe2f0] bg-[#eef8fc] p-4 text-xs leading-6">{message}</p>}
   <div className="grid items-start gap-5 lg:grid-cols-[.95fr_1.05fr]">
-   <div className="rounded-2xl border border-[#d8e7f0] bg-white p-5">
+   <div id="fugth-email-queue" className="scroll-mt-24 rounded-2xl border border-[#d8e7f0] bg-white p-4 sm:p-5">
     <p className="text-[10px] font-black uppercase text-[#709cb5]">1 / SELECT RECIPIENTS FROM FIRESTORE</p>
     <input className={cls} value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search business, contact or email"/>
     <label className="mt-3 block text-xs font-black">Outreach queue
@@ -176,7 +185,7 @@ export default function FounderEmailOutreach({user,initialProspectId="",onOpenMa
      <p className="mt-2 text-[#69899c]">Each business gets its own name, email and saved site link. Only the selected person opens in the mail app.</p>
     </div>
    </div>
-   <div className="rounded-2xl border border-[#d8e7f0] bg-white p-5">
+   <div id="fugth-email-compose" className="scroll-mt-24 rounded-2xl border border-[#d8e7f0] bg-white p-4 sm:p-5">
     <p className="text-[10px] font-black uppercase text-[#709cb5]">2 / MESSAGE BUILDER</p>
     {current?<div className="mt-3 rounded-xl bg-[#f0f8fe] p-3 text-xs">
      <strong>{current.businessName}</strong><p className="mt-1 break-all text-[#5b8198]">{current.email||"Missing email"} · Preview: {linkedSite||"not assigned"}</p>
