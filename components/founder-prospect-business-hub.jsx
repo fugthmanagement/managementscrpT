@@ -2,7 +2,7 @@
 import {useCallback,useEffect,useState} from "react";
 import {auth} from "../lib/firebase";
 const fields=[["businessName","Business name"],["ownerName","Owner / contact"],["industry","Trade or industry"],["phone","Phone"],["email","Email"],["city","City / service area"],["website","Current website (HTTPS)"],["googleMapsUrl","Google Maps listing (HTTPS)"]];
-const fieldClass="mt-2 w-full rounded-xl border border-[#cfdfeb] bg-white px-3 py-3 text-sm text-[#23495c]";
+const fieldClass="mt-2 w-full rounded-xl border border-[#cfdfeb] bg-white px-3 py-3 text-base text-[#23495c] sm:text-sm";
 export default function FounderProspectBusinessHub({prospectId,onUpdated}){
  const [profile,setProfile]=useState(null),[activity,setActivity]=useState([]),[note,setNote]=useState(""),[busy,setBusy]=useState(""),[notice,setNotice]=useState("");
  const request=useCallback(async(body)=>{
@@ -14,8 +14,8 @@ export default function FounderProspectBusinessHub({prospectId,onUpdated}){
   if(!res.ok)throw Error(data.error||"Business Data Hub could not load.");
   return data;
  },[prospectId]);
- const load=useCallback(async()=>{
-  try{const r=await request();setProfile(r.prospect);setActivity(r.activity||[]);setNotice("")}
+ const load=useCallback(async(clearNotice=true)=>{
+  try{const r=await request();setProfile(r.prospect);setActivity(r.activity||[]);if(clearNotice)setNotice("")}
   catch(e){setNotice(e.message)}
  },[request]);
  useEffect(()=>{setProfile(null);setActivity([]);if(prospectId)load()},[prospectId,load]);
@@ -27,7 +27,7 @@ export default function FounderProspectBusinessHub({prospectId,onUpdated}){
    setNotice(d.unchanged?"No changes to save.":d.previewSynced?
     "Saved to prospect CRM and existing website preview. Same link, new revision.":
     "Saved to the prospect record. No assigned website draft to update.");
-   await load(); 
+   await load(false);
   }catch(e){setNotice(e.message)}finally{setBusy("")}
  }
  async function logNote(){
@@ -46,7 +46,7 @@ export default function FounderProspectBusinessHub({prospectId,onUpdated}){
     <button type="button" disabled={!!busy||!note.trim()} onClick={logNote} className="mt-3 rounded-xl border border-[#b5d6e8] bg-white px-4 py-2 text-xs font-black disabled:opacity-40">Add to history</button>
    </div>
    <div className="mt-5"><strong className="text-sm">Recent activity</strong>
-    <div className="mt-2 max-h-56 space-y-2 overflow-auto">{activity.map(ev=><div key={ev.id} className="rounded-lg border border-[#deebf2] p-3 text-xs"><strong>{ev.type==="business_data_updated"?"Business details updated":ev.type==="manual_note"?"Founder note":ev.type}</strong><span className="ml-2 text-[#849ca9]">{ev.at?new Date(ev.at).toLocaleString():""}</span><p className="mt-1 text-[#628091]">{ev.text||((ev.changedFields||[]).join(", "))}</p></div>)}
+    <div className="mt-2 max-h-56 space-y-2 overflow-auto">{activity.map(ev=><div key={ev.id} className="rounded-lg border border-[#deebf2] p-3 text-xs"><strong>{ev.type==="business_data_updated"?"Business details updated":ev.type==="manual_note"?"Founder note":ev.type==="sms_marked_sent"?"SMS marked sent manually":ev.type==="sms_history_corrected"?"SMS log corrected":ev.type==="website_design_saved"?"Website draft saved":ev.type==="domain_launch_staged"?"Domain launch prepared":ev.type}</strong><span className="ml-2 text-[#849ca9]">{ev.at?new Date(ev.at).toLocaleString():""}</span><p className="mt-1 text-[#628091]">{ev.text||ev.textPreview||(ev.newStatus?"Updated SMS status to "+ev.newStatus:"")||((ev.changedFields||[]).join(", "))}</p></div>)}
      {!activity.length&&<p className="text-xs text-[#8fa4b2]">No saved activity yet.</p>}</div>
    </div>
   </>:<p className="mt-4 text-xs text-[#7291a4]">Loading selected prospect information…</p>}

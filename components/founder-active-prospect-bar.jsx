@@ -17,14 +17,15 @@ export default function FounderActiveProspectBar({user,onNavigate,onOpenSiteMake
  return <aside className="rounded-2xl border border-[#a9d4e9] bg-[#ecf8ff] p-4 text-[#173f55]">
   <p className="text-[10px] font-black uppercase tracking-widest text-[#598ba8]">Working prospect · Shared across every tool</p>
   {record?<div className="mt-2 flex flex-wrap items-center justify-between gap-3">
-   <div className="min-w-0"><p className="truncate text-base font-black">{record.businessName}</p><p className="mt-1 break-words text-xs text-[#65879a]">{record.phone||"No phone"} · {record.email||"No email"} · {record.industry||"Business"} · {record.status||"New"}</p>
+   <div className="min-w-0"><p className="truncate text-base font-black">{record.businessName}</p><p className="mt-1 break-words text-xs text-[#65879a]">{record.phone||"No phone"} · {record.email||"No email"} · {record.industry||"Business"} · {record.status||"New"} · {Number(record.smsSentCount||0)} SMS recorded</p>
     {record.websitePreviewUrl&&<a href={record.websitePreviewUrl} target="_blank" rel="noopener noreferrer" className="mt-2 inline-block text-xs font-bold underline">Saved website preview ↗</a>}</div>
-   <div className="flex flex-wrap gap-2">
+   <div className="hidden flex-wrap gap-2 sm:flex">
     <button type="button" className={cls} onClick={()=>onNavigate("leads")}>Prospect & calls</button>
     <button type="button" className={cls} onClick={()=>onNavigate("sms")}>SMS</button>
     <button type="button" className={cls} onClick={()=>onNavigate("email")}>Email</button>
     <button type="button" className={cls} onClick={()=>onOpenSiteMaker?.({...record,originTab:"leads"})}>Website Maker ↗</button>
    </div>
+   <div className="flex gap-2 sm:hidden"><button type="button" onClick={()=>onNavigate("sms")} className={cls}>Open SMS →</button><button type="button" onClick={()=>onOpenSiteMaker?.({...record,originTab:"leads"})} className={cls}>Edit website →</button></div>
   </div>:<p className="mt-2 text-xs leading-6">{error||"Select or create a prospect from Prospects & Calls. The same business will follow you into SMS, Email and Website Maker."}</p>}
  </aside>;
 }
