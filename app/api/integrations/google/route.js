@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { authenticatedUser,firebaseAdmin } from "../../../../lib/server/auth";
+import { authenticatedUser,isFounder,firebaseAdmin } from "../../../../lib/server/auth";
 import { buildGoogleUrl, decrypt, googleOAuthPublicSettings, integrationConfigured, integrationDoc } from "../../../../lib/server/google-calendar";
 import {archiveConnection} from "../../../../lib/server/drive-recordings";
 export const runtime = "nodejs";
@@ -27,8 +27,6 @@ export async function GET(req) {
     const snap = await integrationDoc(user.uid).get();
     const sheet=await (snap.exists?integrationDoc(user.uid).parent.doc("google_sheet").get():Promise.resolve(null));
     const recordingArchive=await archiveConnection(user.uid);
-    const calSnap=await integrationDoc(user.uid).parent.doc("fugth_business_calendar").get();
-    const cal=calSnap.exists?calSnap.data():null;
     const scopes=snap.data()?.scopes||"";
     const calendarAuthorized=snap.exists&&permission(scopes,"calendar");
     const driveAuthorized=snap.exists&&permission(scopes,"drive.file");
@@ -44,9 +42,6 @@ export async function GET(req) {
     }
     return NextResponse.json({ configured:true,missing:[],oauth:googleOAuthPublicSettings(),connected:snap.exists,
       calendarAuthorized,calendarServiceReady,centralCalendarReady,
-      calendarProvisioned:Boolean(cal?.calendarId),calendarOwnerConnected:cal?.ownerUid===user.uid,
-      calendarAlertsConfigured:Boolean(cal?.alertsConfiguredAt),
-      calendarName:String(cal?.summary||"FUGTH Business Calendar"),
       driveAuthorized,recordingDriveAuthorized:recordingArchive.connected,
       recordingArchiveCentral:recordingArchive.sharedArchive,
       docsConnected:driveAuthorized,sheetsConnected:snap.exists&&permission(scopes,"spreadsheets"),
@@ -65,7 +60,9 @@ export async function POST(req) {
   try {
     let body={};
     try{const raw=await req.text();if(raw.length<400)body=raw?JSON.parse(raw):{};}catch{}
-    const feature=["core","sheets","gmail"].includes(body.feature)?body.feature:"core";
+    const feature=["core","archive","sheets","gmail"].includes(body.feature)?body.feature:"core";
+   if(feature==="archive"&&!isFounder(user))
+    return NextResponse.json({error:"Private recording archive access requires the verified FUGTH founder account."},{status:403});
     const {url,nonce}=buildGoogleUrl(user.uid,feature);
     const response = NextResponse.json({ url });
     // OAuth starts on either apex or www. Sharing the short-lived CSRF cookie
