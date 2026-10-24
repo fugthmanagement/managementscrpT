@@ -54,7 +54,7 @@ export async function GET(req){
 export async function POST(req){
  const actor=await founder(req);if(!actor)return out({error:"Founder account required."},403);
  let body;
- try{const raw=await req.text();if(raw.length>24000)throw Error();body=JSON.parse(raw)}
+ try{const raw=await req.text();if(raw.length>48000)throw Error();body=JSON.parse(raw)}
  catch{return out({error:"Invalid website changes."},400)}
  const prospectId=String(body.prospectId||""),action=body.action;
  if(!valid(prospectId)||!["ensure","save"].includes(action))return out({error:"Choose a saved prospect and valid action."},400);

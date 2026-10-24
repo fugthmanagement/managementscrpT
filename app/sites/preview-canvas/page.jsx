@@ -10,7 +10,7 @@ export default function PreviewCanvas(){
    if(event.origin!==window.location.origin||event.source!==window.parent)return;
    if(event.data?.type!=="fugth:website-preview"||!event.data?.site||typeof event.data.site!=="object")return;
    const raw=event.data.site;
-   if(JSON.stringify(raw).length>16000)return;
+   if(JSON.stringify(raw).length>48000)return;
    const fields=siteFields(raw);
    setDraft({site:{...fields,ownerId:/^[a-zA-Z0-9_-]{8,128}$/.test(raw.ownerId||"")?raw.ownerId:undefined,
     demoId:/^[a-f0-9]{24}$/.test(raw.demoId||"")?raw.demoId:""},page:["home","services","about","contact"].includes(event.data.page)?event.data.page:"home"});
