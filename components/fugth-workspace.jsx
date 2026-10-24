@@ -31,6 +31,7 @@ import BusinessOpeningHours from "./business-opening-hours";
 import {cleanOpeningHours} from "../lib/business-hours";
 import PhoneSetup from "./phone-setup";
 import GoogleCalendarConnection from "./google-calendar-connection";
+import FounderRecordingArchive from "./founder-recording-archive";
 import BookingAvailabilitySettings from "./booking-availability-settings";
 import FounderSites from "./founder-sites";
 import ReceptionistPreview from "./receptionist-preview";
@@ -1333,6 +1334,7 @@ export default function FugthWorkspace() {
    <FounderRevenuePlanner/>
    <FounderBillingHealth/>
    <FounderVoiceHealth/>
+   <FounderRecordingArchive user={user}/>
    <FounderDomainLaunch user={user}/>
   </div>}
  </div>
