@@ -6,7 +6,7 @@ function normalize(raw){
  const digits=String(raw||"").replace(/\D/g,"");
  return digits.length===10?"+1"+digits:digits.length===11&&digits.startsWith("1")?"+"+digits:"";
 }
-const input="mt-2 block w-full rounded-xl border border-[#cfdfeb] bg-white px-4 py-3.5 text-sm text-[#1b4257] outline-none focus:border-[#5f8daa]";
+const input="mt-2 block w-full rounded-xl border border-[#cfdfeb] bg-white px-4 py-3.5 text-base sm:text-sm text-[#1b4257] outline-none focus:border-[#5f8daa]";
 const FALLBACK_FOCUS=[
  {id:"balanced",label:"Balanced — questions, prices & booking"},
  {id:"booking",label:"Booking — appointment requests"},
@@ -63,7 +63,7 @@ export default function ReceptionistPreview({user,workspace,onGoPhoneSetup,admin
    try{
     const res=await fetch("/api/receptionist-preview?callId="+encodeURIComponent(call.callId),{headers:await headers(),cache:"no-store"});
     const data=await res.json();
-    if(!stopped&&res.ok){setCall(prev=>({...prev,status:data.status,summary:data.summary,endedReason:data.endedReason,saved:data.saved===true,leadSaved:data.leadSaved===true,leadId:data.leadId||null,recordingSaved:data.recordingSaved===true,recordingAvailable:data.recordingAvailable===true}));setPollCount(n=>n+1);}
+    if(!stopped&&res.ok){setCall(prev=>({...prev,status:data.status,summary:data.summary,endedReason:data.endedReason,conversationHealth:data.conversationHealth||null,saved:data.saved===true,leadSaved:data.leadSaved===true,leadId:data.leadId||null,recordingSaved:data.recordingSaved===true,recordingAvailable:data.recordingAvailable===true}));setPollCount(n=>n+1);}
    }catch{}
   },5000);
   return()=>{stopped=true;clearInterval(timer)};
@@ -95,7 +95,12 @@ export default function ReceptionistPreview({user,workspace,onGoPhoneSetup,admin
   <div className="grid gap-7 p-6 sm:p-9 lg:grid-cols-[1.2fr_.8fr]">
    <div><p className="text-[11px] font-bold uppercase tracking-[.18em] text-[#cadce7]">LIVE RECEPTIONIST DEMO</p>
     <h3 className="mt-4 max-w-xl text-[clamp(2rem,5vw,3.7rem)] font-semibold leading-[1.07] tracking-[-.07em]">Hear your business <span className="font-serif italic text-[#edf8ff]">answer.</span></h3>
-    <p className="mt-4 max-w-lg text-sm leading-7 text-[#d7e9f2]">Your FUGTH receptionist answers using your business name and details. Try booking, pricing, or customer questions.</p>
+    <p className="mt-4 max-w-lg text-sm leading-7 text-[#d7e9f2]">Your receptionist should listen and answer real questions using your saved services. It can collect a name, email, the issue, and an appointment <strong>request</strong>—not book an unverified calendar slot.</p>
+    <div className="mt-4 rounded-xl border border-white/20 bg-white/10 p-4 text-xs leading-6 text-[#d9edf8]">
+      <strong className="block text-sm text-white">Try these caller questions</strong>
+      <p className="mt-2">“What services do you provide?” → “I need help with an issue.” → “Can I request Tuesday afternoon?”</p>
+      <p className="mt-2">The AI should respond after you finish speaking, remember the issue, then ask for your name and email one item at a time.</p>
+    </div>
     <div className="mt-5 flex flex-wrap gap-2"><span className="rounded-full border border-white/20 px-3 py-2 text-xs text-[#dae7ef]">{business}</span><span className="rounded-full border border-white/20 px-3 py-2 text-xs text-[#dae7ef]">{industry}</span></div>
    </div>
    <div className="rounded-[20px] border border-white/15 bg-white/[.07] p-5">
@@ -141,9 +146,11 @@ export default function ReceptionistPreview({user,workspace,onGoPhoneSetup,admin
      </div>
      {message&&<p role="status" className="mt-5 rounded-xl border border-[#d8e5d4] bg-[#f1f7ee] p-4 text-sm text-[#274558]">{message}</p>}
      {error&&<p role="alert" className="mt-5 rounded-xl border border-[#ecd8ca] bg-[#fff5ec] p-4 text-sm text-[#966441]">{error}</p>}
-     {call?.callId&&<div className="mt-5 rounded-xl border border-[#dee8d7] bg-[#f3f8ef] p-5"><p className="text-sm font-semibold">Live demo call requested</p><p className="mt-2 text-xs text-[#6e866b]">Status: {call.status||"Connecting"}</p>{call.summary&&<p className="mt-3 text-sm leading-6 text-[#465a49]">{call.summary}</p>}{["ended","failed"].includes(call.status)&&<p className="mt-2 text-xs text-[#617563]">{call.recordingSaved&&call.leadSaved?"Audio and customer lead saved. Open Call Library to listen and review the lead.":call.saved?"Call saved. Open Call Library to retrieve audio and follow-up details while analysis finishes.":"Saving the call summary and customer lead…"}</p>}</div>}
+     {call?.callId&&<div className="mt-5 rounded-xl border border-[#dee8d7] bg-[#f3f8ef] p-5"><p className="text-sm font-semibold">Live demo call requested</p><p className="mt-2 text-xs text-[#6e866b]">Status: {call.status||"Connecting"}</p>{call.summary&&<p className="mt-3 text-sm leading-6 text-[#465a49]">{call.summary}</p>}{call.conversationHealth?.available&&<div className={"mt-3 rounded-xl border p-3 text-xs leading-6 "+(call.conversationHealth.callerSpeechDetected?"border-emerald-200 bg-emerald-50 text-emerald-900":"border-amber-200 bg-amber-50 text-amber-900")}>
+        {call.conversationHealth.callerSpeechDetected?"✓ Caller speech appears in the saved conversation. Review the transcript for accuracy.":call.conversationHealth.diagnostic||"No caller speech was found in the saved transcript. Review the recording."}
+       </div>}{["ended","failed"].includes(call.status)&&<p className="mt-2 text-xs text-[#617563]">{call.recordingSaved&&call.leadSaved?"Audio and customer lead saved. Open Call Library to listen and review the lead.":call.saved?"Call saved. Open Call Library to retrieve audio and follow-up details while analysis finishes.":"Saving the call summary and customer lead…"}</p>}</div>}
      <div className="mt-5 rounded-xl border border-[#dbe5d7] bg-[#f6faf3] p-4 text-xs leading-6 text-[#657663]"><strong>Need more than {demoSeconds} seconds?</strong> <a href="mailto:fugthmanagement@gmail.com?subject=FUGTH%20extended%20AI%20receptionist%20demo" className="font-bold underline underline-offset-2">Request a longer guided demonstration</a> with the FUGTH management team. Email is the quickest way to reach us. Or book an appointment with the management team through the website.</div>
-     <p className="mt-6 text-xs leading-6 text-[#909b90]">{adminMode?"Founder tests have no customer-demo cooldown, but calls still consume voice credits.":"Live calls use paid calling resources; limits keep demo access fair for everyone."} No SMS verification required.</p>
+     <p className="mt-6 text-xs leading-6 text-[#909b90]">{adminMode?"Founder tests have no customer-demo cooldown, but calls still consume voice credits.":"Live calls use paid calling resources; limits keep demo access fair for everyone."} The {demoSeconds}-second demo may be too brief for a complete appointment intake. Use Administration → Sales & AI tools to increase the permitted demo length when appropriate. No SMS verification required.</p>
     </>}
   </div>
  </section>;

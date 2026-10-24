@@ -59,17 +59,15 @@ test("prospect and customer publishing share one custom site sanitizer",()=>{
  assert.match(canvas,/start\(true\)/);
  assert.match(canvas,/Save custom design/);
 });
-test("admin link correctly opens a private editor and never silently publishes a draft",()=>{
+test("Private site previews are readable but website edits are founder managed",()=>{
  const page=source("app/sites/[uid]/page.jsx");
- assert.match(page,/editRequested=params\.get\("edit"\)==="1"/);
- assert.match(page,/preview=editRequested\|\|params\.get\("preview"\)==="1"/);
- assert.match(page,/if\(preview&&user\)/);
- assert.match(page,/setEditing\(true\)/);
- assert.match(page,/ownerPreview=page.preview&&page.owner/);
  const api=source("app/api/sites/[uid]/route.js");
+ assert.match(page,/if\(preview&&user\)/);
+ assert.match(page,/ownerPreview=page.preview&&page.owner/);
+ assert.doesNotMatch(page,/<SiteStudio/);
  assert.match(api,/user.uid!==uid&&!isFounder\(user\)/);
+ assert.match(api,/if\(!auth\.founder\)/);
 });
-
 test("saved prospect links still open when the prospect list is paginated, without stale business details",()=>{
  const list=source("components/founder-prospect-demos.jsx");
  const maker=source("components/founder-prospect-site-maker.jsx");

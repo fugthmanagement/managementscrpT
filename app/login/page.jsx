@@ -9,9 +9,11 @@ import {
   signInWithPopup,
   signInWithRedirect,
   getRedirectResult,
+  onAuthStateChanged,
 } from "firebase/auth";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "../../lib/firebase";
+import {ensurePersistentLogin,confirmPersistedLogin} from "../../lib/client/auth-persistence";
 import { detectIndustry } from "../../lib/site-presets";
 import BrandSignalArt from "../../components/brand-signal-art";
 const safeNext=(fallback)=>{if(typeof window==="undefined")return fallback;const next=new URLSearchParams(window.location.search).get("next");return next==="/plans"||/^\/claim\/[a-f0-9]{24}$/.test(next)?next:fallback;};
@@ -26,19 +28,30 @@ export default function Login() {
     [password, setPassword] = useState(""),
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
-    [busy, setBusy] = useState(false);
+    [busy, setBusy] = useState(false),
+    [existingUser,setExistingUser]=useState(null),
+    [storageReady,setStorageReady]=useState(false);
   useEffect(() => {
     if (new URLSearchParams(window.location.search).has("signup"))
       setMode("signup");
     if (!auth) return;
-    getRedirectResult(auth)
-      .then(async (result) => {
-        if (result?.user) {
+    let live=true;
+    // Resolve persisted IndexedDB session before treating an empty initial
+    // Firebase currentUser as a sign-out. A browser reload is not a logout.
+    const stop=onAuthStateChanged(auth,current=>{if(live)setExistingUser(current||null)});
+    (async()=>{
+      try{
+        await ensurePersistentLogin(auth);
+        if(live)setStorageReady(true);
+        const result=await getRedirectResult(auth);
+        if(result?.user){
+          await confirmPersistedLogin(result.user,auth);
           await completeGoogleLogin(result.user);
           window.location.replace(afterGoogleLogin());
         }
-      })
-      .catch((error) => setError(googleMessage(error)));
+      }catch(e){if(live)setError(e?.message?.startsWith("FUGTH")||e?.message?.includes("browser")?e.message:googleMessage(e))}
+    })();
+    return()=>{live=false;stop()};
   }, []);
   function googleMessage(error) {
     const code = String(error?.code || "");
@@ -106,10 +119,12 @@ export default function Login() {
     setNotice("");
     try {
       if (!auth) throw Error("FUGTH sign-in isn't available.");
+      await ensurePersistentLogin(auth);
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({ prompt: "select_account" });
       try {
         const result = await signInWithPopup(auth, provider);
+        await confirmPersistedLogin(result.user,auth);
         await completeGoogleLogin(result.user);
         window.location.replace(afterGoogleLogin());
       } catch (error) {
@@ -137,11 +152,13 @@ export default function Login() {
     setNotice("");
     try {
       if (!auth) throw Error("Sign in is temporarily unavailable.");
+      await ensurePersistentLogin(auth);
       const address = email.trim();
       if (password.length < 6)
         throw Error("Enter a password of at least six characters.");
       if (mode === "login") {
-        await signInWithEmailAndPassword(auth, address, password);
+        const result=await signInWithEmailAndPassword(auth,address,password);
+        await confirmPersistedLogin(result.user,auth);
         window.location.replace(safeNext("/dashboard"));
         return;
       }
@@ -150,6 +167,7 @@ export default function Login() {
         address,
         password,
       );
+      await confirmPersistedLogin(created.user,auth);
       try {
         if (db)
           await setDoc(
@@ -169,14 +187,6 @@ export default function Login() {
       try {
         const token = await created.user.getIdToken();
         await Promise.allSettled([
-          fetch("/api/sites/" + encodeURIComponent(created.user.uid), {
-            method: "PUT",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: "Bearer " + token,
-            },
-            body: JSON.stringify({ action: "initialize" }),
-          }),
           fetch("/api/account-number", {
             method: "POST",
             headers: { Authorization: "Bearer " + token },
@@ -197,7 +207,8 @@ export default function Login() {
               ? "Choose a stronger password."
               : text.includes("auth/too-many-requests")
                 ? "Too many attempts. Try again later."
-                : "FUGTH sign-in could not be completed. Check your details and try again.",
+                : String(err?.message||"").includes("browser")||String(err?.message||"").includes("FUGTH could not keep this login")?String(err.message)
+        : "FUGTH sign-in could not be completed. Check your details and try again.",
       );
     } finally {
       setBusy(false);
@@ -380,6 +391,12 @@ export default function Login() {
             approve appointment syncing. Your login alone never grants access to
             private calendar events.
           </p>
+          {existingUser&&<div className="rounded-2xl border border-[#9fd3e9] bg-[#eff9fe] p-4 text-sm text-[#1f516b]">
+            <p className="font-black">You are already signed in</p>
+            <p className="mt-2 break-all text-xs">{existingUser.email||"Your FUGTH account"} · Your saved session is still active.</p>
+            <a href="/dashboard" className="mt-3 inline-flex min-h-[44px] items-center rounded-xl bg-[#173d53] px-4 py-3 text-xs font-black text-white">Continue to your dashboard ↗</a>
+           </div>}
+          <p className="text-xs leading-6 text-[#7893a3]">Your account stays signed in on this browser until you choose Log out or the browser clears its site data. Private browsing may prevent saving your login.</p>
           {mode === "login" && (
             <button
               type="button"

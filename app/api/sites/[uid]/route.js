@@ -47,6 +47,11 @@ export async function PUT(request,{params}){
  catch{return NextResponse.json({error:"Invalid site update."},{status:400});}
  const action=body.action;
  if(!["save","publish","unpublish","initialize","regenerate"].includes(action))return NextResponse.json({error:"Choose publish, unpublish, or refresh."},{status:400});
+ // Managed-sites model: customers can view their website and edit business
+ // information in Settings, but cannot change website layouts or publishing.
+ // Initial account provisioning remains backward compatible.
+ if(!auth.founder)
+  return NextResponse.json({error:"FUGTH manages website creation and publishing for your business. Contact your FUGTH site manager for changes."},{status:403});
  const db=firebaseAdmin().firestore(),pubRef=db.doc("publicSites/"+uid),draftRef=db.doc("siteDrafts/"+uid),historyRef=db.collection("siteChanges").doc();
  try{
   const result=await db.runTransaction(async tx=>{

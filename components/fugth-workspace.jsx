@@ -31,6 +31,7 @@ import BusinessOpeningHours from "./business-opening-hours";
 import {cleanOpeningHours} from "../lib/business-hours";
 import PhoneSetup from "./phone-setup";
 import GoogleCalendarConnection from "./google-calendar-connection";
+import BrowserSessionHealth from "./browser-session-health";
 import FounderRecordingArchive from "./founder-recording-archive";
 import BookingAvailabilitySettings from "./booking-availability-settings";
 import FounderSites from "./founder-sites";
@@ -1093,8 +1094,9 @@ export default function FugthWorkspace() {
                       description="Your Google connection can still be linked below. Configuring active bookings and appointment availability requires a call-and-CRM plan.">
                       <BookingAvailabilitySettings user={canBook?user:null}/>
                     </FeatureGate>
-                    <div className="mt-6">
+                    <div className="mt-6 space-y-5">
                       <GoogleCalendarConnection />
+                      <BrowserSessionHealth user={user}/>
                     </div>
                   </>
                 )}
