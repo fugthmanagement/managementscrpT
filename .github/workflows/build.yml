@@ -56,6 +56,8 @@ jobs:
         run: node --experimental-default-type=module --test tests/procedural-launch.test.mjs
       - name: Test iPhone outreach, opt-in safety and prospect event history
         run: node --experimental-default-type=module --test tests/iphone-outreach.test.mjs
+      - name: Test Google Calendar-only customer onboarding and founder-only website/recording tools
+        run: node --experimental-default-type=module --test tests/calendar-onboarding.test.mjs
       - name: Build FUGTH website
         env:
           NEXT_TELEMETRY_DISABLED: "1"

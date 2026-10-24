@@ -19,7 +19,7 @@ import {
   setDoc,
 } from "firebase/firestore";
 import { auth, db } from "../lib/firebase";
-import SiteStudio from "./site-studio";
+
 import FounderProspectSiteMaker from "./founder-prospect-site-maker";
 import {SITE_INDUSTRIES} from "../lib/site-presets";
 import {cleanBusinessDescription} from "../lib/business-profile";
@@ -30,7 +30,8 @@ import GoogleConnectPrompt from "./google-connect-prompt";
 import BusinessOpeningHours from "./business-opening-hours";
 import {cleanOpeningHours} from "../lib/business-hours";
 import PhoneSetup from "./phone-setup";
-import IntegrationsHub from "./integrations-hub";
+import GoogleCalendarConnection from "./google-calendar-connection";
+import FounderRecordingArchive from "./founder-recording-archive";
 import BookingAvailabilitySettings from "./booking-availability-settings";
 import FounderSites from "./founder-sites";
 import ReceptionistPreview from "./receptionist-preview";
@@ -55,7 +56,6 @@ const MENU = [
   { id: "calls", label: "Calls", icon: "phone" },
   { id: "customers", label: "Customers", icon: "users" },
   { id: "marketing", label: "Marketing", icon: "link" },
-  { id: "website", label: "Website", icon: "layout" },
   { id: "services", label: "Services", icon: "cart" },
   { id: "settings", label: "Settings", icon: "settings" },
 ];
@@ -389,10 +389,14 @@ export default function FugthWorkspace() {
     : MENU;
   const isSimulating = founder && previewPlan !== null;
   const changePage = (id) => {
-    if(id==="website")setProspectSiteMakerId("");
-    setPage(id);
+    if(id==="google-calendar"){setPage("settings");setSettingsSection("connections");}
+    else if(id==="website"){
+      setProspectSiteMakerId("");
+      if(founder){setPage("admin");setAdminSection("customers");}
+      else{setPage("customers");setCustomerView("appointments");}
+    }else setPage(id);
     setMenuOpen(false);
-    setNotice("");
+    setNotice(id==="website"?"FUGTH manages your website design. Use Customers for appointments or contact your FUGTH site manager about changes.":"");
     setError("");
     // Every top-level tab starts at the top, including on mobile.
     if(typeof window!=="undefined"&&window.scrollY>160)window.scrollTo({top:0,behavior:"instant"});
@@ -400,8 +404,10 @@ export default function FugthWorkspace() {
   function openProspectSiteMaker(prospect){
     if(!prospect?.id)return;
     if(["guide","training","leads","sms","email","outreach","demos"].includes(prospect.originTab))setLastSalesTab(prospect.originTab);
-    changePage("website");
+    setPage("website");
     setProspectSiteMakerId(prospect.id);
+    setMenuOpen(false);
+    setNotice("");
   }
   async function logOut() {
     try {
@@ -525,7 +531,7 @@ export default function FugthWorkspace() {
    notificationPhone:profile.notificationPhone.trim().slice(0,32),
    callSmsAlertsEnabled:profile.callSmsAlertsEnabled===true,updatedAt:serverTimestamp()
   },{merge:true});
-  setNotice("Business details and public opening hours saved. Your free website preview updates from these settings; existing published website designs are preserved. Open Website → Refresh from settings if you want to regenerate a live draft.");
+  setNotice("Business details and public opening hours saved. FUGTH uses these business details in customer operations and your managed website. Published website designs remain unchanged until your FUGTH site manager reviews them.");
  }catch(e){setError(e.message||"Unable to save business details.");}
  finally{setBusy("");}
 }
@@ -935,24 +941,10 @@ export default function FugthWorkspace() {
                 />
               </div>
             )}
-            {page === "website" && (
-              <div>
-                {founder&&prospectSiteMakerId?
-                 <FounderProspectSiteMaker user={user} prospectId={prospectSiteMakerId}
-                  onBack={()=>{setProspectSiteMakerId("");changePage("sales")}}
-                   onOpenSms={()=>{setProspectSiteMakerId("");setLastSalesTab("sms");changePage("sales")}}/>:
-                 <>
-                  <SectionHeading eyebrow="FUGTH WEBSITE MAKER"
-                   title="Build and manage your professional business website."
-                   description="Preview your website before subscribing. Website management and publishing are available in your site package."/>
-                  <SiteStudio user={user} workspace={workspace}
-                   locked={!(founder && previewPlan === null) &&
-                    !hasPlan(effectivePlanKey,"starter") &&
-                    effectivePlanKey !== "website" &&
-                    workspace.websitePurchased !== true}/>
-                 </>
-                }
-              </div>
+            {page === "website" && founder && prospectSiteMakerId && (
+              <FounderProspectSiteMaker user={user} prospectId={prospectSiteMakerId}
+                onBack={()=>{setProspectSiteMakerId("");changePage("sales")}}
+                onOpenSms={()=>{setProspectSiteMakerId("");setLastSalesTab("sms");changePage("sales")}}/>
             )}
             {page === "settings" && (
               <div>
@@ -1019,7 +1011,7 @@ export default function FugthWorkspace() {
                             className={`mt-2 ${input}`}/>
                         </label>}
                       <label className="text-xs font-semibold text-[#50738a] sm:col-span-2">
-                        Business description <span className="ml-1 font-normal text-[#7895a6]">· used by Website Maker</span>
+                        Business description <span className="ml-1 font-normal text-[#7895a6]">· used to personalize your FUGTH-managed website</span>
                         <textarea rows={8} maxLength={4000} value={profile.businessDescription}
                           onChange={e=>setProfile({...profile,businessDescription:e.target.value})}
                           placeholder={"Tell FUGTH about your business in your own words.\n\nWhat services do you offer? Who are your customers? What areas do you cover? What makes your business different? Include specialties, types of jobs, products, and the tone your website should use.\n\nServices: Panel upgrades, EV chargers, generator installation"}
@@ -1058,7 +1050,7 @@ export default function FugthWorkspace() {
                         <span>
                           I agree to receive SMS call summaries at my owner
                           mobile number when the SMS connection is enabled.
-                          Carrier messaging rates may apply. Connected Gmail or
+                          Carrier messaging rates may apply. Configured email or
                           in-app alerts are the fallback.
                         </span>
                       </label>
@@ -1102,7 +1094,7 @@ export default function FugthWorkspace() {
                       <BookingAvailabilitySettings user={canBook?user:null}/>
                     </FeatureGate>
                     <div className="mt-6">
-                      <IntegrationsHub />
+                      <GoogleCalendarConnection />
                     </div>
                   </>
                 )}
@@ -1343,6 +1335,7 @@ export default function FugthWorkspace() {
    <FounderRevenuePlanner/>
    <FounderBillingHealth/>
    <FounderVoiceHealth/>
+   <FounderRecordingArchive user={user}/>
    <FounderDomainLaunch user={user}/>
   </div>}
  </div>

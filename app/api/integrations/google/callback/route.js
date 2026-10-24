@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { decrypt, encrypt, googleToken, integrationDoc, readGoogleState, ensureGoogleOperationsSheet, ensureFugthBusinessCalendar } from "../../../../../lib/server/google-calendar";
+import { decrypt, encrypt, googleToken, integrationDoc, readGoogleState, ensureGoogleOperationsSheet, ensureFugthBusinessCalendar, ensureFugthCalendarNotifications } from "../../../../../lib/server/google-calendar";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 const BASE = process.env.NEXT_PUBLIC_APP_URL || "https://www.fugthmanagement.space";
@@ -59,7 +59,13 @@ export async function GET(req) {
     if(feature==="sheets"||String(result.scope||"").includes("https://www.googleapis.com/auth/spreadsheets"))
       try{await ensureGoogleOperationsSheet(uid,credentials.access_token);}
       catch(error){console.warn("Google operations workbook setup pending",{code:error?.code||"sheets"});}
-    try { await ensureFugthBusinessCalendar(uid,credentials.access_token); } catch (error) { console.warn("Google business calendar setup pending",error?.message||"unknown"); }
+    try{
+      const cal=await ensureFugthBusinessCalendar(uid,credentials.access_token);
+      if(cal.ownerUid===uid){
+       try{await ensureFugthCalendarNotifications(uid,credentials.access_token,cal)}
+       catch(e){console.warn("Google booking alerts setup pending",{code:e?.code||"alerts"});}
+      }
+    }catch(e){console.warn("Google business calendar setup pending",{code:e?.code||"calendar"});}
     return back("google-connected");
   } catch(error){
     console.warn("FUGTH Google OAuth callback failed",{reason:error?.oauthCode||error?.code||"callback"});

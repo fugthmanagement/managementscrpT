@@ -25,20 +25,19 @@ export async function GET(req){
   if(!doc.exists)return output({connected:false,ready:false,error:"Connect your own Google account in Settings → Connections."});
   const scopes=String(doc.data()?.scopes||"").split(" ");
   const has=s=>scopes.includes("https://www.googleapis.com/auth/"+s);
-  const required={calendar:has("calendar"),drive:has("drive.file")};
-  if(!required.calendar||!required.drive)
-    return output({connected:true,ready:false,required,error:"Google authorization is missing Calendar or Drive permissions. Reconnect this business."});
+  const required={calendar:has("calendar")};
+  if(!required.calendar)return output({connected:true,ready:false,required,error:"Google Calendar permission is missing. Reconnect this business."});
   let token;
   try{token=await accessGoogleCalendar(user.uid);}catch(e){
    return output({connected:true,ready:false,required,error:String(e.message||"Reconnect Google").slice(0,170)});
   }
-  const [calendar,drive]=await Promise.all([
-   testApi("https://www.googleapis.com/calendar/v3/users/me/calendarList?maxResults=1&fields=items(id)",token),
-   testApi("https://www.googleapis.com/drive/v3/files?pageSize=1&fields=files(id)",token)
-  ]);
-  return output({connected:true,ready:calendar.ok&&drive.ok,required,calendar,drive,
+  const calendar=await testApi("https://www.googleapis.com/calendar/v3/users/me/calendarList?maxResults=1&fields=items(id)",token);
+  const business=await integrationDoc(user.uid).parent.doc("fugth_business_calendar").get();
+  const provisioned=Boolean(business.exists&&business.data()?.calendarId);
+  return output({connected:true,ready:calendar.ok&&provisioned,required,calendar,
+    calendarProvisioned:provisioned,calendarAlertsConfigured:Boolean(business.data()?.alertsConfiguredAt),
     email:doc.data()?.googleEmail||null,
-    note:"Checks Google Calendar and Drive API access; it does not upload a recording or create an appointment."});
+    note:"Tests only Google Calendar. Email alerts and phone notifications depend on Google and device preferences."});
  }catch(e){console.warn("Google health test failed",{code:e?.code||"provider"});
   return output({connected:false,ready:false,error:"Google connection could not be tested. Check server credentials and your saved connection."},503);}
 }
