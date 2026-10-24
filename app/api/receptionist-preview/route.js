@@ -139,9 +139,9 @@ export async function POST(req){
  let reservation;
  try{
   const business=await businessFor(account.user,account.token).catch(()=>null);
-  if(!founderTesting)reservation=await reserveDemo(account.user.uid,to,focus);
   const context=business||demoBusiness({businessName:body.businessName||"FUGTH Management",businessType:body.businessType||"Local business"});
   if(!business&&!founderTesting)return response({error:"We could not load your saved business services. Save your business profile in Settings before running the receptionist demo."},409);
+  if(!founderTesting)reservation=await reserveDemo(account.user.uid,to,focus);
   const seconds=await durationForDemo(account.user.uid,founderTesting);
   // Reuse the same Vapi outbound mechanism that already powers founder test calls.
   // Transient per-call assistant holds business facts; no vendor keys reach the client.
