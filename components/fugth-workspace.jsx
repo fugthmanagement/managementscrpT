@@ -389,7 +389,8 @@ export default function FugthWorkspace() {
     : MENU;
   const isSimulating = founder && previewPlan !== null;
   const changePage = (id) => {
-    if(id==="website"){
+    if(id==="google-calendar"){setPage("settings");setSettingsSection("connections");}
+    else if(id==="website"){
       setProspectSiteMakerId("");
       if(founder){setPage("admin");setAdminSection("customers");}
       else{setPage("customers");setCustomerView("appointments");}
