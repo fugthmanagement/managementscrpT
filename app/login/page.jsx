@@ -187,14 +187,6 @@ export default function Login() {
       try {
         const token = await created.user.getIdToken();
         await Promise.allSettled([
-          fetch("/api/sites/" + encodeURIComponent(created.user.uid), {
-            method: "PUT",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: "Bearer " + token,
-            },
-            body: JSON.stringify({ action: "initialize" }),
-          }),
           fetch("/api/account-number", {
             method: "POST",
             headers: { Authorization: "Bearer " + token },

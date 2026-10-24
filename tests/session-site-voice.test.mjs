@@ -97,7 +97,7 @@ test("Only verified FUGTH founder manages website design after customer-site tab
  assert.doesNotMatch(workspace,/\{ id: "website", label: "Website"/);
  assert.match(workspace,/FounderProspectSiteMaker/);
  assert.doesNotMatch(site,/<SiteStudio/);
- assert.match(api,/!auth\.founder&&action!=="initialize"/);
+ assert.match(api,/if\(!auth\.founder\)/);
  assert.match(maker,/Modernize existing/);
  assert.match(maker,/Save this version/);
  assert.match(maker,/beforeunload/);
