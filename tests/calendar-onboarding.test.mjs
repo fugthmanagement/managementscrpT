@@ -1,0 +1,76 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {readFileSync} from "node:fs";
+const source=p=>readFileSync(new URL("../"+p,import.meta.url),"utf8");
+test("Customer OAuth is Calendar only; private founder archive remains a separate permission",()=>{
+ const calendar=source("lib/server/google-calendar.js");
+ const scopes=calendar.slice(calendar.indexOf("const CORE_GOOGLE_SCOPES"),calendar.indexOf("const EXTRA_GOOGLE_SCOPES"));
+ assert.match(scopes,/auth\/calendar/);
+ assert.doesNotMatch(scopes,/drive\.file|spreadsheets|gmail/);
+ assert.match(calendar,/archive:\["https:\/\/www\.googleapis\.com\/auth\/drive\.file"\]/);
+ assert.match(calendar,/access_type: "offline"/);
+ assert.match(calendar,/ensureFugthCalendarNotifications/);
+});
+test("Calendar connection shows owner setup, connection check, business booking alerts and mobile instructions",()=>{
+ const c=source("components/google-calendar-connection.jsx");
+ const prompt=source("components/google-connect-prompt.jsx");
+ const login=source("app/login/page.jsx");
+ assert.match(c,/Connect Google Calendar/);
+ assert.match(c,/Set up calendar & booking alerts/);
+ assert.match(c,/linkWithPopup/);
+ assert.match(c,/Google Calendar notifications on your iPhone/);
+ assert.doesNotMatch(c,/Connect Google Drive|Connect Calendar \+ Drive/);
+ assert.match(prompt,/connectCalendar/);
+ assert.match(prompt,/calendarAuthorized/);
+ assert.match(prompt,/calendarProvisioned/);
+ assert.match(prompt,/Not now/);
+ assert.match(login,/afterGoogleLogin\(\)/);
+ assert.match(login,/signInWithEmailAndPassword/);
+ assert.match(login,/window\.location\.replace\(safeNext\("\/dashboard"\)\)/);
+});
+test("Google Calendar health and setup no longer require a customer's Drive scope",()=>{
+ const h=source("app/api/integrations/google/health/route.js");
+ const prep=source("app/api/integrations/google/prepare/route.js");
+ assert.match(h,/const required=\{calendar:has\("calendar"\)\}/);
+ assert.doesNotMatch(h,/drive\.file/);
+ assert.doesNotMatch(h,/googleapis\.com\/drive/);
+ assert.match(prep,/authenticatedUser/);
+ assert.match(prep,/ensureFugthBusinessCalendar/);
+ assert.match(prep,/ensureFugthCalendarNotifications/);
+ assert.match(prep,/calendarProvisioned:true/);
+});
+test("Business Google Calendar provisions visible calendar and event-creation email alerts",()=>{
+ const s=source("lib/server/google-calendar.js");
+ assert.match(s,/users\/me\/calendarList/);
+ assert.match(s,/eventCreation/);
+ assert.match(s,/eventChange/);
+ assert.match(s,/eventCancellation/);
+ assert.match(s,/method:"popup",minutes:15/);
+ assert.match(s,/ownerUid!==uid/);
+ assert.match(s,/alertsConfiguredAt/);
+ const booked=source("app/api/integrations/google/book/route.js");
+ assert.match(booked,/businessCalendarSession/);
+ assert.match(booked,/events\?sendUpdates=all/);
+});
+test("Existing founder Drive archive kept private and playable without customer Google Drive consent",()=>{
+ const archive=source("lib/server/drive-recordings.js");
+ const oauth=source("app/api/integrations/google/route.js");
+ assert.ok(archive.indexOf('if(requestedEmail){')<archive.indexOf('const own=await firebaseAdmin()'));
+ assert.match(archive,/FUGTH_RECORDING_DRIVE_OWNER_EMAIL/);
+ assert.match(archive,/entry\.driveOwnerUid/);
+ assert.match(oauth,/feature==="archive"/);
+ assert.match(oauth,/isFounder\(user\)/);
+ const admin=source("components/founder-recording-archive.jsx");
+ assert.match(admin,/Founder|founder/);
+ assert.match(admin,/feature:"archive"/);
+});
+test("Customers no longer have Website Maker top tab; founder prospect maker still works",()=>{
+ const ui=source("components/fugth-workspace.jsx");
+ assert.doesNotMatch(ui,/\{ id: "website", label: "Website"/);
+ assert.doesNotMatch(ui,/<SiteStudio/);
+ assert.match(ui,/FounderProspectSiteMaker user=\{user\}/);
+ assert.match(ui,/page === "website" && founder && prospectSiteMakerId/);
+ assert.match(ui,/GoogleCalendarConnection/);
+ assert.match(ui,/FounderSites user=\{user\}/);
+ assert.match(ui,/FounderRecordingArchive user=\{user\}/);
+});
