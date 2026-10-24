@@ -5,6 +5,7 @@ import {fromFirestoreValue} from "../../../lib/server/firestore-admin";
 import {demoBusiness,demoAssistant,DEMO_DURATION,DEMO_FOCUS_OPTIONS,DEMO_SCENARIOS,focusChoice,scenarioChoice,usNumber} from "../../../lib/server/voice-preview";
 import {getDemoCooldown,reserveDemo,recordDemoCall} from "../../../lib/server/demo-cooldown";
 import {saveVerifiedCall,ended} from "../../../lib/server/voice-call-history";
+import {voiceConversationHealth} from "../../../lib/server/voice-conversation-health";
 
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
@@ -46,10 +47,25 @@ async function authenticated(req){
 }
 async function businessFor(user,token){
  const uid=encodeURIComponent(user.uid);
- const [profile,site]=await Promise.all([
-  readDoc("users/"+uid,token),
-  readDoc("publicSites/"+uid,token).catch(()=>null)
- ]);
+ let profile=null,site=null;
+ // Privileged server access reliably reads the signed-in customer's saved
+ // services and business description; client Firestore read rules can vary.
+ try{
+  const db=firebaseAdmin().firestore();
+  const [p,s]=await Promise.all([
+   db.doc("users/"+user.uid).get(),
+   db.doc("publicSites/"+user.uid).get()
+  ]);
+  profile=p.data()||null;site=s.data()||null;
+ }catch(error){
+  // Retain authenticated legacy REST fallback for deployments undergoing
+  // Firebase Admin credential rotation. Never cross account boundaries.
+  console.warn("FUGTH preview profile admin read unavailable",{code:error?.code||"admin_read"});
+  [profile,site]=await Promise.all([
+   readDoc("users/"+uid,token).catch(()=>null),
+   readDoc("publicSites/"+uid,token).catch(()=>null)
+  ]);
+ }
  if(!profile?.businessName&&!site?.name)return null;
  return demoBusiness(profile||{},site||{});
 }
@@ -77,7 +93,9 @@ export async function GET(req){
    if(call.metadata?.ownerId!==account.user.uid||call.metadata?.fugthPreview!==true)
     return response({error:"Call not found."},404);
    const outcome=ended(call)?await saveVerifiedCall(call,account.user.uid,account.token).catch(()=>({saved:false})):{saved:false};
+   const health=voiceConversationHealth(call);
    return response({status:call.status||"queued",endedReason:call.endedReason||null,
+    conversationHealth:health,
     summary:call.analysis?.summary||call.summary||null,
     saved:outcome.saved===true,recordingSaved:outcome.recordingSaved===true,recordingAvailable:outcome.recordingAvailable===true,leadSaved:outcome.leadSaved===true,leadId:outcome.leadId||null});
   }catch{return response({error:"Call status unavailable right now."},503);}
@@ -123,6 +141,7 @@ export async function POST(req){
   const business=await businessFor(account.user,account.token).catch(()=>null);
   if(!founderTesting)reservation=await reserveDemo(account.user.uid,to,focus);
   const context=business||demoBusiness({businessName:body.businessName||"FUGTH Management",businessType:body.businessType||"Local business"});
+  if(!business&&!founderTesting)return response({error:"We could not load your saved business services. Save your business profile in Settings before running the receptionist demo."},409);
   const seconds=await durationForDemo(account.user.uid,founderTesting);
   // Reuse the same Vapi outbound mechanism that already powers founder test calls.
   // Transient per-call assistant holds business facts; no vendor keys reach the client.
