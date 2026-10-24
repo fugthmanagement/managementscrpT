@@ -58,6 +58,8 @@ jobs:
         run: node --experimental-default-type=module --test tests/iphone-outreach.test.mjs
       - name: Test Google Calendar-only customer onboarding and founder-only website/recording tools
         run: node --experimental-default-type=module --test tests/calendar-onboarding.test.mjs
+      - name: Test persistent sessions, managed prospect sites and listening receptionist demos
+        run: node --experimental-default-type=module --test tests/session-site-voice.test.mjs
       - name: Build FUGTH website
         env:
           NEXT_TELEMETRY_DISABLED: "1"
