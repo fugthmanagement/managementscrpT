@@ -39,7 +39,7 @@ export async function POST(req){
  if(action==="save"){
   for(const k of allowed)if(body.profile&&Object.hasOwn(body.profile,k))changes[k]=clean(body.profile[k],limits[k]);
   if(!changes.businessName)return out({error:"Business name is required."},400);
-  if(changes.email&&!/^[^\s@]+@[^\s@]+\\.[^\s@]+$/.test(changes.email))return out({error:"Invalid email."},400);
+  if(changes.email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(changes.email))return out({error:"Invalid email."},400);
   if(!https(changes.website)||!https(changes.googleMapsUrl))return out({error:"Website and Google Maps links must be valid HTTPS URLs."},400);
  }
  if(action==="note"&&!clean(body.note,700))return out({error:"Enter a note first."},400);
