@@ -116,6 +116,10 @@ export async function POST(req){
     // Founder reopening a previously expired/revoked link explicitly restores it.
     record.revoked=false;record.expiresAt=null;
    }
+   if(action==="save")tx.create(prospectRef.collection("events").doc(),{
+    type:"website_design_saved",at:now,actorUid:actor.uid,previewId:id,
+    revision,layout:site.template||"unknown"
+   });
    tx.set(ref,record,{merge:true});
    tx.set(prospectRef,{websitePreviewUrl:urlFor(id),assignedPreviewId:id,
     assignedPreviewName:site.name,assignedPreviewExpiresAt:"",
