@@ -41,6 +41,9 @@ export default function FounderProspectSiteMaker({user,prospectId,onBack}){
  },[]);
  const load=useCallback(async()=>{
   setBusy("open");setNotice("");
+  // Never show a previous prospect's link while loading a different account.
+  setSite(null);setProspect(null);setPreviewUrl("");setPreviewId("");
+  setRevision(null);setPreviewStatus("checking");setPreviewError("");
   try{
    const result=await request({action:"ensure"});
    setSite({...result.site,demoId:result.id});
