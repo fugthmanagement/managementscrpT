@@ -3,6 +3,7 @@ import {useEffect,useMemo,useRef,useState} from "react";
 import Link from "next/link";
 import {getIndustryThemes,getIndustry,SITE_THEMES} from "../lib/site-presets";
 import SiteDetailFields from "./site-detail-fields";
+import SiteCanvasEditor from "./site-canvas-editor";
 
 
 const sections=[
@@ -22,7 +23,7 @@ const styles={
  field:"mt-2 w-full rounded-xl border border-[#d9e9f4] bg-white px-3 py-3 text-sm text-[#162b3a] outline-none focus:border-[#71bde3] focus:ring-2 focus:ring-[#e3f4fd]",
  nav:"flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-bold transition"
 };
-const steps=[["design","Design","Layout & color"],["pages","Pages","Navigation"],["sections","Sections","Show & arrange"],["content","Content","Your words"],["chat","Chatbot","Preset or GGUF"],["legal","Legal","Policies & data"],["preview","Preview","Desktop & mobile"]];
+const steps=[["canvas","Canvas","Custom-built sections"],["design","Design","Layout & color"],["pages","Pages","Navigation"],["sections","Sections","Show & arrange"],["content","Content","Your words"],["chat","Chatbot","Preset or GGUF"],["legal","Legal","Policies & data"],["preview","Preview","Desktop & mobile"]];
 const colorFields=[["headerColor","Header"],["mainColor","Background"],["sectionColor","Highlights"],["accentColor","Buttons"]];
 function safeColor(v){return /^#[0-9a-f]{6}$/i.test(v||"")?v:"#b9e5fb";}
 function Thumbnail({kind}) {
@@ -40,7 +41,7 @@ function TextField({label,value,onChange,maxLength=160,textarea=false,help=""}){
  return <label className="block text-xs font-bold text-[#345061]"><span>{label}</span>{textarea?<textarea rows={3} maxLength={maxLength} value={value||""} onChange={e=>onChange(e.target.value)} className={styles.field}/>:<input maxLength={maxLength} value={value||""} onChange={e=>onChange(e.target.value)} className={styles.field}/>}{help&&<span className="mt-1 block text-[11px] font-normal text-slate-500">{help}</span>}</label>
 }
 export default function SiteStudioBuilder({site,locked=false,uid,onChange,onTemplate,onSave,onPublish,onUnpublish,busy="",published=false,previewUrlOverride="",previewOnly=false}){
- const [stage,setStage]=useState("design"),[device,setDevice]=useState("desktop"),[page,setPage]=useState("home");
+ const [stage,setStage]=useState("canvas"),[device,setDevice]=useState("desktop"),[page,setPage]=useState("home");
  const previewFrame=useRef(null);
  function syncPreview(){const frame=previewFrame.current;if(frame?.contentWindow)frame.contentWindow.postMessage({type:"fugth:website-preview",site,page},window.location.origin);}
  useEffect(()=>{syncPreview();},[site,page,device,stage]);
@@ -70,7 +71,8 @@ export default function SiteStudioBuilder({site,locked=false,uid,onChange,onTemp
     <div className="mt-5 hidden rounded-2xl bg-[#f0f9ff] p-4 lg:block"><p className="text-xs font-black text-[#194962]">Designed for {industry.label.toLowerCase()}</p><p className="mt-2 text-xs leading-6 text-[#557082]">Edit a section, then look at the live page. Your selected industry supplies relevant starter content and images.</p></div>
    </aside>
    <div className="min-w-0 p-4 sm:p-6 lg:p-7">
-    <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-[10px] font-black uppercase tracking-[.2em] text-[#4184a8]">Editor / {stage}</p><h3 className="mt-1 text-2xl font-black tracking-tight text-[#152f40]">{({design:"Choose your direction",pages:"Plan the visitor journey",sections:"Arrange your homepage",content:"Write your story",chat:"Choose how site chat works",legal:"Customize business policies",preview:"See the real website"})[stage]}</h3></div><span className="rounded-full border border-[#c5e5f5] bg-white px-3 py-2 text-xs font-bold text-[#3b718f]">{template.name}</span></div>
+    <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-[10px] font-black uppercase tracking-[.2em] text-[#4184a8]">Editor / {stage}</p><h3 className="mt-1 text-2xl font-black tracking-tight text-[#152f40]">{({canvas:"Build your website from scratch",design:"Choose your direction",pages:"Plan the visitor journey",sections:"Arrange your homepage",content:"Write your story",chat:"Choose how site chat works",legal:"Customize business policies",preview:"See the real website"})[stage]}</h3></div><span className="rounded-full border border-[#c5e5f5] bg-white px-3 py-2 text-xs font-bold text-[#3b718f]">{template.name}</span></div>
+    {stage==="canvas"&&<div className="mt-6"><SiteCanvasEditor site={site} locked={locked} onChange={onChange} onSave={onSave} busy={busy}/></div>}
     {stage==="design"&&<div className="mt-6 space-y-6">
       <div className="grid gap-3 md:grid-cols-3">{themes.map(t=><button type="button" key={t.id} onClick={()=>onTemplate(t)} aria-pressed={site.template===t.id} className={"rounded-2xl border-2 p-3 text-left transition hover:-translate-y-0.5 "+(site.template===t.id?"border-[#3999ca] bg-[#e4f5ff] shadow-[0_6px_0_#acdcef]":"border-[#e2e9ef] bg-white hover:border-[#b8dff4]")}><Thumbnail kind={t.id}/><p className="mt-3 text-sm font-black text-[#173548]">{t.name}</p><p className="mt-1 min-h-10 text-[11px] leading-5 text-[#637c8c]">{t.subtitle}</p><span className="mt-2 inline-block text-[10px] font-bold text-[#14749f]">{site.template===t.id?"✓ Currently previewing":"Try this layout →"}</span></button>)}</div>
       <div className="rounded-2xl border border-[#dceaf4] bg-white p-5"><div><h4 className="text-sm font-black text-[#19384c]">Fine-tune the color accents</h4><p className="mt-1 text-xs leading-6 text-[#6e8797]">Black and white stay the foundation. Baby blue gives a few elements more life.</p></div><div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{colorFields.map(([key,label])=><label key={key} className="flex items-center gap-3 rounded-xl border border-[#e0ebf2] p-3"><input type="color" value={safeColor(site[key])} onChange={e=>patch(key,e.target.value)} className="h-11 w-11 shrink-0 cursor-pointer rounded-lg border-0 bg-white p-0"/><span><span className="block text-xs font-black">{label}</span><span className="text-[10px] text-[#78909e]">{site[key]}</span></span></label>)}</div><button onClick={()=>onChange({...template.palette})} className="mt-4 text-xs font-bold text-[#177aaa] underline underline-offset-4">Restore {template.name} colors</button></div>

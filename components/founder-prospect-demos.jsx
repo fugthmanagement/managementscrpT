@@ -255,7 +255,7 @@ export default function FounderProspectDemos({user,onOpenSiteMaker}) {
               placeholder="Firebase customer UID"
             />
           </label>
-          {form.prospectId&&onOpenSiteMaker&&<button type="button" onClick={()=>{const p=prospects.find(x=>x.id===form.prospectId);if(p)onOpenSiteMaker(p)}} className="rounded-xl border border-[#b7d9e8] bg-[#edfaff] px-4 py-3 text-xs font-black text-[#205a77]">✦ Open selected business in the full Site Maker ↗</button>}
+          {form.prospectId&&onOpenSiteMaker&&<button type="button" onClick={()=>{const p=prospects.find(x=>x.id===form.prospectId);onOpenSiteMaker(p||{id:form.prospectId,businessName:form.name,industry:form.kind})}} className="rounded-xl border border-[#b7d9e8] bg-[#edfaff] px-4 py-3 text-xs font-black text-[#205a77]">✦ Open selected business in the full Site Maker ↗</button>}
                     {form.prospectId&&<p className="text-xs leading-5 text-[#668271] sm:col-span-2">This preview will reuse its existing URL if one is already assigned. Use 0 hours for a link that does not expire. This preview will automatically appear as the assigned website in the selected prospect's Text workbench. The business name must match the prospect.</p>}
           <button
             disabled={busy}
@@ -331,7 +331,7 @@ export default function FounderProspectDemos({user,onOpenSiteMaker}) {
                   ? " · Assigned: " + r.assignedUid
                   : " · Unassigned"}
               </p>
-              {r.prospectId&&onOpenSiteMaker&&<button type="button" onClick={()=>{const p=prospects.find(x=>x.id===r.prospectId);if(p)onOpenSiteMaker(p)}} className="mt-3 rounded-xl border border-[#b7d9e8] bg-[#edfaff] px-4 py-3 text-xs font-black text-[#205a77]">Customize saved design in Site Maker ↗</button>}
+              {r.prospectId&&onOpenSiteMaker&&<button type="button" onClick={()=>{const p=prospects.find(x=>x.id===r.prospectId);onOpenSiteMaker(p||{id:r.prospectId,businessName:r.name,industry:r.kind})}} className="mt-3 rounded-xl border border-[#b7d9e8] bg-[#edfaff] px-4 py-3 text-xs font-black text-[#205a77]">Customize saved design in Site Maker ↗</button>}
               <FounderDemoAgentSettings key={"ai-"+r.id} demo={r} onSaved={refresh}/>
               <div className="mt-4 flex flex-wrap gap-2">
                 <button

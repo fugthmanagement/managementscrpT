@@ -43,7 +43,7 @@ export async function GET(request,{params}) {
 export async function PUT(request,{params}){
  const uid=params.uid,auth=await viewer(request,uid);if(auth.error)return auth.error;
  let body;
- try{body=await request.json();if(JSON.stringify(body).length>12000)throw Error("Design data is too large.");}
+ try{body=await request.json();if(JSON.stringify(body).length>48000)throw Error("Design data is too large.");}
  catch{return NextResponse.json({error:"Invalid site update."},{status:400});}
  const action=body.action;
  if(!["save","publish","unpublish","initialize","regenerate"].includes(action))return NextResponse.json({error:"Choose publish, unpublish, or refresh."},{status:400});

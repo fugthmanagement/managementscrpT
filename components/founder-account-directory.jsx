@@ -91,7 +91,7 @@ export default function FounderAccountDirectory(){
    <div className="mt-5"><FounderDemoAccess uid={selected.uid}/><FounderDemoControls uid={selected.uid}/></div>
    <FounderPhoneAssignment uid={selected.uid} onAssigned={()=>load()}/>
    <FounderOfferEditor key={selected.uid} account={selected}/>
-   <p className="mt-4 text-xs"><a className="font-bold text-[#45654c] underline" href={"/sites/"+encodeURIComponent(selected.uid)+"?edit=1"} target="_blank" rel="noopener noreferrer">Open and edit this customer’s website ↗</a></p>
+   <div className="mt-4 flex flex-wrap gap-3 text-xs"><a className="rounded-xl border border-[#b7d8e9] bg-[#eaf7ff] px-4 py-3 font-bold text-[#205b7c]" href={"/sites/"+encodeURIComponent(selected.uid)+"?preview=1"} target="_blank" rel="noopener noreferrer">Preview customer website ↗</a><a className="rounded-xl border border-[#b7d8e9] bg-white px-4 py-3 font-bold text-[#315b73]" href={"/sites/"+encodeURIComponent(selected.uid)+"?edit=1"} target="_blank" rel="noopener noreferrer">Edit private design ↗</a></div>
    <div className="mt-5 grid gap-3 sm:grid-cols-2">
     <label className="text-xs font-bold">Access tier<select value={tier} onChange={e=>setTier(e.target.value)} className={"mt-2 "+input}>{planOptions.filter(([value])=>value!=="none").map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>
     <label className="text-xs font-bold">Duration<select value={term} onChange={e=>setTerm(e.target.value)} className={"mt-2 "+input}><option value="monthly">One month from now</option><option value="yearly">One year from now</option></select></label>
