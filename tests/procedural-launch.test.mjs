@@ -89,3 +89,11 @@ test("Business Hub syncs only to draft preview, never auto-publishes a customer'
  assert.match(admin,/Sales & AI tools/);
  assert.match(admin,/Platform & billing/);
 });
+
+test("Saved site JSON keeps the exact procedural variants for every block family",()=>{
+ const draft=generateProceduralSite(buildStarterSite("uid123456789","Voltage Co","electrician"));
+ const saved=siteFields(draft);
+ assert.deepEqual(saved.canvasBlocks.map(b=>b.variant),draft.canvasBlocks.map(b=>b.variant));
+ const changed=randomizeProceduralSite(draft,draft.canvasBlocks.find(b=>b.type==="process").id);
+ assert.deepEqual(siteFields(changed).canvasBlocks.map(b=>b.variant),changed.canvasBlocks.map(b=>b.variant));
+});
