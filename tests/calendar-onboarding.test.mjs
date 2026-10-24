@@ -73,4 +73,9 @@ test("Customers no longer have Website Maker top tab; founder prospect maker sti
  assert.match(ui,/GoogleCalendarConnection/);
  assert.match(ui,/FounderSites user=\{user\}/);
  assert.match(ui,/FounderRecordingArchive user=\{user\}/);
+ const navigation=source("components/workspace-navigation.jsx");
+ const home=source("components/workspace-overview.jsx");
+ assert.doesNotMatch(navigation,/onClick=\{\(\)=>go\("website"\)\}/);
+ assert.doesNotMatch(home,/Edit my website/);
+ assert.match(home,/Connect Google Calendar/);
 });
