@@ -27,6 +27,8 @@ export async function GET(req) {
     const snap = await integrationDoc(user.uid).get();
     const sheet=await (snap.exists?integrationDoc(user.uid).parent.doc("google_sheet").get():Promise.resolve(null));
     const recordingArchive=await archiveConnection(user.uid);
+    const calSnap=await integrationDoc(user.uid).parent.doc("fugth_business_calendar").get();
+    const cal=calSnap.exists?calSnap.data():null;
     const scopes=snap.data()?.scopes||"";
     const calendarAuthorized=snap.exists&&permission(scopes,"calendar");
     const driveAuthorized=snap.exists&&permission(scopes,"drive.file");
@@ -42,6 +44,9 @@ export async function GET(req) {
     }
     return NextResponse.json({ configured:true,missing:[],oauth:googleOAuthPublicSettings(),connected:snap.exists,
       calendarAuthorized,calendarServiceReady,centralCalendarReady,
+      calendarProvisioned:Boolean(cal?.calendarId),calendarOwnerConnected:cal?.ownerUid===user.uid,
+      calendarAlertsConfigured:Boolean(cal?.alertsConfiguredAt),
+      calendarName:String(cal?.summary||"FUGTH Business Calendar"),
       driveAuthorized,recordingDriveAuthorized:recordingArchive.connected,
       recordingArchiveCentral:recordingArchive.sharedArchive,
       ...(isFounder(user)?{archiveOwnerEmail:String(process.env.FUGTH_RECORDING_DRIVE_OWNER_EMAIL||"").trim().toLowerCase()}:{}),
@@ -62,12 +67,12 @@ export async function POST(req) {
     let body={};
     try{const raw=await req.text();if(raw.length<400)body=raw?JSON.parse(raw):{};}catch{}
     const feature=["core","archive","sheets","gmail"].includes(body.feature)?body.feature:"core";
-   if(feature==="archive"){
-    const owner=String(process.env.FUGTH_RECORDING_DRIVE_OWNER_EMAIL||"").trim().toLowerCase();
-    if(!owner)return NextResponse.json({error:"The founder recording archive owner is not configured."},{status:503});
-    if(!isFounder(user)||String(user.email||"").trim().toLowerCase()!==owner)
-     return NextResponse.json({error:"Sign in with the FUGTH account designated as the recording archive owner to authorize its Google Drive."},{status:403});
-   }
+    if(feature==="archive"){
+     const owner=String(process.env.FUGTH_RECORDING_DRIVE_OWNER_EMAIL||"").trim().toLowerCase();
+     if(!owner)return NextResponse.json({error:"The founder recording archive owner is not configured."},{status:503});
+     if(!isFounder(user)||String(user.email||"").trim().toLowerCase()!==owner)
+      return NextResponse.json({error:"Authorize Drive from the account configured as the founder recording archive owner."},{status:403});
+    }
     const {url,nonce}=buildGoogleUrl(user.uid,feature);
     const response = NextResponse.json({ url });
     // OAuth starts on either apex or www. Sharing the short-lived CSRF cookie
