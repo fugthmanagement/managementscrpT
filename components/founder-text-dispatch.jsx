@@ -185,6 +185,17 @@ export default function FounderTextDispatch({prospect,composed,canPrepare,phone,
      <p className="mt-1 text-[#8397a5]">{new Date(x.createdAt).toLocaleString()}</p></div>
     {x.status==="sent_manual"&&<button onClick={()=>correct(x.id,"not_sent")} className={btn}>Undo sent mark</button>}
    </div>)}</div>}
+  {mobile&&<div className="h-[76px] sm:hidden" aria-hidden="true"/>}
+  {mobile&&prospect&&<div className="fixed inset-x-2 z-[90] grid grid-cols-3 gap-2 rounded-2xl border border-[#b9d6e5] bg-white/95 p-2 shadow-[0_12px_35px_rgba(5,38,57,.22)] backdrop-blur-md sm:hidden"
+   style={{bottom:"max(8px, env(safe-area-inset-bottom))"}} aria-label="Mobile outreach actions">
+   <button type="button" disabled={!canPrepare} onClick={()=>copyPart(composed,"Message")}
+    className="min-h-[48px] rounded-xl border border-[#b5d7e7] bg-[#eff9fe] px-2 py-2 text-[11px] font-black disabled:opacity-40">Copy draft</button>
+   {canPrepare&&nativeHref?<a href={nativeHref} onClick={()=>setNotice("Opened Messages; return here after sending.")}
+    className="flex min-h-[48px] items-center justify-center rounded-xl bg-[#144a68] px-2 py-2 text-center text-[11px] font-black text-white">Messages ↗</a>:
+    <span className="flex min-h-[48px] items-center justify-center rounded-xl bg-[#e6ecf0] px-2 py-2 text-center text-[11px] font-black text-[#7c8f9d]">Not ready</span>}
+   <button type="button" disabled={!canLog||saving||lastLogged===draftId} onClick={markSent}
+    className="min-h-[48px] rounded-xl bg-[#d9f2e6] px-2 py-2 text-[11px] font-black text-[#17654e] disabled:opacity-40">{lastLogged===draftId?"✓ Logged":"✓ Sent?"}</button>
+  </div>}
   {notice&&<p className="rounded-xl bg-[#e6f5fd] p-3 text-xs leading-6" role="status">{notice}</p>}
  </section>;
 }
