@@ -32,6 +32,12 @@ export default function GoogleConnectPrompt({user}){
   if(new URLSearchParams(window.location.search).get("connectCalendar")!=="1")return;
   if(!user.providerData?.some(p=>p.providerId==="google.com"))return;
   autoStarted.current=true;
+  // Consume the one-time onboarding flag before Google redirects. If the
+  // person declines consent or hits a Testing-mode 403, Browser Back must
+  // not auto-redirect them into the same error over and over.
+  const url=new URL(window.location.href);
+  url.searchParams.delete("connectCalendar");
+  window.history.replaceState(null,"",url.pathname+url.search+url.hash);
   link();
  },[status?.configured,status?.calendarAuthorized,status?.dismissed,user?.uid]);
  if(!status||status.calendarAuthorized&&status.calendarProvisioned||status.dismissed)return null;

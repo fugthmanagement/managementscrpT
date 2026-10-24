@@ -24,6 +24,8 @@ test("Calendar connection shows owner setup, connection check, business booking 
  assert.match(prompt,/calendarAuthorized/);
  assert.match(prompt,/calendarProvisioned/);
  assert.match(prompt,/Not now/);
+ assert.match(prompt,/history\.replaceState/);
+ assert.match(prompt,/url\.searchParams\.delete\("connectCalendar"\)/);
  assert.match(login,/afterGoogleLogin\(\)/);
  assert.match(login,/signInWithEmailAndPassword/);
  assert.match(login,/window\.location\.replace\(safeNext\("\/dashboard"\)\)/);
