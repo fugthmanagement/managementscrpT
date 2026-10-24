@@ -2,6 +2,7 @@
 import {useEffect,useMemo,useState} from "react";
 import {collection,limit,onSnapshot,orderBy,query} from "firebase/firestore";
 import {auth,db} from "../lib/firebase";
+import {useActiveProspect} from "../lib/client/active-prospect";
 import FounderGgufWriter from "./founder-gguf-writer";
 import FounderProspectFollowUp from "./founder-prospect-followup";
 import ProspectPreviewHealth from "./prospect-preview-health";
@@ -42,6 +43,9 @@ export default function FounderEmailOutreach({user,initialProspectId="",onOpenMa
   [mailingAddress,setMailingAddress]=useState(""),[referrer,setReferrer]=useState(""),
   [verifiedReferral,setVerifiedReferral]=useState(false),[verifiedConversation,setVerifiedConversation]=useState(false),
   [message,setMessage]=useState(""),[busy,setBusy]=useState(false),[connection,setConnection]=useState(null),[showGguf,setShowGguf]=useState(false);
+ const [sharedProspect,rememberProspect]=useActiveProspect(user?.uid);
+ useEffect(()=>{if(sharedProspect){setActiveId(sharedProspect);setSelected(x=>x.includes(sharedProspect)?x:[sharedProspect,...x].slice(0,100))}},[sharedProspect]);
+ function selectWorkingProspect(id){setActiveId(id);rememberProspect(id)}
  useEffect(()=>{if(initialProspectId){setActiveId(initialProspectId);setSelected(x=>x.includes(initialProspectId)?x:[initialProspectId,...x])}},[initialProspectId]);
  useEffect(()=>{
   if(!db||!user?.uid)return;
@@ -80,10 +84,10 @@ export default function FounderEmailOutreach({user,initialProspectId="",onOpenMa
  const contactedCount=all.filter(x=>Number(x.emailSentCount||0)>0).length;
  const dueCount=all.filter(x=>x.nextFollowUpAt&&Date.parse(x.nextFollowUpAt)<=Date.now()&&!suppressed(x)).length;
  function choosePreset(id){const p=presetCatalog.find(x=>x.id===id)||presetCatalog[0];setPreset(id);setSubject(p.subject);setBody(p.body);setVerifiedConversation(false);setVerifiedReferral(false);}
- function toggle(id){setSelected(x=>x.includes(id)?x.filter(t=>t!==id):[...x,id].slice(0,100));setActiveId(id);setMessage("")}
+ function toggle(id){setSelected(x=>x.includes(id)?x.filter(t=>t!==id):[...x,id].slice(0,100));selectWorkingProspect(id);setMessage("")}
  function selectVisible(){const ids=rows.filter(x=>validEmail(x.email)&&!suppressed(x)).slice(0,100).map(x=>x.id);
-  setSelected(x=>ids.every(id=>x.includes(id))?[]:ids);if(ids.length&&!activeId)setActiveId(ids[0]);}
- function step(delta){if(!selected.length)return;const next=selected[(Math.max(0,currentIndex)+delta+selected.length)%selected.length];setActiveId(next)}
+  setSelected(x=>ids.every(id=>x.includes(id))?[]:ids);if(ids.length&&!activeId)selectWorkingProspect(ids[0]);}
+ function step(delta){if(!selected.length)return;const next=selected[(Math.max(0,currentIndex)+delta+selected.length)%selected.length];selectWorkingProspect(next)}
  async function copyPart(value,label){try{await copy(value);setMessage(label+" copied. You can return to copy the next part.")}catch(e){setMessage(e.message)}}
  function openMail(provider){
   if(!canCompose||!styleAllowed)return;
@@ -152,7 +156,7 @@ export default function FounderEmailOutreach({user,initialProspectId="",onOpenMa
     <button type="button" className={"mt-2 "+btn}
      onClick={()=>{const next=all.find(p=>validEmail(p.email)&&!suppressed(p)&&Number(p.emailSentCount||0)===0&&p.id!==activeId)
         ||all.find(p=>validEmail(p.email)&&!suppressed(p)&&Number(p.emailSentCount||0)===0);
-       if(next){setActiveId(next.id);setSelected(x=>x.includes(next.id)?x:[next.id,...x].slice(0,100));setMessage("Selected the next business not marked as emailed.");}
+       if(next){selectWorkingProspect(next.id);setSelected(x=>x.includes(next.id)?x:[next.id,...x].slice(0,100));setMessage("Selected the next business not marked as emailed.");}
        else setMessage("All visible eligible businesses have an existing email-sent mark, or no valid address.");
      }}>Next not emailed →</button>
     <div className="mt-3 flex flex-wrap justify-between gap-2"><button className={btn} onClick={selectVisible}>Select/deselect visible prospects</button><button className={btn} onClick={()=>setSelected([])}>Clear selection</button></div>
@@ -162,7 +166,7 @@ export default function FounderEmailOutreach({user,initialProspectId="",onOpenMa
       <input type="checkbox" className="mt-1" checked={selected.includes(p.id)} disabled={!validEmail(p.email)||suppressed(p)} onChange={()=>toggle(p.id)}/>
       <span className="min-w-0 flex-1"><strong className="block text-xs">{p.businessName}</strong><span className="mt-1 block truncate text-[11px] text-[#6c8ea1]">{p.email||"No email collected"}</span>
       <span className={"mt-1 block text-[10px] "+(suppressed(p)?"text-rose-800":hasConsent(p)?"text-emerald-700":"text-amber-700")}>{suppressed(p)?"Do not contact":hasConsent(p)?"Verified marketing opt-in":"Manual draft only · no bulk marketing opt-in"}{" · "+(Number(p.emailSentCount||0)>0?"✓ Emailed "+p.emailSentCount+"x":"○ Not emailed")+(p.nextFollowUpAt?" · Follow-up "+new Date(p.nextFollowUpAt).toLocaleDateString():"")}</span></span>
-      <button type="button" onClick={e=>{e.preventDefault();setActiveId(p.id)}} className="text-[11px] font-bold text-[#217fac]">Edit ↗</button>
+      <button type="button" onClick={e=>{e.preventDefault();selectWorkingProspect(p.id)}} className="text-[11px] font-bold text-[#217fac]">Edit ↗</button>
      </label>)}
      {!rows.length&&<p className="py-6 text-center text-xs">No emails found. Import a CSV/JSON with an email column or add an email to an existing prospect.</p>}
     </div>
@@ -227,7 +231,7 @@ export default function FounderEmailOutreach({user,initialProspectId="",onOpenMa
   <section className="rounded-[24px] border border-[#d4e6ef] bg-white p-4">
    <button className="w-full rounded-xl bg-[#e8f6fc] px-4 py-3 text-left text-xs font-black text-[#1f617e]" onClick={()=>setShowGguf(x=>!x)}>{showGguf?"Hide":"Open"} GGUF AI email writer & website audit ↗</button>
    {showGguf&&<div className="mt-4"><FounderGgufWriter user={user} mode="email" selectedProspectId={activeId}
-    onDraft={v=>{setActiveId(v.prospectId);setPreset("custom");setSubject(v.subject||"A quick idea for your website");setBody(v.text);setMessage("GGUF email loaded into the editable composer. Check the claims, recipient and commercial footer before sending.");}}/></div>}
+    onDraft={v=>{selectWorkingProspect(v.prospectId);setPreset("custom");setSubject(v.subject||"A quick idea for your website");setBody(v.text);setMessage("GGUF email loaded into the editable composer. Check the claims, recipient and commercial footer before sending.");}}/></div>}
   </section>
  </section>;
 }

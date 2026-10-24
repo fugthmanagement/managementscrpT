@@ -2,6 +2,7 @@
 import {useCallback,useEffect,useMemo,useState} from "react";
 import {collection,doc,limit,onSnapshot,orderBy,query,serverTimestamp,updateDoc} from "firebase/firestore";
 import {auth,db} from "../lib/firebase";
+import {useActiveProspect} from "../lib/client/active-prospect";
 import FounderTextDispatch from "./founder-text-dispatch";
 import FounderGgufWriter from "./founder-gguf-writer";
 import FounderBookingCalendar from "./founder-booking-calendar";
@@ -64,6 +65,9 @@ export default function FounderTextDesk({user,initialProspectId="",onOpenSiteMak
  const [saving,setSaving]=useState(false),[info,setInfo]=useState(""),[showLinkPicker,setShowLinkPicker]=useState(false);
  const [referrer,setReferrer]=useState(""),[verifiedReferral,setVerifiedReferral]=useState(false),[verifiedConversation,setVerifiedConversation]=useState(false);
  const [showGguf,setShowGguf]=useState(false),[showCalendar,setShowCalendar]=useState(false);
+ const [sharedProspect,rememberProspect]=useActiveProspect(user?.uid);
+ useEffect(()=>{if(sharedProspect)setProspectId(sharedProspect)},[sharedProspect]);
+ function selectWorkingProspect(id){setProspectId(id);rememberProspect(id)}
  useEffect(()=>{if(initialProspectId)setProspectId(initialProspectId)},[initialProspectId]);
  useEffect(()=>{if(!db||!user?.uid)return;
   return onSnapshot(query(collection(db,"users",user.uid,"campaigns"),orderBy("createdAt","desc"),limit(1200)),
@@ -209,7 +213,7 @@ export default function FounderTextDesk({user,initialProspectId="",onOpenSiteMak
      <input className={field} value={filter} onChange={e=>setFilter(e.target.value)} placeholder="Name, owner or phone"/>
     </label>
     <label className="mt-4 block text-xs font-black">Prospect
-     <select className={field} value={prospectId} onChange={e=>setProspectId(e.target.value)}>
+     <select className={field} value={prospectId} onChange={e=>selectWorkingProspect(e.target.value)}>
       <option value="">Select a saved prospect</option>
       {matching.map(p=><option value={p.id} key={p.id}>{textCount(p)>0?"✓ TEXTED · ":"○ NOT TEXTED · "}{p.businessName} · {p.phone||"No number"}</option>)}
       {prospect&&!matching.some(p=>p.id===prospectId)&&<option value={prospect.id}>{prospect.businessName} · {prospect.phone}</option>}
@@ -294,7 +298,7 @@ export default function FounderTextDesk({user,initialProspectId="",onOpenSiteMak
   </div>
   <div className="rounded-[22px] border border-[#d4e6ef] bg-white p-4">
     <button type="button" className="w-full rounded-xl bg-[#e7f5fb] px-5 py-3 text-left text-xs font-black text-[#1d5875]" onClick={()=>setShowGguf(x=>!x)}>{showGguf?"Hide":"Open"} GGUF AI text writer & website-review tools ↗</button>
-    {showGguf&&<div className="mt-4"><FounderGgufWriter user={user} selectedProspectId={prospectId} onDraft={value=>{setProspectId(value.prospectId);setPreset("custom");setEditor(value.text);setInfo("GGUF draft imported into the editable text box. Review before sending.");}}/></div>}
+    {showGguf&&<div className="mt-4"><FounderGgufWriter user={user} selectedProspectId={prospectId} onDraft={value=>{selectWorkingProspect(value.prospectId);setPreset("custom");setEditor(value.text);setInfo("GGUF draft imported into the editable text box. Review before sending.");}}/></div>}
   </div>
   <p className="rounded-xl bg-[#f3f8fb] p-4 text-[11px] leading-6 text-[#6c8c9d]">Samsung tip: copy the number first and the text second, then open Google Voice and use your keyboard's Clipboard history if available. Only one item is guaranteed to be on the system clipboard at a time. Google Voice does not support reliable third-party auto-filled texts. Do not send repeated unwanted marketing messages or text contacts who opted out.</p>
  </section>;

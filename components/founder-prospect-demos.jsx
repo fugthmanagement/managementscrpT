@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { auth, db } from "../lib/firebase";
+import {useActiveProspect} from "../lib/client/active-prospect";
 import {collection,limit,onSnapshot,orderBy,query} from "firebase/firestore";
 import FounderDemoAgentSettings from "./founder-demo-agent-settings";
 const kinds = [
@@ -77,7 +78,10 @@ export default function FounderProspectDemos({user,onOpenSiteMaker}) {
     return onSnapshot(query(collection(db,"users",user.uid,"campaigns"),orderBy("createdAt","desc"),limit(800)),
       snap=>setProspects(snap.docs.map(d=>({id:d.id,...d.data()})).filter(d=>d.type==="cold_call_prospect")));
   },[user?.uid]);
-  function selectProspect(id){
+  const [sharedProspect,rememberProspect]=useActiveProspect(user?.uid);
+   useEffect(()=>{if(sharedProspect)selectProspect(sharedProspect,false)},[sharedProspect]);
+   function selectProspect(id,publish=true){
+     if(publish&&id)rememberProspect(id);
     const chosen=prospects.find(p=>p.id===id);
     setForm(current=>({...current,prospectId:id,
       ...(chosen?{name:chosen.businessName||"",phone:chosen.phone||"",email:chosen.email||"",

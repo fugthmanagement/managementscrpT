@@ -45,6 +45,20 @@ export default function SiteSocialProofStudio({site,onChange,locked=false}){
     </label>
    </div>
   </div>
+  <div className="mt-5 rounded-xl border border-[#d6e6ef] bg-[#f5fbff] p-4">
+   <h4 className="text-sm font-black">Manual testimonials · no Google API charges</h4>
+   <p className="mt-2 text-[11px] leading-5">Use only reviews the business has permission to publish. No fake ratings or automatic Google scraping.</p>
+   <label className="mt-3 block text-xs font-bold">Google Maps listing URL
+    <input type="url" className={field} disabled={locked} value={site.googleMapsUrl||""} maxLength={450} onChange={e=>patch("googleMapsUrl",e.target.value)} placeholder="https://maps.google.com/…"/></label>
+   {(site.testimonials||[]).map((item,i)=><div key={i} className="mt-3 space-y-3 rounded-xl border bg-white p-3">
+    <label className="block text-xs font-bold">Reviewer name<input className={field} maxLength={75} disabled={locked} value={item.author||""} onChange={e=>patch("testimonials",(site.testimonials||[]).map((v,j)=>i===j?{...v,author:e.target.value}:v))}/></label>
+    <label className="block text-xs font-bold">Authentic review<textarea className={field} rows={2} maxLength={340} disabled={locked} value={item.text||""} onChange={e=>patch("testimonials",(site.testimonials||[]).map((v,j)=>i===j?{...v,text:e.target.value}:v))}/></label>
+    <label className="block text-xs font-bold">Original source link (optional)<input type="url" className={field} maxLength={450} disabled={locked} value={item.sourceUrl||""} onChange={e=>patch("testimonials",(site.testimonials||[]).map((v,j)=>i===j?{...v,sourceUrl:e.target.value}:v))}/></label>
+    <label className="flex items-center gap-2 text-xs font-bold"><input type="checkbox" disabled={locked} checked={item.approved===true} onChange={e=>patch("testimonials",(site.testimonials||[]).map((v,j)=>i===j?{...v,approved:e.target.checked}:v))}/> Permission confirmed</label>
+    <button type="button" disabled={locked} onClick={()=>patch("testimonials",(site.testimonials||[]).filter((_,j)=>i!==j))} className="text-xs font-bold text-rose-700">Remove</button>
+   </div>)}
+   <button type="button" disabled={locked||(site.testimonials||[]).length>=5} onClick={()=>patch("testimonials",[...(site.testimonials||[]),{author:"",text:"",approved:false,sourceUrl:""}])} className="mt-3 rounded-xl border bg-white px-4 py-2.5 text-xs font-black">+ Add authorized testimonial</button>
+  </div>
   {locked&&<p className="mt-4 rounded-xl bg-[#eff7fc] p-3 text-xs text-[#6c91a6]">Free website preview: social-proof controls are visible, but saving/publishing requires website access.</p>}
  </section>;
 }

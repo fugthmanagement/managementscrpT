@@ -2,9 +2,10 @@
 import {useMemo,useState} from "react";
 import {SITE_INDUSTRIES} from "../lib/site-presets";
 import {CANVAS_BLOCK_TYPES,industryCanvasBlocks,newCanvasSite,newCanvasBlock,sanitizeCanvasBlocks} from "../lib/site-canvas";
+import {generateProceduralSite,randomizeProceduralSite,layoutCombinationCount,PROCEDURAL_VARIANTS} from "../lib/site-procedural-engine";
 const btn="rounded-xl border border-[#cfe4ef] bg-white px-3 py-2.5 text-xs font-black text-[#245572] disabled:opacity-40";
 const input="mt-2 w-full rounded-xl border border-[#cfe3ed] bg-white px-3 py-3 text-sm text-[#15384a] outline-none focus:border-[#56a3cb]";
-const names={hero:"Hero / first impression",benefits:"Reasons to choose",services:"Service catalog",gallery:"Project photo gallery",process:"How the work flows",about:"About the business",faq:"Frequently asked",contact:"Contact / inquiry",callout:"Promotional callout"};
+const names={hero:"Hero / first impression",benefits:"Reasons to choose",services:"Service catalog",gallery:"Project photo gallery",process:"How the work flows",about:"About the business",faq:"Frequently asked",reviews:"Reviews & testimonials",contact:"Contact / inquiry",callout:"Promotional callout"};
 export default function SiteCanvasEditor({site,onChange,locked=false,onSave,busy=""}){
  const [choice,setChoice]=useState(site.industry||"general");
  const [focus,setFocus]=useState("");
@@ -20,6 +21,15 @@ export default function SiteCanvasEditor({site,onChange,locked=false,onSave,busy
   onChange(next);
   setFocus(next.canvasBlocks[0]?.id||"");
   setNotice("Canvas ready. Edit and save when the design is complete.");
+ }
+ function generate(){
+  if(custom&&typeof window!=="undefined"&&!window.confirm("Replace the current draft sections with a rule-generated layout? Business details, photos and approved testimonials stay untouched."))return;
+  const next=generateProceduralSite(site,{id:site.prospectId||site.ownerId||""});onChange(next);setFocus(next.canvasBlocks[0]?.id||"");setNotice("Procedural layout generated with coordinated colors. Save when ready.");
+ }
+ function randomize(blockId=null){
+  if(!custom)return;
+  const next=randomizeProceduralSite({...site,canvasBlocks:blocks},blockId);onChange(next);
+  setNotice(blockId?"Randomized only this section.":"Randomized the full site layout.");
  }
  function add(type){
   if(blocks.length>=12){setNotice("This website supports up to twelve sections. Remove one before adding another.");return;}
@@ -49,6 +59,13 @@ export default function SiteCanvasEditor({site,onChange,locked=false,onSave,busy
     <p className="mt-2 max-w-2xl text-xs leading-6 text-[#6c8494]">Edit real blocks, not placeholder colors. Move each section, add service cards and decide the visitor's path. Only preview text and images you have permission to use.</p></div>
    <span className="rounded-full bg-[#e9f6fc] px-3 py-2 text-[11px] font-bold">{custom?"Custom canvas active":"Preset layout active"}</span>
   </div>
+  <div className="rounded-2xl border border-[#b8d8e9] bg-[#e9f7ff] p-4">
+   <p className="text-sm font-black">Procedural Website Studio · No AI calls</p>
+   <p className="mt-2 text-xs leading-6 text-[#567989]">{layoutCombinationCount.toLocaleString()} compatible curated module combinations with industry-specific color palettes.</p>
+   <div className="mt-3 flex flex-wrap gap-2"><button type="button" disabled={locked} onClick={generate} className="rounded-xl bg-[#18455d] px-4 py-3 text-xs font-black text-white disabled:opacity-40">Generate professional website ✦</button>
+    <button type="button" disabled={locked||!custom} onClick={()=>randomize()} className={btn}>↻ Randomize complete layout</button></div>
+   {custom&&site.designTokens&&<div className="mt-3 flex flex-wrap items-center gap-2 text-xs"><span>{site.designTokens.name||"Coordinated palette"}</span>{["ink","accent","surface","feature"].map(k=><span key={k} title={k} className="h-6 w-6 rounded-full border border-black/10" style={{backgroundColor:site.designTokens[k]}}/>)}</div>}
+  </div>
   <div className="grid gap-3 rounded-[20px] border border-[#d6e8f1] bg-[#f1f9fd] p-4 sm:grid-cols-[1fr_auto_auto] sm:items-end">
    <label className="text-xs font-black">Industry blueprint
     <select value={choice} onChange={e=>setChoice(e.target.value)} className={input}>
@@ -73,9 +90,9 @@ export default function SiteCanvasEditor({site,onChange,locked=false,onSave,busy
      </div>)}</div>
     </div>
     <div className="rounded-2xl border border-[#dceaf2] bg-white p-4">
-     <p className="text-[10px] font-black uppercase tracking-[.18em] text-[#5688a5]">Block settings</p>
+     <div className="flex flex-wrap items-center justify-between gap-2"><p className="text-[10px] font-black uppercase tracking-[.18em] text-[#5688a5]">Block settings</p><button type="button" disabled={locked||!custom||!selected} className={btn} onClick={()=>randomize(selected?.id)}>↻ Randomize this section</button></div>
      {selected?<div className="mt-4 space-y-4">
-      <div><p className="text-sm font-black">{names[selected.type]}</p><p className="mt-1 text-xs text-[#70899a]">Changes update the live preview before saving.</p></div>
+      <div><p className="text-sm font-black">{names[selected.type]}</p><p className="mt-1 text-[11px]">Variant: {selected.variant||"Standard"} · {PROCEDURAL_VARIANTS[selected.type]?.length||1} curated arrangements</p><p className="mt-1 text-xs text-[#70899a]">Changes update the live preview before saving.</p></div>
       <label className="block text-xs font-black">Heading<input disabled={locked} maxLength={110} value={selected.title} onChange={e=>changeBlock({title:e.target.value})} className={input}/></label>
       <label className="block text-xs font-black">Description<textarea disabled={locked} maxLength={500} rows={4} value={selected.body} onChange={e=>changeBlock({body:e.target.value})} className={input}/></label>
       <label className="block text-xs font-black">Visual composition

@@ -38,6 +38,7 @@ import CallInbox from "./call-inbox";
 import FounderSalesDesk from "./founder-sales-desk";
 import FounderRevenuePlanner from "./founder-revenue-planner";
 import FounderBillingHealth from "./founder-billing-health";
+import FounderDomainLaunch from "./founder-domain-launch";
 import FounderVoiceHealth from "./founder-voice-health";
 import FounderBookingCalendar from "./founder-booking-calendar";
 import FounderSiteClaims from "./founder-site-claims";
@@ -202,6 +203,7 @@ export default function FugthWorkspace() {
     [ready, setReady] = useState(false);
   const [prospectSiteMakerId,setProspectSiteMakerId]=useState("");
   const [lastSalesTab,setLastSalesTab]=useState("guide");
+  const [adminSection,setAdminSection]=useState("customers");
   const [page, setPage] = useState("home"),
     [menuOpen, setMenuOpen] = useState(false);
   const [founder, setFounder] = useState(false),
@@ -381,9 +383,7 @@ export default function FugthWorkspace() {
   const tabs = founder
     ? [
         ...MENU,
-        { id: "accounts", label: "Accounts", icon: "users" },
         { id: "sales", label: "Cold Calling", icon: "phone" },
-        { id: "gguf", label: "GGUF AI", icon: "admin" },
         { id: "admin", label: "Administration", icon: "admin" },
       ]
     : MENU;
@@ -1140,43 +1140,19 @@ export default function FugthWorkspace() {
               </div>
             )}
             {page === "admin" && founder && (
-              <div>
-                <SectionHeading
-                  eyebrow="FUGTH INTERNAL"
-                  title="Operations center."
-                  description="Your accounts, founding customers, live payments and sales operations in one private workspace."
-                />
-                <div className="space-y-6">
-                  <div className="rounded-[24px] border border-[#d4e7f0] bg-[#edf7fe] p-4 text-sm text-[#6d5b45]">
-                    <strong>Customer accounts & website assignment</strong>
-                    <p className="mt-1 text-xs leading-6">
-                      Every registered Firebase account appears below, including
-                      free prospects. Choose a customer to grant temporary demo
-                      access or open their private website in Website Studio.
-                      Paid subscriptions are only activated by verified Stripe
-                      payments.
-                    </p>
-                  </div>
-                  <FounderBookingCalendar user={user}/>
-                  <FounderSiteClaims />
-                  <FounderAccountDirectory />
-                  <FounderRevenuePlanner />
-                  <FounderVoiceHealth />
-                  <FounderDemoControls />
-                  <FounderBillingHealth />
-                  <div className="rounded-xl border border-[#d2e4ee] bg-[#f1faff] p-4 text-sm text-[#6d5b45]">
-                    Pierre’s Call Guide, ZIP prospecting, lead imports,
-                    follow-ups, and the calling workspace now have their own{" "}
-                    <button
-                      type="button"
-                      className="font-bold underline"
-                      onClick={() => changePage("sales")}
-                    >
-                      Cold Calling
-                    </button>{" "}
-                    tab.
-                  </div>
-                  <section className={`${panel} p-6 sm:p-8`}>
+ <div>
+  <SectionHeading eyebrow="FUGTH INTERNAL" title="Founder Operations"
+   description="One management center with three focused areas. Pierre's calling, SMS and email stay separate in Cold Calling."/>
+  <nav role="tablist" aria-label="Founder operations" className="mb-6 flex flex-wrap gap-2 rounded-2xl border border-[#d4e7f0] bg-white p-3">
+   {[["customers","Accounts & websites"],["salesAi","Sales & AI tools"],["platform","Platform & billing"]].map(([id,label])=><button key={id} type="button" role="tab" aria-selected={adminSection===id}
+    onClick={()=>setAdminSection(id)} className={"rounded-xl px-5 py-3 text-xs font-black "+(adminSection===id?"bg-[#193d53] text-white":"border border-[#cddfe9] bg-[#f5faff] text-[#2c5770]")}>{label}</button>)}
+  </nav>
+  {adminSection==="customers"&&<div role="tabpanel" className="space-y-6">
+   <div className="rounded-2xl border border-[#d4e7f0] bg-[#edf7fe] p-4 text-xs leading-6"><strong className="block text-sm">Accounts, bookings and client websites</strong> Manage website ownership, accounts and registered customers. Paid entitlements still come from verified Stripe payments.</div>
+   <FounderBookingCalendar user={user}/>
+   <FounderSiteClaims/>
+   <FounderAccountDirectory/>
+   <section className={`${panel} p-6 sm:p-8`}>
                     <h3 className="text-xl font-semibold">
                       Create a customer account
                     </h3>
@@ -1348,11 +1324,24 @@ export default function FugthWorkspace() {
                       </div>
                     )}
                   </section>
-                  <FounderSites user={user} />
-                </div>
-              </div>
-            )}
-            {page === "admin" && !founder && (
+   <FounderSites user={user}/>
+  </div>}
+  {adminSection==="salesAi"&&<div role="tabpanel" className="space-y-6">
+   <div className="rounded-xl border border-[#d6e8f1] bg-[#eef8fc] p-4 text-xs leading-6"><strong className="block text-sm">Sales & AI tools</strong> Pierre's referral calling map, call training, SMS and email outreach stay in Cold Calling.
+    <button type="button" className="ml-2 font-black underline" onClick={()=>changePage("sales")}>Open Cold Calling ↗</button>
+   </div>
+   <FounderGgufWriter user={user}/>
+   <FounderDemoControls/>
+  </div>}
+  {adminSection==="platform"&&<div role="tabpanel" className="space-y-6">
+   <FounderRevenuePlanner/>
+   <FounderBillingHealth/>
+   <FounderVoiceHealth/>
+   <FounderDomainLaunch user={user}/>
+  </div>}
+ </div>
+)}
+{page === "admin" && !founder && (
               <Empty
                 title="This area is private"
                 description="Administration is available only to authorized FUGTH team accounts."

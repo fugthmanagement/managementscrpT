@@ -21,7 +21,7 @@ function initialSite(p,u){
  const options={phone:clean(p.phone,32),contactEmail:clean(p.email,120),serviceArea:clean(p.city||p.serviceArea,90)};
  const source=trade?demoTemplate(trade,name,options):buildStarterSite(u,name,industry,options);
  const common=siteFields({...source,industry:trade?source.industry:industry,name,
-  aiAgentModel:"auto",showChatbot:true,aiAgentMode:"facts-only"});
+  aiAgentModel:"auto",showChatbot:true,aiAgentMode:"facts-only",googleMapsUrl:p.googleMapsUrl||"",googlePlaceId:p.googlePlaceId||""});
  return {...common,ownerId:u,previewMode:true};
 }
 async function getProspect(db,u,id){
@@ -38,12 +38,12 @@ export async function GET(req){
   const assigned=demoId(p.assignedPreviewId)?p.assignedPreviewId:stable(actor.uid,id);
   let snap=await db.doc("prospectDemos/"+assigned).get();
   if(snap.exists&&(snap.data()?.founderId!==actor.uid||snap.data()?.prospectId!==id))snap=null;
-  if(!snap?.exists)return out({saved:false,prospect:{id,businessName:p.businessName,industry:p.industry},
+  if(!snap?.exists)return out({saved:false,prospect:{id,businessName:p.businessName,industry:p.industry,website:p.website||"",phone:p.phone||"",email:p.email||""},
    suggestedSite:initialSite(p,actor.uid),previewId:stable(actor.uid,id),
    next:"ensure"});
   const demo=snap.data();
   return out({saved:true,id:assigned,site:demo.site,revision:demo.revision||1,
-   url:urlFor(assigned),prospect:{id,businessName:p.businessName,industry:p.industry},
+   url:urlFor(assigned),prospect:{id,businessName:p.businessName,industry:p.industry,website:p.website||"",phone:p.phone||"",email:p.email||""},
    expiresAt:demo.expiresAt||null});
  }catch(e){
   const issue=firestoreDemoFailure(e);
@@ -116,11 +116,16 @@ export async function POST(req){
     // Founder reopening a previously expired/revoked link explicitly restores it.
     record.revoked=false;record.expiresAt=null;
    }
+   if(action==="save")tx.create(prospectRef.collection("events").doc(),{
+    type:"website_design_saved",at:now,actorUid:actor.uid,previewId:id,
+    revision,layout:site.template||"unknown"
+   });
    tx.set(ref,record,{merge:true});
    tx.set(prospectRef,{websitePreviewUrl:urlFor(id),assignedPreviewId:id,
     assignedPreviewName:site.name,assignedPreviewExpiresAt:"",
     updatedAt:now},{merge:true});
-   return {id,url:urlFor(id),site,revision,saved:true,action,reused:prior.exists};
+   return {id,url:urlFor(id),site,revision,saved:true,action,reused:prior.exists,
+     prospect:{id:prospectId,businessName:p.businessName,industry:p.industry,website:p.website||"",phone:p.phone||"",email:p.email||""}};
   });
   return out(result,action==="ensure"?200:200);
  }catch(e){

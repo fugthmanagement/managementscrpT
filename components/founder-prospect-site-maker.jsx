@@ -1,18 +1,22 @@
 "use client";
 import {useCallback,useEffect,useState} from "react";
 import {auth} from "../lib/firebase";
+import {rememberActiveProspect} from "../lib/client/active-prospect";
 import {SITE_THEMES,getIndustry} from "../lib/site-presets";
 import SiteStudioBuilder from "./site-studio-builder";
 import SiteImageLibrary from "./site-image-library";
 import FounderSiteEditChat from "./founder-site-edit-chat";
 import SiteSocialProofStudio from "./site-social-proof-studio";
-const tabs=[["design","Design editor"],["ai","AI site editor"],["media","Photo folders & labels"]];
+import FounderSiteReferenceInspector from "./founder-site-reference-inspector";
+import FounderProspectBusinessHub from "./founder-prospect-business-hub";
+const tabs=[["data","Business data & website reference"],["design","Design canvas"],["ai","AI site editor"],["media","Photo folders & labels"]];
 const button="rounded-xl border border-[#bfd8e8] bg-white px-4 py-3 text-xs font-black text-[#215874] disabled:opacity-40";
 export default function FounderProspectSiteMaker({user,prospectId,onBack}){
  const [site,setSite]=useState(null),[prospect,setProspect]=useState(null),
   [revision,setRevision]=useState(null),[previewId,setPreviewId]=useState(""),[previewUrl,setPreviewUrl]=useState(""),
-  [busy,setBusy]=useState("open"),[notice,setNotice]=useState(""),[tab,setTab]=useState("design");
+  [busy,setBusy]=useState("open"),[notice,setNotice]=useState(""),[tab,setTab]=useState("data");
  const [previewStatus,setPreviewStatus]=useState("checking"),[previewError,setPreviewError]=useState("");
+  useEffect(()=>{if(prospectId)rememberActiveProspect(user?.uid,prospectId)},[user?.uid,prospectId]);
  const request=useCallback(async(body)=>{
   const token=await auth.currentUser?.getIdToken();
   if(!token)throw Error("Sign in as founder before editing this saved business.");
@@ -47,7 +51,7 @@ export default function FounderProspectSiteMaker({user,prospectId,onBack}){
   try{
    const result=await request({action:"ensure"});
    setSite({...result.site,demoId:result.id});
-   setProspect({id:prospectId,businessName:result.site.name,industry:result.site.industry});
+   setProspect({...result.prospect,id:prospectId,businessName:result.site.name,industry:result.site.industry});
    setRevision(result.revision);setPreviewId(result.id);setPreviewUrl(result.url);
    await verifyPreview(result.id);
   }catch(e){setNotice(e.message)}finally{setBusy("")}
@@ -118,11 +122,19 @@ export default function FounderProspectSiteMaker({user,prospectId,onBack}){
     {tabs.map(([id,label])=><button key={id} role="tab" aria-selected={tab===id} onClick={()=>setTab(id)}
      className={"rounded-xl px-4 py-3 text-xs font-black "+(tab===id?"bg-[#15516f] text-white":"border border-[#d4e6ef] bg-[#f1faff] text-[#205c7c]")}>{label}</button>)}
    </nav>
+   {tab==="data"&&<div role="tabpanel" className="space-y-5">
+    <FounderProspectBusinessHub key={prospectId} prospectId={prospectId} onUpdated={data=>{
+     if(data.site){setSite({...data.site,demoId:previewId});setRevision(data.revision);}
+     if(data.prospect)setProspect(p=>({...p,...data.prospect}));
+     setNotice("Prospect data saved. Linked SMS/Email and website preview will use the new details.");
+    }}/>
+    <FounderSiteReferenceInspector prospectId={prospectId} website={prospect?.website||""} site={site} onChange={patch}/>
+    <SiteSocialProofStudio site={site} onChange={patch} locked={false}/>
+   </div>}
    {tab==="design"&&<div role="tabpanel" className="space-y-5">
     <SiteStudioBuilder site={site} uid={user.uid} locked={false} busy={busy}
      onChange={patch} onTemplate={changeTemplate} onSave={save}
      previewOnly={true} previewUrlOverride={previewUrl}/>
-    <SiteSocialProofStudio site={site} onChange={patch} locked={false}/>
     <div className="rounded-2xl border border-[#cfdfeb] bg-white p-5">
      <p className="text-sm font-black">Keep editing this same preview</p>
      <p className="mt-2 text-xs leading-6 text-[#7b8fa0]">Your template selection, color slots, sections, services, reviews, photos, and approved content persist after you save. The prospect's assigned SMS/email link remains unchanged.</p>
