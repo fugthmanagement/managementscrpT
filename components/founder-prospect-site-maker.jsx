@@ -1,6 +1,7 @@
 "use client";
 import {useCallback,useEffect,useState} from "react";
 import {auth} from "../lib/firebase";
+import {rememberActiveProspect} from "../lib/client/active-prospect";
 import {SITE_THEMES,getIndustry} from "../lib/site-presets";
 import SiteStudioBuilder from "./site-studio-builder";
 import SiteImageLibrary from "./site-image-library";
@@ -13,6 +14,7 @@ export default function FounderProspectSiteMaker({user,prospectId,onBack}){
   [revision,setRevision]=useState(null),[previewId,setPreviewId]=useState(""),[previewUrl,setPreviewUrl]=useState(""),
   [busy,setBusy]=useState("open"),[notice,setNotice]=useState(""),[tab,setTab]=useState("design");
  const [previewStatus,setPreviewStatus]=useState("checking"),[previewError,setPreviewError]=useState("");
+  useEffect(()=>{if(prospectId)rememberActiveProspect(user?.uid,prospectId)},[user?.uid,prospectId]);
  const request=useCallback(async(body)=>{
   const token=await auth.currentUser?.getIdToken();
   if(!token)throw Error("Sign in as founder before editing this saved business.");
