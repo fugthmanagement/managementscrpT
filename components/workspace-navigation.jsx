@@ -32,7 +32,7 @@ export default function WorkspaceNavigation({
     </div>
     <div className="flex flex-wrap items-center gap-2">
      {founder&&<label className="flex items-center gap-2 rounded-full border border-[#5d879f] bg-white/[.07] px-3 py-2 text-[11px] font-bold text-[#d3eaf5]"><span className="hidden sm:inline">Preview access</span><select aria-label="Preview customer plan without changing billing" value={previewPlan??"real"} onChange={event=>onPreviewPlan(event.target.value==="real"?null:event.target.value)} className="max-w-[150px] rounded-lg bg-[#243f52] px-2 py-1.5 text-[11px] font-bold text-white outline-none"><option value="real">Founder / Admin</option><option value="none">Zero · Free</option><option value="website">Website</option><option value="starter">Essential</option><option value="growth">Growth</option><option value="elite">Elite</option></select></label>}
-     <button type="button" onClick={()=>go("website")} className="rounded-full border border-white/25 bg-white/10 px-4 py-3 text-xs font-bold text-white hover:border-[#b9e5fb] hover:bg-white/20">Website Maker ↗</button>
+     
      <button type="button" onClick={onLogout} className="rounded-full bg-[#b9e5fb] px-4 py-3 text-xs font-black text-[#173e55] transition hover:bg-[#d7f1ff]">Log out</button>
     </div>
    </div>
