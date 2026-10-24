@@ -27,6 +27,8 @@ export async function GET(req) {
     const snap = await integrationDoc(user.uid).get();
     const sheet=await (snap.exists?integrationDoc(user.uid).parent.doc("google_sheet").get():Promise.resolve(null));
     const recordingArchive=await archiveConnection(user.uid);
+    const calSnap=await integrationDoc(user.uid).parent.doc("fugth_business_calendar").get();
+    const cal=calSnap.exists?calSnap.data():null;
     const scopes=snap.data()?.scopes||"";
     const calendarAuthorized=snap.exists&&permission(scopes,"calendar");
     const driveAuthorized=snap.exists&&permission(scopes,"drive.file");
@@ -42,6 +44,9 @@ export async function GET(req) {
     }
     return NextResponse.json({ configured:true,missing:[],oauth:googleOAuthPublicSettings(),connected:snap.exists,
       calendarAuthorized,calendarServiceReady,centralCalendarReady,
+      calendarProvisioned:Boolean(cal?.calendarId),calendarOwnerConnected:cal?.ownerUid===user.uid,
+      calendarAlertsConfigured:Boolean(cal?.alertsConfiguredAt),
+      calendarName:String(cal?.summary||"FUGTH Business Calendar"),
       driveAuthorized,recordingDriveAuthorized:recordingArchive.connected,
       recordingArchiveCentral:recordingArchive.sharedArchive,
       docsConnected:driveAuthorized,sheetsConnected:snap.exists&&permission(scopes,"spreadsheets"),
