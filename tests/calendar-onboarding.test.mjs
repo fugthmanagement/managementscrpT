@@ -80,4 +80,6 @@ test("Customers no longer have Website Maker top tab; founder prospect maker sti
  assert.doesNotMatch(navigation,/onClick=\{\(\)=>go\("website"\)\}/);
  assert.doesNotMatch(home,/Edit my website/);
  assert.match(home,/Connect Google Calendar/);
+ assert.match(home,/dest:"google-calendar"/);
+ assert.match(ui,/id==="google-calendar"/);
 });
