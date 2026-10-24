@@ -28,7 +28,7 @@ function BlockHero({site,block,index}){
      <div className="mt-9 flex flex-wrap items-center gap-4"><Cta site={site}/>{site.serviceArea&&<span className="text-xs font-semibold text-white/70">Serving {site.serviceArea}</span>}</div>
      <p className="mt-10 text-xs font-bold uppercase tracking-widest text-white/40">Designed for your next step · {String(index+1).padStart(2,"0")}</p>
     </div>
-    {!immersive&&<div className={"relative z-10 h-[340px] overflow-hidden rounded-[30px] border border-white/15 "+(reversed?"lg:order-1":"")} shadow-[0_25px_80px_rgba(0,0,0,.35)] sm:h-[480px]">{photo(site,"hero-split")}</div>}
+    {!immersive&&<div className={"relative z-10 h-[340px] overflow-hidden rounded-[30px] border border-white/15 shadow-[0_25px_80px_rgba(0,0,0,.35)] sm:h-[480px] "+(reversed?"lg:order-1":"")}>{photo(site,"hero-split")}</div>}
    </div>}
  </section>;
 }
