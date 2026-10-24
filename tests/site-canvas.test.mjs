@@ -69,3 +69,16 @@ test("admin link correctly opens a private editor and never silently publishes a
  const api=source("app/api/sites/[uid]/route.js");
  assert.match(api,/user.uid!==uid&&!isFounder\(user\)/);
 });
+
+test("saved prospect links still open when the prospect list is paginated, without stale business details",()=>{
+ const list=source("components/founder-prospect-demos.jsx");
+ const maker=source("components/founder-prospect-site-maker.jsx");
+ assert.match(list,/onOpenSiteMaker\(p\|\|\{id:r\.prospectId/);
+ assert.ok(maker.includes('setSite(null);setProspect(null);setPreviewUrl("");setPreviewId("")'));
+ assert.ok(maker.includes('setRevision(null);setPreviewStatus("checking");setPreviewError("")'));
+});
+
+test("Spanish preview cannot erase an unknown custom canvas hero heading",()=>{
+ const page=source("app/demo/site/[id]/page.jsx");
+ assert.match(page,/\|\|state\.site\?\.headline/);
+});
